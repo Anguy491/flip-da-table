@@ -24,3 +24,7 @@ management:
     web:
       exposure:
         include: "health,info,metrics"
+
+app:
+  jwt:
+    secret: "1aa1b1e7-32d4-426b-80a6-7bcbb7d0fe83"
