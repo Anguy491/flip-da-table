@@ -17,7 +17,7 @@ public class JwtService {
 
     public JwtService(
             @Value("${app.jwt.secret}") String secret,
-            @Value("${app.jwt.ttlMillis:2592000000}") long ttlMillis // 默认30天
+            @Value("${app.jwt.ttlMillis:2592000000}") long ttlMillis
     ) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
         this.ttlMillis = ttlMillis;
