@@ -1,6 +1,6 @@
 import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginApi } from '../api/auth';
+import { LoginApi } from '../api/auth';
 import { AuthContext } from '../context/AuthContext';
 import PageContainer from '../components/PageContainer';
 import CardContainer from '../components/CardContainer';
@@ -19,8 +19,8 @@ function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const token = await loginApi(email, password);
-      setToken(token);
+      const { token } = await LoginApi({ email, password });
+      setToken(token); // persist via context
       navigate('/dashboard');
     } catch (err) {
       setError(err.message);
@@ -32,7 +32,7 @@ function Login() {
     <PageContainer>
       <form onSubmit={handleLogin}>
         <CardContainer>
-          <h2 className="text-2xl font-bold text-center">Admin Login</h2>
+          <h2 className="text-2xl font-bold text-center">Login</h2>
 
           <FormInput
             type="email"

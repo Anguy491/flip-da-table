@@ -1,6 +1,6 @@
 import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { registerApi } from '../api/auth';
+import { RegisterApi } from '../api/auth';
 import { AuthContext } from '../context/AuthContext';
 import PageContainer from '../components/PageContainer';
 import CardContainer from '../components/CardContainer';
@@ -12,7 +12,7 @@ function Register() {
   const navigate = useNavigate();
   const { setToken } = useContext(AuthContext);
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
+  const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -27,8 +27,8 @@ function Register() {
     }
 
     try {
-      const token = await registerApi(email, password, name);
-      setToken(token);
+      const { token } = await RegisterApi({ email, password, nickname });
+      setToken(token); // persist via context
       navigate('/dashboard');
     } catch (err) {
       setError(err.message);
@@ -52,9 +52,9 @@ function Register() {
 
           <FormInput
             type="text"
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            placeholder="Nickname"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
             required
           />
 
