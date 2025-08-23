@@ -1,4 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useContext, useEffect } from 'react';
+import { AuthContext } from '../context/AuthContext';
 import PageContainer from '../components/PageContainer';
 import CardContainer from '../components/CardContainer';
 import SubmitButton from '../components/SubmitButton';
@@ -6,6 +8,12 @@ import SubmitButton from '../components/SubmitButton';
 export default function Lobby() {
   const { sessionid } = useParams();
   const nav = useNavigate();
+  const { token } = useContext(AuthContext);
+
+  useEffect(() => {
+    if (!token) nav('/login');
+  }, [token, nav]);
+
   return (
     <PageContainer>
       <CardContainer className="max-w-xl text-center">

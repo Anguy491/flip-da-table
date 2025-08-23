@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import PageContainer from '../components/PageContainer';
@@ -41,6 +41,12 @@ function Dashboard() {
 	const [selected, setSelected] = useState(null);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState('');
+
+	useEffect(() => {
+		if (!token) {
+			navigate('/login');
+		}
+	}, [token, navigate]);
 
 	const handleLogout = () => {
 		setToken(null);
