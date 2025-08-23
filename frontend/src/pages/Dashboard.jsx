@@ -14,8 +14,8 @@ const GAMES = [
 	{
 		gameType: 'DAVINCI',
 		name: 'Da Vinci Code',
-		players: '2-8',
-		maxPlayers: 8,
+		players: '2-4',
+		maxPlayers: 4,
 		img: ImgDaVinci,
 	},
 	{

@@ -3,6 +3,7 @@ import Login from './pages/Login.jsx';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Lobby from './pages/Lobby';
+import PlayScreen from './pages/PlayScreen';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/lobby/:sessionid" element={<Lobby />} />
+        <Route path="/playscreen/:sessionid" element={<PlayScreen />} />
       </Routes>
     </BrowserRouter>
   );
