@@ -4,7 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import PageContainer from '../components/PageContainer';
 import CardContainer from '../components/CardContainer';
 import SubmitButton from '../components/SubmitButton';
-import { startFirstGame } from '../api/sessions';
+import { startFirstGame, getSession } from '../api/sessions';
 
 export default function Lobby() {
   const { sessionid } = useParams();
@@ -13,19 +13,41 @@ export default function Lobby() {
   const [players, setPlayers] = useState(() => [
     { name: 'Host', bot: false, ready: false },
   ]);
+  const [sessionInfo, setSessionInfo] = useState(null); // { id, ownerId, gameType, maxPlayers }
+  const [loadingSession, setLoadingSession] = useState(true);
   const [rounds, setRounds] = useState(1);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
-  const gameType = 'DAVINCI'; // 目前仅支持 DaVinci 示例
+  const gameType = sessionInfo?.gameType?.toUpperCase();
+  const maxPlayers = sessionInfo?.maxPlayers || 10;
 
   const playerCount = players.filter(p => p.name && p.name.trim()).length;
-  const canStart = gameType === 'DAVINCI' ? playerCount >= 2 && playerCount <= 4 : playerCount >= 1;
+
+  const canStart = gameType ? (playerCount >= 2 && playerCount <= maxPlayers) : false;
 
   useEffect(() => {
     if (!token) nav('/login');
   }, [token, nav]);
 
+  useEffect(() => {
+    if (!token) return;
+    let alive = true;
+    (async () => {
+      setLoadingSession(true);
+      try {
+        const info = await getSession(sessionid, token);
+        if (alive) setSessionInfo(info);
+      } catch (e) {
+        setError(e.message || 'Failed to load session');
+      } finally {
+        if (alive) setLoadingSession(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [sessionid, token]);
+
   const addBot = () => {
+    if (playerCount >= maxPlayers) return;
     setPlayers(prev => [...prev, { name: `Bot${prev.length}`, bot: true, ready: true }]);
   };
 
@@ -55,8 +77,15 @@ export default function Lobby() {
   return (
     <PageContainer>
       <CardContainer className="max-w-3xl w-full">
-        <h2 className="text-xl font-semibold">Lobby</h2>
+        <h2 className="text-xl font-semibold">Lobby {gameType ? `- ${gameType}` : ''}</h2>
         <div className="text-sm">Session: <span className="font-mono font-bold">{sessionid}</span></div>
+        {loadingSession && <div className="text-xs opacity-70">Loading session...</div>}
+        {sessionInfo && (
+          <div className="text-xs opacity-70 flex gap-4 flex-wrap">
+            <span>Game Type: {sessionInfo.gameType}</span>
+            <span>Max Players: {maxPlayers}</span>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="table table-zebra w-full mt-4">
@@ -91,7 +120,7 @@ export default function Lobby() {
                       className="toggle toggle-sm"
                       checked={p.ready}
                       onChange={e => updatePlayer(i, { ready: e.target.checked })}
-                      disabled={p.bot} // 电脑玩家默认已准备且不可修改
+                      disabled={p.bot}
                     />
                   </td>
                   <td>
@@ -108,7 +137,13 @@ export default function Lobby() {
               ))}
               <tr>
                 <td colSpan={5}>
-                  <button type="button" className="btn btn-outline btn-sm w-full" onClick={addBot}>+ Add Bot</button>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm w-full"
+                    onClick={addBot}
+                    disabled={playerCount >= maxPlayers}
+                    title={playerCount >= maxPlayers ? 'Reached max players' : ''}
+                  >+ Add Bot</button>
                 </td>
               </tr>
             </tbody>
@@ -122,7 +157,11 @@ export default function Lobby() {
                 {Array.from({ length: 10 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </label>
-            <div className="text-xs opacity-70">Players (DaVinci): need 2-4. Current: {playerCount}</div>
+            <div className="text-xs opacity-70">
+              {gameType ? (
+                <>Players need 2-{maxPlayers}. Current: {playerCount}</>
+              ) : 'Loading rules...'}
+            </div>
           </div>
           {error && <div className="alert alert-error py-2 px-3 text-sm">{error}</div>}
           <div className="flex justify-between items-center">
