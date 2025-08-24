@@ -7,14 +7,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Objects;
 
-/** Orchestrates validate -> decide -> apply -> persist for a game. */
-@Service
-public class GameService {
+/** Core game engine orchestrator (validate -> decide -> apply -> persist & definition registry). */
+@Service("gameEngineService")
+public class GameEngineService {
     private final GameJpaRepository repo;
     private final GameStateSerializer serializer;
     private final GameDefinitionRegistry definitionRegistry;
 
-    public GameService(GameJpaRepository repo, GameStateSerializer serializer) {
+    public GameEngineService(GameJpaRepository repo, GameStateSerializer serializer) {
         this.repo = repo;
         this.serializer = serializer;
         this.definitionRegistry = new GameDefinitionRegistry(); // could be configured via @Bean
@@ -27,7 +27,7 @@ public class GameService {
 
     @Transactional(readOnly = true)
     public <S> S loadState(String gameId, GameType type, Class<S> stateClass) {
-        GameEntity e = repo.findById(gameId).orElseThrow(() -> new IllegalArgumentException("Game not found: " + gameId));
+        GameEngineEntity e = repo.findById(gameId).orElseThrow(() -> new IllegalArgumentException("Game not found: " + gameId));
         if (!Objects.equals(e.getGameType(), type.name())) {
             throw new IllegalStateException("Game type mismatch, expected " + type + " got " + e.getGameType());
         }
@@ -36,7 +36,7 @@ public class GameService {
 
     @Transactional
     public <S, C extends Command, E extends Event> CommandResult<S, E> handleCommand(String gameId, C command) {
-        GameEntity entity = repo.findById(gameId).orElseThrow(() -> new IllegalArgumentException("Game not found: " + gameId));
+        GameEngineEntity entity = repo.findById(gameId).orElseThrow(() -> new IllegalArgumentException("Game not found: " + gameId));
         GameType type = GameType.valueOf(entity.getGameType());
         GameDefinition<S, C, E, ?> def = cast(definitionRegistry.get(type));
         S state = serializer.deserialize(entity.getState(), def.stateClass());

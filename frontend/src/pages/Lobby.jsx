@@ -65,8 +65,8 @@ export default function Lobby() {
     if (!canStart || starting) return;
     setStarting(true); setError('');
     try {
-      const resp = await startFirstGame(sessionid, { rounds, players }, token);
-      nav(`/playscreen/${sessionid}`, { state: { gameId: resp.gameId, roundIndex: resp.roundIndex } });
+  const resp = await startFirstGame(sessionid, { rounds, players }, token);
+  nav(`/playscreen/${sessionid}`, { state: { gameId: resp.gameId, roundIndex: resp.roundIndex, playerId: resp.myPlayerId, players: resp.players } });
     } catch (e) {
       setError(e.message || 'Failed to start');
     } finally {

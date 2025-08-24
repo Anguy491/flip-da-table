@@ -19,7 +19,8 @@ public class LobbyDtos {
         String gameId,
         int roundIndex,
         java.util.List<PlayerInfo> players,
-        String gameType
+        String gameType,
+        String myPlayerId
     ) {}
 
     public record PlayerInfo(

@@ -4,6 +4,7 @@ plugins {
     id("java")
     id("org.springframework.boot") version "3.3.2"
     id("io.spring.dependency-management") version "1.1.6"
+    id("org.flywaydb.flyway") version "10.17.0"
 }
 
 group = "com.flip"
@@ -14,6 +15,12 @@ java {
 }
 
 repositories { mavenCentral() }
+
+flyway {
+    url = "jdbc:postgresql://localhost:5432/flip"
+    user = "flip"
+    password = "flip"
+}
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")

@@ -6,7 +6,7 @@ import java.time.OffsetDateTime;
 /** JPA entity mapping the games table. */
 @Entity
 @Table(name = "games")
-public class GameEntity {
+public class GameEngineEntity {
     @Id
     private String id;
 
@@ -26,9 +26,9 @@ public class GameEntity {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
-    protected GameEntity() { }
+    protected GameEngineEntity() { }
 
-    public GameEntity(String id, String sessionId, int roundIndex, String gameType, String state, OffsetDateTime createdAt) {
+    public GameEngineEntity(String id, String sessionId, int roundIndex, String gameType, String state, OffsetDateTime createdAt) {
         this.id = id;
         this.sessionId = sessionId;
         this.roundIndex = roundIndex;

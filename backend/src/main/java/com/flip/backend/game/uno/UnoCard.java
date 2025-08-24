@@ -1,20 +1,12 @@
 package com.flip.backend.game.uno;
 
-import java.util.Objects;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /** Immutable card: color may be null for wild cards. */
 public record UnoCard(UnoColor color, UnoValue value) {
     public UnoCard {
-        Objects.requireNonNull(value, "value");
-        if (isWild() && color != null) {
-            throw new IllegalArgumentException("Wild card color must be null initially");
-        }
-        if (!isWild() && color == null) {
-            throw new IllegalArgumentException("Non wild card needs color");
-        }
+        // allow null color for any card (validation done in engine)
     }
-
-    public boolean isWild() {
-        return value == UnoValue.WILD || value == UnoValue.WILD_DRAW_FOUR;
-    }
+    @JsonIgnore
+    public boolean isWild() { return value == UnoValue.WILD || value == UnoValue.WILD_DRAW_FOUR; }
 }

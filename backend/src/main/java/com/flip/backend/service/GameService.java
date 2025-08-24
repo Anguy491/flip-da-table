@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.*;
 
-@Service
+@Service("gameService")
 public class GameService {
     private final SessionRepository sessions;
     private final GameRepository games;
@@ -46,6 +46,9 @@ public class GameService {
 
     builder.state(initResult.lifecycleState()).stateJson(initResult.stateJson());
     games.save(builder.build());
-    return new StartGameResponse(gameId, roundIndex, initResult.players(), type.name());
+    // 简单策略：选择第一个非 bot 玩家作为启动调用者的 playerId（后续可根据认证用户映射）
+    String myPlayerId = initResult.players().stream().filter(p -> !p.bot()).map(p -> p.playerId()).findFirst()
+        .orElseGet(() -> initResult.players().isEmpty() ? null : initResult.players().get(0).playerId());
+    return new StartGameResponse(gameId, roundIndex, initResult.players(), type.name(), myPlayerId);
     }
 }

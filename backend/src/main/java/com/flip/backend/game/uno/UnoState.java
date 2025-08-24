@@ -5,8 +5,8 @@ import java.util.*;
 /** Aggregate state for an UNO game (simplified). */
 public class UnoState {
     public final List<UnoPlayer> players = new ArrayList<>();
-    public final Deque<UnoCard> drawPile = new ArrayDeque<>();
-    public final Deque<UnoCard> discardPile = new ArrayDeque<>();
+    public Deque<UnoCard> drawPile = new ArrayDeque<>();
+    public Deque<UnoCard> discardPile = new ArrayDeque<>();
     public int direction = 1; // 1 normal, -1 reversed
     public int currentPlayerIndex = 0;
     public int pendingDraw = 0; // accumulated draw cards
