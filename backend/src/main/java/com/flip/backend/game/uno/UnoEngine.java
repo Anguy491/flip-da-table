@@ -100,11 +100,14 @@ public class UnoEngine implements GameEngine<UnoState, UnoCommand, UnoEvent> {
             p.hand().removeIf(c -> c.value()==cp.value() && Objects.equals(c.color(), cp.color()));
             // push card (if wild color still null here; color chosen later)
             state.discardPile.push(new UnoCard(cp.color(), cp.value()));
-            if (cp.value()==UnoValue.WILD || cp.value()==UnoValue.WILD_DRAW_FOUR) {
+            boolean wildType = (cp.value()==UnoValue.WILD || cp.value()==UnoValue.WILD_DRAW_FOUR);
+            if (wildType) {
+                // Defer advancing the turn until color chosen so that original player selects color.
                 state.mustChooseColor = true;
+            } else {
+                // advance turn baseline immediately for non-wild cards (existing semantics preserved)
+                advanceTurn(state);
             }
-            // advance turn baseline
-            advanceTurn(state);
         } else if (event instanceof DirectionReversed) {
             state.direction *= -1;
     } else if (event instanceof PlayerSkipped) {
@@ -129,6 +132,8 @@ public class UnoEngine implements GameEngine<UnoState, UnoCommand, UnoEvent> {
             UnoCard top = state.discardPile.pop();
             state.discardPile.push(new UnoCard(cc.color(), top.value()));
             state.mustChooseColor = false;
+            // Now advance the turn after color selection (wild / wild draw four just resolved)
+            advanceTurn(state);
     } else if (event instanceof UnoDeclared) {
             // could mark for penalty avoidance; ignored in MVP
         } else if (event instanceof PlayerWon pw) {
@@ -141,6 +146,8 @@ public class UnoEngine implements GameEngine<UnoState, UnoCommand, UnoEvent> {
         if (state.currentPlayer().hand().isEmpty() && state.phase==GamePhase.RUNNING) {
             state.winners.add(state.currentPlayer().id());
             state.phase = GamePhase.FINISHED;
+            // If the winning card was a wild, no need to keep color choosing pending
+            state.mustChooseColor = false;
         }
         return state;
     }
