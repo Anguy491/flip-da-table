@@ -21,7 +21,11 @@ public class GameEntity {
     private String gameType;
 
     @Column(nullable=false, length=32)
-    private String state; // CREATED | RUNNING | ENDED
+    private String state; // lifecycle: CREATED | RUNNING | ENDED
+
+    // Serialized full state JSON (UNO / other engines). Null until RUNNING.
+    @Column(name="state_json")
+    private String stateJson;
 
     @Column(name="created_at", nullable=false)
     private Instant createdAt;

@@ -14,7 +14,7 @@ public class UnoStateProjector implements StateProjector<UnoState, UnoView> {
             boolean isCurrent = i == state.currentPlayerIndex;
             boolean isWinner = state.winners.contains(p.id());
             List<UnoCard> hand = p.id().equals(viewerId) ? List.copyOf(p.hand()) : List.of();
-            views.add(new UnoPlayerView(p.id(), p.hand().size(), hand, isCurrent, isWinner));
+            views.add(new UnoPlayerView(p.id(), p.hand().size(), hand, isCurrent, isWinner, p.bot()));
         }
         return new UnoView(viewerId, views, state.pendingDraw, state.mustChooseColor, state.top(), state.phase);
     }

@@ -14,10 +14,12 @@ public class UnoState {
     public final Set<String> winners = new LinkedHashSet<>();
     public GamePhase phase = GamePhase.RUNNING;
 
-    public static UnoState initial(List<String> playerIds) {
-        if (playerIds.size() < 2) throw new IllegalArgumentException("Need at least 2 players");
+    public record PlayerInitSpec(String id, boolean bot) {}
+
+    public static UnoState initial(List<PlayerInitSpec> specs) {
+        if (specs.size() < 2) throw new IllegalArgumentException("Need at least 2 players");
         UnoState s = new UnoState();
-        for (String pid : playerIds) s.players.add(new UnoPlayer(pid));
+        for (PlayerInitSpec spec : specs) s.players.add(new UnoPlayer(spec.id(), spec.bot()));
         // Build full standard UNO deck (108 cards)
         List<UnoCard> deck = new ArrayList<>(108);
         for (UnoColor c : UnoColor.values()) {
