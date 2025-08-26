@@ -10,6 +10,11 @@ public class UnoPlayer extends Player {
 		this.hand = new UnoHand();
 	}
 
+	protected UnoPlayer(String id, boolean bot) {
+		super(id, bot);
+		this.hand = new UnoHand();
+	}
+
 	public UnoHand getHand() { return hand; }
 
 	public int cardCount() { return hand.size(); }
