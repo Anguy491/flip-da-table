@@ -1,5 +1,3 @@
 package com.flip.backend.game.engine.phase;
 
-public class StartPhase extends Phase {
-    
-}
+public abstract class StartPhase extends Phase { }

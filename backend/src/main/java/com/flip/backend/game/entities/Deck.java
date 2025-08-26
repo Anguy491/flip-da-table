@@ -55,6 +55,13 @@ public abstract class Deck<C extends Card> {
 	}
 
 	/**
+	 * Return a card (typically just drawn) to the bottom of the draw pile without shuffling.
+	 */
+	public void putBottom(C card) {
+		if (card != null) drawPile.addLast(card);
+	}
+
+	/**
 	 * Moves all but the top-most discard back into draw pile and shuffles.
 	 * (In many games you keep the last played card visible.)
 	 */
