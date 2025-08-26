@@ -47,6 +47,13 @@ public class UnoStartPhase extends StartPhase {
 		board.applyTop(starter, null);
 	}
 
+	@Override
+	public UnoRuntimePhase transit() {
+		UnoRuntimePhase runtime = new UnoRuntimePhase(deck, board, players);
+		runtime.enter();
+		return runtime;
+	}
+
 	private UnoCard drawFirstColored() {
 		UnoCard c;
 		int safety = 20; // avoid infinite loop improbable

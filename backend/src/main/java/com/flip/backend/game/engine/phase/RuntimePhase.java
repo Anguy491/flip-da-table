@@ -1,11 +1,6 @@
 package com.flip.backend.game.engine.phase;
 
-public class RuntimePhase extends Phase {
-
-    @Override
-    public void enter() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'enter'");
-    }
-
+public abstract class RuntimePhase extends Phase {
+    /** Execute loop. Must call enter() before run if initialization needed. */
+    public abstract String run();
 }
