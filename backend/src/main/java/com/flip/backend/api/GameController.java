@@ -1,7 +1,7 @@
 package com.flip.backend.api;
 
 import com.flip.backend.api.dto.LobbyDtos.*;
-import com.flip.backend.service.GameService;
+import com.flip.backend.service.game.GameService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

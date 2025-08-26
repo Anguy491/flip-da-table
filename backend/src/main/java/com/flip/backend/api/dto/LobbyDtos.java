@@ -17,16 +17,7 @@ public class LobbyDtos {
 
     public record StartGameResponse(
         String gameId,
-        int roundIndex,
-        java.util.List<PlayerInfo> players,
-        String gameType,
-        String myPlayerId
-    ) {}
-
-    public record PlayerInfo(
-        String playerId,
-        String name,
-        boolean bot
+        int roundIndex
     ) {}
 
     public record SessionView(
