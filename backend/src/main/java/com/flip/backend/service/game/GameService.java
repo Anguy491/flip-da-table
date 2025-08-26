@@ -1,45 +1,48 @@
 package com.flip.backend.service.game;
 
-import com.flip.backend.api.dto.LobbyDtos.*;
-import com.flip.backend.persistence.*;
-import org.springframework.stereotype.Service;
+import com.flip.backend.api.dto.LobbyDtos.StartGameRequest;
+import com.flip.backend.api.dto.LobbyDtos.StartGameResponse;
+import com.flip.backend.persistence.GameEntity;
+import com.flip.backend.persistence.GameRepository;
+import com.flip.backend.persistence.SessionEntity;
+import com.flip.backend.persistence.SessionRepository;
 
 import java.time.Instant;
 
-@Service
-public class GameService {
-    private final SessionRepository sessions;
-    private final GameRepository games;
+/**
+ * Abstract game service - concrete game types (UNO, DAVINCI, etc.) implement validation & startup specifics.
+ */
+public abstract class GameService {
+    protected final SessionRepository sessions;
+    protected final GameRepository games;
 
-    public GameService(SessionRepository sessions, GameRepository games) {
+    protected GameService(SessionRepository sessions, GameRepository games) {
         this.sessions = sessions;
         this.games = games;
     }
 
-    public StartGameResponse startFirst(String sessionId, StartGameRequest req) {
-        var s = sessions.findById(sessionId).orElseThrow(() -> new IllegalArgumentException("session not found"));
+    /** Return true if this service supports given gameType (normalized upper-case). */
+    public abstract boolean supports(String gameType);
 
-        int playerCount = (int) req.players().stream().filter(p -> p.name()!=null && !p.name().isBlank()).count();
+    /** Start first round for a session. */
+    public abstract StartGameResponse startFirst(String sessionId, StartGameRequest req);
 
-        // 仅以 DaVinci 为例：2-4 人
-        if ("DAVINCI".equalsIgnoreCase(s.getGameType())) {
-            if (playerCount < 2 || playerCount > 4) throw new IllegalArgumentException("players must be 2-4 for DaVinci");
-        }
-
-        // 生成 gameId：<sessionId>:<gameType>:r<roundIndex>
-        int roundIndex = 1;
-        String gameId = s.getId() + ":" + s.getGameType().toUpperCase() + ":r" + roundIndex;
-
+    protected StartGameResponse persistRound(SessionEntity session, int roundIndex) {
+        String gameType = session.getGameType().toUpperCase();
+        String gameId = session.getId() + ":" + gameType + ":r" + roundIndex;
         var g = GameEntity.builder()
                 .id(gameId)
-                .sessionId(s.getId())
+                .sessionId(session.getId())
                 .roundIndex(roundIndex)
-                .gameType(s.getGameType().toUpperCase())
+                .gameType(gameType)
                 .state("CREATED")
                 .createdAt(Instant.now())
                 .build();
         games.save(g);
-
         return new StartGameResponse(gameId, roundIndex);
+    }
+
+    protected int countValidPlayers(StartGameRequest req) {
+        return (int) req.players().stream().filter(p -> p.name()!=null && !p.name().isBlank()).count();
     }
 }
