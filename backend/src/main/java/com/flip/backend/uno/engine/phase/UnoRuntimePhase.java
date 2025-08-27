@@ -12,6 +12,7 @@ public class UnoRuntimePhase extends RuntimePhase {
 	private final UnoBoard board;
 	private final EventQueue queue = new EventQueue();
 	private String winnerId;
+	private int pendingAdvanceSteps = 1;
 
 	public UnoRuntimePhase(UnoDeck deck, UnoBoard board, List<UnoPlayer> players) {
 		this.deck = deck; this.board = board; // players list not needed for now
@@ -22,13 +23,20 @@ public class UnoRuntimePhase extends RuntimePhase {
 	@Override
 	public String run() {
 		while (winnerId == null) {
-			UnoPlayer current = (UnoPlayer) board.currentPlayer();
-			planTurn(current);
-			processQueue();
-			if (current.cardCount() == 0) { winnerId = current.getId(); break; }
-			board.step(1); board.tickTurn();
+			runSingleTurn();
 		}
 		return winnerId;
+	}
+
+	/** Execute exactly one player's turn (for tests / internal loop). */
+	public void runSingleTurn() {
+		if (winnerId != null) return;
+		UnoPlayer current = (UnoPlayer) board.currentPlayer();
+		planTurn(current);
+		processQueue();
+		if (current.cardCount() == 0) { winnerId = current.getId(); return; }
+		board.step(pendingAdvanceSteps); board.tickTurn();
+		pendingAdvanceSteps = 1;
 	}
 
 	private void planTurn(UnoPlayer player) {
@@ -56,6 +64,8 @@ public class UnoRuntimePhase extends RuntimePhase {
 					if (drawn != null && canPlay(drawn, board.lastPlayedCard(), board.activeColor())) {
 						queue.enqueue(new UnoPlayCardEvent(board, deck, player, drawn));
 					}
+				} else if (e instanceof UnoPlayCardEvent pce) {
+					pendingAdvanceSteps = pce.getAdvanceSteps();
 				}
 			}
 		}

@@ -58,6 +58,9 @@ public class Board<P extends Player> {
 	public long turnCount() { return turnCount; }
 	public int size() { return size; }
 
+	/** Peek the next player according to current direction without advancing. */
+	public P peekNext() { return direction == 1 ? current.next.player : current.prev.player; }
+
 	public void step(int k) {
 		if (k < 1) throw new IllegalArgumentException("k must be >=1");
 		for (int i = 0; i < k; i++) {
