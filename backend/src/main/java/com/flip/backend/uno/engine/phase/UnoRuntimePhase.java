@@ -2,12 +2,15 @@ package com.flip.backend.uno.engine.phase;
 
 import com.flip.backend.game.engine.phase.RuntimePhase;
 import com.flip.backend.uno.entities.*;
+import com.flip.backend.game.engine.event.EventQueue;
+import com.flip.backend.uno.engine.event.*;
 import java.util.List;
 
 /** Prototype UNO runtime loop without special card effects. */
 public class UnoRuntimePhase extends RuntimePhase {
 	private final UnoDeck deck;
 	private final UnoBoard board;
+	private final EventQueue queue = new EventQueue();
 	private String winnerId;
 
 	public UnoRuntimePhase(UnoDeck deck, UnoBoard board, List<UnoPlayer> players) {
@@ -20,40 +23,41 @@ public class UnoRuntimePhase extends RuntimePhase {
 	public String run() {
 		while (winnerId == null) {
 			UnoPlayer current = (UnoPlayer) board.currentPlayer();
-			playTurn(current);
-			if (current.cardCount() == 0) {
-				winnerId = current.getId();
-				break;
-			}
-			board.step(1);
-			board.tickTurn();
+			planTurn(current);
+			processQueue();
+			if (current.cardCount() == 0) { winnerId = current.getId(); break; }
+			board.step(1); board.tickTurn();
 		}
 		return winnerId;
 	}
 
-	private void playTurn(UnoPlayer player) {
+	private void planTurn(UnoPlayer player) {
 		UnoCard top = board.lastPlayedCard();
-		UnoCard.Color activeColor = board.activeColor();
-		UnoCard playable = player.getHand().view().stream().filter(c -> canPlay(c, top, activeColor)).findFirst().orElse(null);
-		if (playable == null) {
-			UnoCard drawn = deck.draw();
-			if (drawn != null) {
-				player.giveCard(drawn);
-				if (canPlay(drawn, top, activeColor)) playable = drawn;
-			}
-		}
+		UnoCard.Color active = board.activeColor();
+		UnoCard playable = player.getHand().view().stream().filter(c -> canPlay(c, top, active)).findFirst().orElse(null);
 		if (playable != null) {
-			player.playCard(playable);
-			deck.discard(playable);
-			// For wild choose first non-wild color from hand else RED
-			UnoCard.Color chosen = null;
-			if (playable.getColor() == UnoCard.Color.WILD) {
-				chosen = player.getHand().view().stream()
-						.filter(c -> c.getColor() != UnoCard.Color.WILD)
-						.map(UnoCard::getColor)
-						.findFirst().orElse(UnoCard.Color.RED);
+			queue.enqueue(new UnoPlayCardEvent(board, deck, player, playable));
+		} else {
+			UnoDrawCardEvent draw = new UnoDrawCardEvent(deck, player);
+			queue.enqueue(draw);
+			// After draw we may attempt play of that single card (lazy decision in processing after draw)
+		}
+	}
+
+	private void processQueue() {
+		while (!queue.isEmpty()) {
+			var e = queue.poll();
+			if (e.isValid()) {
+				e.execute();
+				// If it's a draw, see if drawn is playable -> enqueue play event
+				if (e instanceof UnoDrawCardEvent d) {
+					UnoCard drawn = d.drawnCard();
+					UnoPlayer player = (UnoPlayer) d.source();
+					if (drawn != null && canPlay(drawn, board.lastPlayedCard(), board.activeColor())) {
+						queue.enqueue(new UnoPlayCardEvent(board, deck, player, drawn));
+					}
+				}
 			}
-			board.applyTop(playable, chosen);
 		}
 	}
 
