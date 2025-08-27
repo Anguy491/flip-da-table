@@ -1,5 +1,10 @@
 package com.flip.backend.uno.engine.view;
 
-public class UnoView {
-    
-}
+import java.util.List;
+
+/** Aggregated UNO view for a requesting player. */
+public record UnoView(
+	UnoBoardView board,
+	List<UnoPlayerView> players,
+	String perspectivePlayerId
+) {}

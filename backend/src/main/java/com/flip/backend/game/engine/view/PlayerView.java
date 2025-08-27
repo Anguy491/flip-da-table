@@ -1,5 +1,7 @@
 package com.flip.backend.game.engine.view;
 
-public class PlayerView {
-    
-}
+/** Generic player view, exposing id and whether it's a bot. */
+public record PlayerView(
+	String playerId,
+	boolean bot
+) {}

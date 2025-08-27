@@ -37,6 +37,10 @@ public abstract class Deck<C extends Card> {
 	public int discards() { return discardPile.size(); }
 	public int total() { return drawPile.size() + discardPile.size(); }
 
+	// Aliases for view layer clarity
+	public int remainingDraw() { return remaining(); }
+	public int discardSize() { return discards(); }
+
 	/**
 	 * Draw a single card, reshuffling the discard pile into the draw pile if needed.
 	 */

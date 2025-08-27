@@ -4,6 +4,7 @@ import com.flip.backend.game.engine.phase.RuntimePhase;
 import com.flip.backend.uno.entities.*;
 import com.flip.backend.game.engine.event.EventQueue;
 import com.flip.backend.uno.engine.event.*;
+import com.flip.backend.uno.engine.view.*;
 import java.util.List;
 
 /** Prototype UNO runtime loop without special card effects. */
@@ -41,6 +42,32 @@ public class UnoRuntimePhase extends RuntimePhase {
 	}
 
 	public UnoEndingPhase endingPhase() { return endingPhase; }
+
+	/** Build a snapshot view for the given player id (full hand for self, counts for others). */
+	public UnoView buildView(String perspectivePlayerId) {
+		// Determine current player index by traversing snapshotOrder
+		var order = board.snapshotOrder();
+		int currentIndex = 0;
+		for (int i=0;i<order.size();i++) if (order.get(i).getId().equals(board.currentPlayer().getId())) { currentIndex = i; break; }
+		UnoBoardView boardView = new UnoBoardView(
+			"UNO",
+			board.turnCount(),
+			board.direction(),
+			currentIndex,
+			board.lastPlayedCard() != null ? board.lastPlayedCard().getDisplay() : null,
+			board.activeColor() != null ? board.activeColor().name() : null,
+			deck.remainingDraw(),
+			deck.discardSize()
+		);
+		java.util.List<UnoPlayerView> playerViews = new java.util.ArrayList<>();
+		for (var p : order) {
+			boolean self = p.getId().equals(perspectivePlayerId);
+			var hand = p.getHand();
+			java.util.List<String> handDisplays = self ? hand.view().stream().map(UnoCard::getDisplay).toList() : null;
+			playerViews.add(new UnoPlayerView(p.getId(), p.isBot(), hand.size(), handDisplays));
+		}
+		return new UnoView(boardView, java.util.List.copyOf(playerViews), perspectivePlayerId);
+	}
 
 	private void planTurn(UnoPlayer player) {
 		UnoCard top = board.lastPlayedCard();
