@@ -12,6 +12,7 @@ public class UnoRuntimePhase extends RuntimePhase {
 	private final UnoBoard board;
 	private final EventQueue queue = new EventQueue();
 	private String winnerId;
+	private UnoEndingPhase endingPhase; // populated when winner decided
 	private int pendingAdvanceSteps = 1;
 
 	public UnoRuntimePhase(UnoDeck deck, UnoBoard board, List<UnoPlayer> players) {
@@ -34,10 +35,12 @@ public class UnoRuntimePhase extends RuntimePhase {
 		UnoPlayer current = (UnoPlayer) board.currentPlayer();
 		planTurn(current);
 		processQueue();
-		if (current.cardCount() == 0) { winnerId = current.getId(); return; }
+		if (current.cardCount() == 0) { winnerId = current.getId(); endingPhase = new UnoEndingPhase(current); return; }
 		board.step(pendingAdvanceSteps); board.tickTurn();
 		pendingAdvanceSteps = 1;
 	}
+
+	public UnoEndingPhase endingPhase() { return endingPhase; }
 
 	private void planTurn(UnoPlayer player) {
 		UnoCard top = board.lastPlayedCard();
