@@ -15,8 +15,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/lobby/:sessionid" element={<Lobby />} />
-  <Route path="/playscreen/:sessionid" element={<PlayScreen />} />
-  <Route path="/sessionsum/:sessionid" element={<SessionSummary />} />
+        <Route path="/playscreen/:sessionid" element={<PlayScreen />} />
+        <Route path="/sessionsum/:sessionid" element={<SessionSummary />} />
       </Routes>
     </BrowserRouter>
   );

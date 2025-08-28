@@ -123,7 +123,10 @@ public class UnoRuntimePhase extends RuntimePhase {
 
 	private boolean match(UnoCard c, String color, String value) {
 		if (c.getType() == UnoCard.Type.NUMBER) {
-			return value.equals(String.valueOf(c.getNumber()));
+			// Require both number and color to match (color provided by client for disambiguation)
+			if (!value.equals(String.valueOf(c.getNumber()))) return false;
+			if (color == null) return true; // fallback (shouldn't happen)
+			return c.getColor().name().equalsIgnoreCase(color);
 		}
 		switch (value) {
 			case "SKIP" -> { return c.getType()== UnoCard.Type.SKIP && colorEquals(c, color); }
