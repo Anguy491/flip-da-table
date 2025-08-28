@@ -21,9 +21,11 @@ export default function Lobby() {
   const gameType = sessionInfo?.gameType?.toUpperCase();
   const maxPlayers = sessionInfo?.maxPlayers || 10;
 
-  const playerCount = players.filter(p => p.name && p.name.trim()).length;
-
-  const canStart = gameType ? (playerCount >= 2 && playerCount <= maxPlayers) : false;
+  const activePlayers = players.filter(p => p.name && p.name.trim());
+  const playerCount = activePlayers.length;
+  const readyPlayers = activePlayers.filter(p => p.bot || p.ready);
+  const allReady = readyPlayers.length === activePlayers.length && playerCount > 0;
+  const canStart = gameType ? (playerCount >= 2 && playerCount <= maxPlayers && allReady) : false;
 
   useEffect(() => {
     if (!token) nav('/login');
@@ -65,12 +67,12 @@ export default function Lobby() {
     if (!canStart || starting) return;
     setStarting(true); setError('');
     try {
-  const resp = await startFirstGame(sessionid, { rounds, players }, token);
-  nav(`/playscreen/${sessionid}`, { state: { gameId: resp.gameId, roundIndex: resp.roundIndex, playerId: resp.myPlayerId, players: resp.players, totalRounds: rounds, results: [] } });
+      const resp = await startFirstGame(sessionid, { rounds, players }, token);
+      nav(`/playscreen/${sessionid}`, { state: { gameId: resp.gameId, roundIndex: resp.roundIndex, playerId: resp.myPlayerId, players: resp.players, totalRounds: rounds, results: [] } });
     } catch (e) {
-      setError(e.message || 'Failed to start');
-    } finally {
-      setStarting(false);
+        setError(e.message || 'Failed to start');
+      } finally {
+        setStarting(false);
     }
   };
 
@@ -159,7 +161,7 @@ export default function Lobby() {
             </label>
             <div className="text-xs opacity-70">
               {gameType ? (
-                <>Players need 2-{maxPlayers}. Current: {playerCount}</>
+                <>Players 2-{maxPlayers}. Current: {playerCount}. Ready: {readyPlayers.length}/{playerCount}{!allReady && playerCount>=2 ? ' (waiting...)' : ''}</>
               ) : 'Loading rules...'}
             </div>
           </div>
