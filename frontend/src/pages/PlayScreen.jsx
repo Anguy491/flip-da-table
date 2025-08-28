@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo } from 'react';
+import { useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageContainer from '../components/PageContainer';
 import CardContainer from '../components/CardContainer';
@@ -11,6 +11,8 @@ import DiscardPile from '../components/uno/DiscardPile';
 import ColorPickerModal from '../components/uno/ColorPickerModal';
 import ActionPanel from '../components/uno/ActionPanel';
 import ResultOverlay from '../components/uno/ResultOverlay';
+import GameOverModal from '../components/uno/GameOverModal';
+import { startFirstGame, startNextGame } from '../api/sessions';
 
 export default function PlayScreen() {
 	const { state } = useLocation();
@@ -18,9 +20,12 @@ export default function PlayScreen() {
 	const nav = useNavigate();
 	const { token } = useContext(AuthContext);
 
-	// state from lobby navigation: { gameId, roundIndex, players? (future) }
+	// state from lobby navigation: { gameId, roundIndex, players, totalRounds, results }
 	const gameId = state?.gameId;
-	const roundIndex = state?.roundIndex ?? 0;
+	const roundIndex = state?.roundIndex ?? 1;
+	const totalRounds = state?.totalRounds ?? 1;
+	const playersMeta = state?.players || [];
+	const pastResults = state?.results || [];
 	// For MVP we don't persist playerId separately; use first non-bot? Provide via state later.
 	const playerId = state?.playerId || state?.players?.find(p => !p.bot)?.playerId; // fallback (should be provided)
 
@@ -34,6 +39,45 @@ export default function PlayScreen() {
 	const { playCard, drawCard, chooseColor, declareUno } = uno.actions;
 
 	const currentPlayerId = useMemo(() => view?.players?.find(p => p.isCurrent)?.playerId, [view]);
+
+	// winner detection (handSize === 0)
+	const winner = useMemo(() => view?.players?.find(p => p.handSize === 0), [view]);
+	const [modalOpen, setModalOpen] = useState(false);
+	useEffect(() => { if (winner && !modalOpen) setModalOpen(true); }, [winner, modalOpen]);
+
+	const winnerName = useMemo(() => {
+		if (!winner) return '';
+		const meta = playersMeta.find(pm => pm.playerId === winner.playerId);
+		return meta?.name || winner.playerId;
+	}, [winner, playersMeta]);
+
+	// Persist result to sessionStorage for summary
+	useEffect(() => {
+		if (!winner) return;
+		const key = `uno-results-${sessionid}`;
+		let stored = { totalRounds, results: [] };
+		try { const raw = sessionStorage.getItem(key); if (raw) stored = JSON.parse(raw); } catch { /* ignore */ }
+		if (!stored.results.some(r => r.round === roundIndex)) {
+			stored.totalRounds = totalRounds;
+			stored.results.push({ round: roundIndex, winnerId: winner.playerId, winnerName, turns: view?.turnCount || 0 });
+			sessionStorage.setItem(key, JSON.stringify(stored));
+		}
+	}, [winner, roundIndex, sessionid, totalRounds, winnerName, view]);
+
+	const startNext = useCallback(async () => {
+		if (roundIndex >= totalRounds) return;
+		try {
+			const payloadPlayers = playersMeta.map(p => ({ name: p.name, bot: p.bot, ready: true }));
+			const resp = await startNextGame(sessionid, { rounds: totalRounds, players: payloadPlayers }, token);
+			nav(`/playscreen/${sessionid}` , { state: { gameId: resp.gameId, roundIndex: resp.roundIndex, playerId: resp.myPlayerId, players: resp.players, totalRounds, results: [...pastResults, { round: roundIndex, winnerId: winner.playerId, winnerName, turns: view?.turnCount || 0 }] } });
+		} catch (e) { console.error(e); }
+	}, [roundIndex, totalRounds, playersMeta, sessionid, token, nav, pastResults, winner, winnerName, view]);
+
+	const goSummary = useCallback(() => {
+		nav(`/sessionsum/${sessionid}`);
+	}, [nav, sessionid]);
+
+	const leaveDashboard = useCallback(() => { nav('/dashboard'); }, [nav]);
 
 	if (!gameId) {
 		return (
@@ -89,6 +133,16 @@ export default function PlayScreen() {
 			</div>
 			<ColorPickerModal open={mustChooseColor && myTurn} onPick={chooseColor} />
 			<ResultOverlay open={isFinished} players={view?.players || []} onClose={() => nav(-1)} />
-		</PageContainer>
+		<GameOverModal
+			open={modalOpen && !!winner}
+			winnerName={winnerName}
+			winnerId={winner?.playerId}
+			turns={view?.turnCount || 0}
+			onClose={leaveDashboard}
+			onNext={startNext}
+			isLast={roundIndex >= totalRounds}
+			onSummary={goSummary}
+		/>
+	</PageContainer>
 	);
 }

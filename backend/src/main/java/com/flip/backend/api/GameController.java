@@ -26,4 +26,15 @@ public class GameController {
             .orElseThrow(() -> new IllegalStateException("No service for game type: "+type));
         return ResponseEntity.ok(svc.startFirst(sessionId, req));
     }
+
+    @PostMapping("/start/next")
+    public ResponseEntity<StartGameResponse> startNext(
+        @PathVariable String sessionId,
+        @Valid @RequestBody StartGameRequest req) {
+        var session = sessions.findById(sessionId).orElseThrow(() -> new IllegalArgumentException("session not found"));
+        String type = session.getGameType();
+        GameService svc = services.stream().filter(s -> s.supports(type)).findFirst()
+            .orElseThrow(() -> new IllegalStateException("No service for game type: "+type));
+        return ResponseEntity.ok(svc.startNext(sessionId, req));
+    }
 }

@@ -50,4 +50,34 @@ public class UnoGameService extends GameService {
 		var view = runtime.buildView(myPlayerId); // initial snapshot
 		return new StartGameResponse(base.gameId(), base.roundIndex(), myPlayerId, java.util.List.copyOf(playerInfos), view);
 	}
+
+	@Override
+	public StartGameResponse startNext(String sessionId, StartGameRequest req) {
+		var session = sessions.findById(sessionId).orElseThrow(() -> new IllegalArgumentException("session not found"));
+		if (!supports(session.getGameType())) throw new IllegalArgumentException("Unsupported game type for UNO service");
+		int players = countValidPlayers(req);
+		if (players < 2) throw new IllegalArgumentException("UNO requires at least 2 players");
+		int next = nextRoundIndex(sessionId);
+		var base = persistRound(session, next);
+		// Reuse start logic for new round
+		java.util.List<PlayerStartInfo> playerInfos = new java.util.ArrayList<>();
+		java.util.List<String> playerIds = new java.util.ArrayList<>();
+		int idx = 1;
+		for (var spec : req.players()) {
+			if (spec.name()==null || spec.name().isBlank()) continue;
+			String raw = spec.name().trim();
+			String id = (spec.bot() ? "BOT" : "P") + idx + "_" + raw.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+			playerIds.add(id);
+			playerInfos.add(new PlayerStartInfo(id, raw, spec.bot(), spec.ready()));
+			idx++;
+		}
+		String myPlayerId = playerInfos.stream().filter(p -> !p.bot()).map(PlayerStartInfo::playerId).findFirst()
+			.orElse(playerInfos.isEmpty()?null:playerInfos.get(0).playerId());
+		UnoStartPhase startPhase = new UnoStartPhase(playerIds);
+		startPhase.enter();
+		UnoRuntimePhase runtime = startPhase.transit();
+		registry.put(base.gameId(), runtime);
+		var view = runtime.buildView(myPlayerId);
+		return new StartGameResponse(base.gameId(), base.roundIndex(), myPlayerId, java.util.List.copyOf(playerInfos), view);
+	}
 }

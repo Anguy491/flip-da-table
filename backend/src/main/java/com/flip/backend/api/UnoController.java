@@ -50,6 +50,7 @@ public class UnoController {
         Map<String,Object> out = new LinkedHashMap<>();
         UnoBoardView b = view.board();
         out.put("phase", "RUNTIME");
+        out.put("turnCount", b.turnCount());
         String topDisp = b.topCard();
         if (topDisp != null) out.put("top", parseCard(topDisp));
         out.put("viewerId", view.perspectivePlayerId());

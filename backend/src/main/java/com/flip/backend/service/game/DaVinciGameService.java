@@ -20,4 +20,14 @@ public class DaVinciGameService extends GameService {
         if (players < 2 || players > 4) throw new IllegalArgumentException("players must be 2-4 for DaVinci");
         return persistRound(session, 1);
     }
+
+    @Override
+    public StartGameResponse startNext(String sessionId, StartGameRequest req) {
+        var session = sessions.findById(sessionId).orElseThrow(() -> new IllegalArgumentException("session not found"));
+        if (!supports(session.getGameType())) throw new IllegalArgumentException("Unsupported game type for DaVinci service");
+        int players = countValidPlayers(req);
+        if (players < 2 || players > 4) throw new IllegalArgumentException("players must be 2-4 for DaVinci");
+        int next = nextRoundIndex(sessionId);
+        return persistRound(session, next);
+    }
 }

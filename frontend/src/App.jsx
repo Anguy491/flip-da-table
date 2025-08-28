@@ -4,6 +4,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Lobby from './pages/Lobby';
 import PlayScreen from './pages/PlayScreen';
+import SessionSummary from './pages/SessionSummary';
 
 function App() {
   return (
@@ -14,7 +15,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/lobby/:sessionid" element={<Lobby />} />
-        <Route path="/playscreen/:sessionid" element={<PlayScreen />} />
+  <Route path="/playscreen/:sessionid" element={<PlayScreen />} />
+  <Route path="/sessionsum/:sessionid" element={<SessionSummary />} />
       </Routes>
     </BrowserRouter>
   );

@@ -37,3 +37,7 @@ export function startFirstGame(sessionId, payload, token) {
   // Returns { gameId, roundIndex, myPlayerId, players: [{playerId,name,bot,ready}], view? }
   return post(`/sessions/${sessionId}/start`, payload, token);
 }
+
+export function startNextGame(sessionId, payload, token) {
+  return post(`/sessions/${sessionId}/start/next`, payload, token);
+}

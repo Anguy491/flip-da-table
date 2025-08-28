@@ -27,6 +27,9 @@ public abstract class GameService {
     /** Start first round for a session. */
     public abstract StartGameResponse startFirst(String sessionId, StartGameRequest req);
 
+    /** Start next round (roundIndex auto-increment). */
+    public abstract StartGameResponse startNext(String sessionId, StartGameRequest req);
+
     protected StartGameResponse persistRound(SessionEntity session, int roundIndex) {
         String gameType = session.getGameType().toUpperCase();
         String gameId = session.getId() + ":" + gameType + ":r" + roundIndex;
@@ -40,6 +43,11 @@ public abstract class GameService {
                 .build();
         games.save(g);
         return new StartGameResponse(gameId, roundIndex, null, java.util.List.of(), null);
+    }
+
+    protected int nextRoundIndex(String sessionId) {
+        Integer max = games.findMaxRoundIndexBySessionId(sessionId);
+        return max == null ? 1 : max + 1;
     }
 
     protected int countValidPlayers(StartGameRequest req) {
