@@ -39,7 +39,7 @@ public abstract class GameService {
                 .createdAt(Instant.now())
                 .build();
         games.save(g);
-        return new StartGameResponse(gameId, roundIndex);
+        return new StartGameResponse(gameId, roundIndex, null, java.util.List.of(), null);
     }
 
     protected int countValidPlayers(StartGameRequest req) {
