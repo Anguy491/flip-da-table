@@ -36,9 +36,13 @@ public class UnoController {
     public ResponseEntity<CommandResult> command(@PathVariable String gameId, @RequestBody UnoCommand cmd) {
         UnoRuntimePhase runtime = registry.get(gameId);
         if (runtime == null) return ResponseEntity.ok(CommandResult.error("Game not found", null));
-        // For now we do not mutate state (engine auto-simulates on server side in future iterations)
-        var v = transformView(runtime.buildView(cmd.playerId()));
-        return ResponseEntity.ok(CommandResult.error("UNO command handling not yet implemented", v));
+        var result = runtime.applyPlayerCommand(new UnoRuntimePhase.PlayerCommand(cmd.type(), cmd.playerId(), cmd.color(), cmd.value()));
+        var v = transformView(result.view());
+        if (!result.applied()) {
+            List<ErrorInfo> errs = result.errors().stream().map(e -> new ErrorInfo(e.code()+":"+e.message())).toList();
+            return ResponseEntity.ok(new CommandResult(false, errs, v));
+        }
+        return ResponseEntity.ok(new CommandResult(true, List.of(), v));
     }
 
     /** Convert internal UnoView (string hand displays) into front-end expected structure. */

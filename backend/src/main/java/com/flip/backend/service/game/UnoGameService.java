@@ -50,6 +50,4 @@ public class UnoGameService extends GameService {
 		var view = runtime.buildView(myPlayerId); // initial snapshot
 		return new StartGameResponse(base.gameId(), base.roundIndex(), myPlayerId, java.util.List.copyOf(playerInfos), view);
 	}
-
-	// TODO: Implement UNO runtime service
 }
