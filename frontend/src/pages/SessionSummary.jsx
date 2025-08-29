@@ -7,7 +7,7 @@ import SubmitButton from '../components/SubmitButton';
 export default function SessionSummary() {
   const { sessionid } = useParams();
   const nav = useNavigate();
-  const [data, setData] = useState(null); // { totalRounds, results:[{round,winnerId,winnerName,turns}] }
+  const [data, setData] = useState(null); // { totalRounds, results:[{round,winnerId,turns}], playersMeta }
 
   useEffect(() => {
     try {
@@ -16,12 +16,32 @@ export default function SessionSummary() {
     } catch { /* ignore */ }
   }, [sessionid]);
 
+  const playersMeta = data?.playersMeta || [];
+  const idToName = useMemo(() => {
+    const m = new Map();
+    playersMeta.forEach(p => m.set(p.playerId, p.name || p.playerId));
+    return m;
+  }, [playersMeta]);
+
   const ranking = useMemo(() => {
     if (!data) return [];
-    const map = new Map();
-    data.results.forEach(r => { map.set(r.winnerId, (map.get(r.winnerId)||0)+1); });
-    return [...map.entries()].sort((a,b)=>b[1]-a[1]).map(([pid, wins]) => ({ playerId: pid, wins }));
-  }, [data]);
+    const winCount = new Map();
+    data.results.forEach(r => winCount.set(r.winnerId, (winCount.get(r.winnerId) || 0) + 1));
+    return [...winCount.entries()]
+      .sort((a,b)=> b[1]-a[1] || a[0].localeCompare(b[0]))
+      .map(([playerId, wins]) => ({ playerId, wins, name: idToName.get(playerId) || playerId }));
+  }, [data, idToName]);
+
+  const top3 = ranking.slice(0,3);
+
+  const podium = useMemo(() => {
+    if (top3.length === 0) return null;
+    // Arrange as [second, first, third] for visual left-center-right; center tallest
+    const first = top3[0];
+    const second = top3[1];
+    const third = top3[2];
+    return [second, first, third];
+  }, [top3]);
 
   if (!data) {
     return (
@@ -46,21 +66,51 @@ export default function SessionSummary() {
           <table className="table table-zebra w-full text-xs">
             <thead><tr><th>Round</th><th>Winner</th><th>Turns</th></tr></thead>
             <tbody>
-              {data.results.map(r => (
-                <tr key={r.round}>
-                  <td>{r.round}</td>
-                  <td>{r.winnerName || r.winnerId}</td>
-                  <td>{r.turns}</td>
-                </tr>
-              ))}
+              {data.results.map(r => {
+                const name = idToName.get(r.winnerId) || r.winnerId;
+                return (
+                  <tr key={r.round}>
+                    <td>{r.round}</td>
+                    <td>{name}</td>
+                    <td>{r.turns}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-        <h3 className="font-semibold mb-2">Win Ranking</h3>
-        <ul className="mb-6 text-sm">
-          {ranking.map(r => <li key={r.playerId}>{r.playerId}: {r.wins}</li>)}
-          {ranking.length === 0 && <li className="opacity-60">No wins</li>}
-        </ul>
+        <h3 className="font-semibold mb-2">Podium (Top 3)</h3>
+        {podium ? (
+          <div className="flex items-end justify-center gap-4 mb-6 mt-4">
+            {podium.map((p, idx) => {
+              if (!p) return <div key={idx} className="w-20" />;
+              const order = idx === 1 ? 'first' : (idx === 0 ? 'second' : 'third');
+              const heights = { first: 'h-40', second: 'h-32', third: 'h-28' };
+              const bg = { first: 'bg-yellow-400', second: 'bg-gray-300', third: 'bg-amber-700 text-amber-100' };
+              return (
+                <div key={p.playerId} className="flex flex-col items-center w-24">
+                  <div className="text-xs font-semibold mb-2 whitespace-nowrap max-w-full text-center overflow-hidden text-ellipsis" title={p.name}>{p.name}</div>
+                  <div className={`flex flex-col items-center justify-end w-full rounded-t-md ${bg[order]} ${heights[order]} relative shadow`}> 
+                    <div className="text-[10px] font-bold mb-1">{order.toUpperCase()}</div>
+                    <div className="text-sm font-bold">{p.wins}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-xs opacity-60 mb-6">No wins</div>
+        )}
+        {ranking.length > 3 && (
+          <div className="mb-6 text-xs">
+            <div className="font-semibold mb-1">Other Players</div>
+            <ul className="space-y-1">
+              {ranking.slice(3).map(r => (
+                <li key={r.playerId}>{r.name}: {r.wins}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <SubmitButton type="button" className="btn-secondary" onClick={()=>nav('/dashboard')}>Return to Dashboard</SubmitButton>
       </CardContainer>
     </PageContainer>

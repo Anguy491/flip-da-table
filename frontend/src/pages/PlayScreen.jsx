@@ -55,14 +55,16 @@ export default function PlayScreen() {
 	useEffect(() => {
 		if (!winner) return;
 		const key = `uno-results-${sessionid}`;
-		let stored = { totalRounds, results: [] };
+		let stored = { totalRounds, results: [], playersMeta };
 		try { const raw = sessionStorage.getItem(key); if (raw) stored = JSON.parse(raw); } catch { /* ignore */ }
+		// ensure we always persist latest playersMeta (names may change)
+		stored.playersMeta = playersMeta;
 		if (!stored.results.some(r => r.round === roundIndex)) {
 			stored.totalRounds = totalRounds;
-			stored.results.push({ round: roundIndex, winnerId: winner.playerId, winnerName, turns: view?.turnCount || 0 });
+			stored.results.push({ round: roundIndex, winnerId: winner.playerId, turns: view?.turnCount || 0 });
 			sessionStorage.setItem(key, JSON.stringify(stored));
 		}
-	}, [winner, roundIndex, sessionid, totalRounds, winnerName, view]);
+	}, [winner, roundIndex, sessionid, totalRounds, playersMeta, view]);
 
 	const startNext = useCallback(async () => {
 		if (roundIndex >= totalRounds) return;
