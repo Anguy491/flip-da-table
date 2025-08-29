@@ -29,14 +29,22 @@ public class UnoGameService extends GameService {
 		// Build ordered player ids (simple deterministic). We'll transform provided names -> id tokens.
 		java.util.List<PlayerStartInfo> playerInfos = new java.util.ArrayList<>();
 		java.util.List<String> playerIds = new java.util.ArrayList<>();
-		int idx = 1;
+		int sequential = 1; // keeps overall order numbering for humans if needed
+		int botSeq = 1; // separate sequence so bots are BOT1, BOT2...
 		for (var spec : req.players()) {
 			if (spec.name()==null || spec.name().isBlank()) continue; // skip blanks
 			String raw = spec.name().trim();
-			String id = (spec.bot() ? "BOT" : "P") + idx + "_" + raw.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+			String sanitized = raw.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+			String id;
+			if (spec.bot()) {
+				// Requirement: bots should be named BOT1, BOT2 ... ignoring any user provided text to avoid BOT2_BOT1 style
+				id = "BOT" + botSeq++;
+			} else {
+				id = "P" + sequential + "_" + sanitized;
+				sequential++;
+			}
 			playerIds.add(id);
 			playerInfos.add(new PlayerStartInfo(id, raw, spec.bot(), spec.ready()));
-			idx++;
 		}
 		// Host perspective: first non-bot or fallback first
 		String myPlayerId = playerInfos.stream().filter(p -> !p.bot()).map(PlayerStartInfo::playerId).findFirst()
@@ -62,14 +70,21 @@ public class UnoGameService extends GameService {
 		// Reuse start logic for new round
 		java.util.List<PlayerStartInfo> playerInfos = new java.util.ArrayList<>();
 		java.util.List<String> playerIds = new java.util.ArrayList<>();
-		int idx = 1;
+		int sequential = 1;
+		int botSeq = 1;
 		for (var spec : req.players()) {
 			if (spec.name()==null || spec.name().isBlank()) continue;
 			String raw = spec.name().trim();
-			String id = (spec.bot() ? "BOT" : "P") + idx + "_" + raw.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+			String sanitized = raw.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+			String id;
+			if (spec.bot()) {
+				id = "BOT" + botSeq++;
+			} else {
+				id = "P" + sequential + "_" + sanitized;
+				sequential++;
+			}
 			playerIds.add(id);
 			playerInfos.add(new PlayerStartInfo(id, raw, spec.bot(), spec.ready()));
-			idx++;
 		}
 		String myPlayerId = playerInfos.stream().filter(p -> !p.bot()).map(PlayerStartInfo::playerId).findFirst()
 			.orElse(playerInfos.isEmpty()?null:playerInfos.get(0).playerId());
