@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getUnoView, unoCommand } from '../api/uno';
 
-// card util helper
-function matchesTop(card, top) {
+// card util helper (includes activeColor after wild plays)
+function matchesTop(card, top, activeColor) {
   if (!top) return true;
+  const isTopWild = top.value === 'WILD' || top.value === 'WILD_DRAW_FOUR';
+  if (isTopWild && activeColor) {
+    // When top is a wild and a color has been chosen, only that color (plus any wilds) is playable
+    return card.value === 'WILD' || card.value === 'WILD_DRAW_FOUR' || card.color === activeColor;
+  }
+  // Normal matching: same value OR same color OR wilds
   return card.value === top.value || (card.color && top.color && card.color === top.color) || card.value === 'WILD' || card.value === 'WILD_DRAW_FOUR';
 }
 
@@ -48,11 +54,12 @@ export default function useUnoGame({ gameId, playerId, token, autoPoll = false, 
   const playableCards = useMemo(() => {
     if (!myTurn || mustChooseColor) return [];
     const top = view?.top;
+    const activeColor = view?.activeColor;
     return hand.filter(c => {
       if (pendingDraw > 0) {
         return c.value === 'DRAW_TWO' || c.value === 'WILD_DRAW_FOUR';
       }
-      return matchesTop(c, top);
+      return matchesTop(c, top, activeColor);
     });
   }, [myTurn, mustChooseColor, hand, view, pendingDraw]);
 

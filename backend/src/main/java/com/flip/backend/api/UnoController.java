@@ -29,7 +29,7 @@ public class UnoController {
         UnoRuntimePhase runtime = registry.get(gameId);
         if (runtime == null) return ResponseEntity.notFound().build();
         var backendView = runtime.buildView(viewerId);
-        return ResponseEntity.ok(transformView(backendView));
+        return ResponseEntity.ok(transformView(runtime, backendView));
     }
 
     @PostMapping("/{gameId}/commands")
@@ -37,7 +37,7 @@ public class UnoController {
         UnoRuntimePhase runtime = registry.get(gameId);
         if (runtime == null) return ResponseEntity.ok(CommandResult.error("Game not found", null));
         var result = runtime.applyPlayerCommand(new UnoRuntimePhase.PlayerCommand(cmd.type(), cmd.playerId(), cmd.color(), cmd.value()));
-        var v = transformView(result.view());
+        var v = transformView(runtime, result.view());
         if (!result.applied()) {
             List<ErrorInfo> errs = result.errors().stream().map(e -> new ErrorInfo(e.code()+":"+e.message())).toList();
             return ResponseEntity.ok(new CommandResult(false, errs, v));
@@ -46,13 +46,14 @@ public class UnoController {
     }
 
     /** Convert internal UnoView (string hand displays) into front-end expected structure. */
-    private Map<String,Object> transformView(UnoView view) {
+    private Map<String,Object> transformView(UnoRuntimePhase runtime, UnoView view) {
         Map<String,Object> out = new LinkedHashMap<>();
         UnoBoardView b = view.board();
         out.put("phase", "RUNTIME");
         out.put("turnCount", b.turnCount());
         String topDisp = b.topCard();
         if (topDisp != null) out.put("top", parseCard(topDisp));
+        if (b.activeColor() != null) out.put("activeColor", b.activeColor());
         out.put("viewerId", view.perspectivePlayerId());
         // players
         List<Map<String,Object>> playerList = new ArrayList<>();
@@ -73,7 +74,11 @@ public class UnoController {
         }
         out.put("players", playerList);
         out.put("pendingDraw", 0);
-        out.put("mustChooseColor", false);
+        boolean mustChoose = runtime.isAwaitingColorChoice();
+        out.put("mustChooseColor", mustChoose);
+        if (mustChoose) {
+            out.put("colorChooser", runtime.awaitingColorChooser());
+        }
         return out;
     }
 

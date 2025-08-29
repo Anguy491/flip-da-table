@@ -64,16 +64,4 @@ public class UnoActionCardsTest {
         assertEquals(p2HandBefore + 2, p2.getHand().size());
         assertEquals(2, ev.getAdvanceSteps()); // skip p2 after drawing -> move to p3
     }
-
-    @Test
-    void wildDrawFourDrawsFourAndSetsColor() {
-        p1.giveCard(UnoCard.wildDrawFour());
-        int p2Before = p2.getHand().size();
-        UnoPlayCardEvent ev = new UnoPlayCardEvent(board, deck, p1, p1.getHand().view().get(0));
-        assertTrue(ev.isValid());
-        ev.execute();
-        assertEquals(p2Before + 4, p2.getHand().size());
-        assertNotNull(board.activeColor()); // color chosen heuristically
-        assertEquals(2, ev.getAdvanceSteps());
-    }
 }

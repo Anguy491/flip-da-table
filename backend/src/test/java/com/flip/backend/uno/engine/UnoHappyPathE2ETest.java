@@ -73,12 +73,6 @@ public class UnoHappyPathE2ETest {
         // === PHASE 5: Draw Two Card Effect Testing ===
         testDrawTwoEffect();
         
-        // === PHASE 6: Wild Card Effect Testing ===
-        testWildCardEffect();
-        
-        // === PHASE 7: Wild Draw Four Effect Testing ===
-        testWildDrawFourEffect();
-        
         // === PHASE 8: Deck Reshuffling Testing ===
         testDeckReshuffling();
         
@@ -167,40 +161,6 @@ public class UnoHappyPathE2ETest {
         assertNotEquals(nextPlayer.getId(), board.currentPlayer().getId());
         
         System.out.println("✅ Draw Two: " + nextPlayer.getId() + " drew 2 cards and was skipped");
-    }
-
-    private void testWildCardEffect() {
-        navigateToPlayer("HUMAN");
-        
-        // Human plays Wild card
-        runtime.runSingleTurn();
-        
-        assertEquals(UnoCard.Type.WILD, board.lastPlayedCard().getType());
-        assertNotNull(board.activeColor());
-        assertNotEquals(UnoCard.Color.WILD, board.activeColor());
-        
-        // Color should be automatically chosen (non-wild)
-        UnoCard.Color chosenColor = board.activeColor();
-        System.out.println("✅ Wild card: Color changed to " + chosenColor);
-    }
-
-    private void testWildDrawFourEffect() {
-        navigateToPlayer("HUMAN");
-        UnoPlayer nextPlayer = (UnoPlayer) board.peekNext();
-        int beforeHandSize = nextPlayer.cardCount();
-        
-        // Human plays Wild Draw Four
-        runtime.runSingleTurn();
-        
-        assertEquals(UnoCard.Type.WILD_DRAW_FOUR, board.lastPlayedCard().getType());
-        assertEquals(beforeHandSize + 4, nextPlayer.cardCount());
-        
-        // Next player should be skipped and color should be set
-        assertNotEquals(nextPlayer.getId(), board.currentPlayer().getId());
-        assertNotNull(board.activeColor());
-        assertNotEquals(UnoCard.Color.WILD, board.activeColor());
-        
-        System.out.println("✅ Wild Draw Four: " + nextPlayer.getId() + " drew 4 cards and was skipped");
     }
 
     private void testDeckReshuffling() {

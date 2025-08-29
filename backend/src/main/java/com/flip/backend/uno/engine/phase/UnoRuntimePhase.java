@@ -17,7 +17,7 @@ public class UnoRuntimePhase extends RuntimePhase {
 	private String winnerId;
 	private UnoEndingPhase endingPhase; // populated when winner decided
 	private int pendingAdvanceSteps = 1;
-
+	private String pendingColorChooserPlayerId; // if set, waiting for this human to choose wild color
 	public UnoRuntimePhase(UnoDeck deck, UnoBoard board, List<UnoPlayer> players) {
 		this.deck = deck; this.board = board; // players list not needed for now
 	}
@@ -64,6 +64,15 @@ public class UnoRuntimePhase extends RuntimePhase {
 		List<CommandError> errors = new ArrayList<>();
 		if (cmd == null || cmd.playerId() == null) return new CommandResult(false, List.of(new CommandError("BAD_REQUEST","null command")), buildView(null));
 		if (winnerId != null) return new CommandResult(false, List.of(new CommandError("FINISHED","Game already finished")), buildView(cmd.playerId()));
+		// If awaiting color selection, only that command type is allowed from the chooser
+		if (pendingColorChooserPlayerId != null && !cmd.type().equals("CHOOSE_COLOR")) {
+			// Allow only the chooser to act
+			if (!pendingColorChooserPlayerId.equals(cmd.playerId())) {
+				return new CommandResult(false, List.of(new CommandError("WAIT_COLOR","Awaiting color choice")), buildView(cmd.playerId()));
+			}
+			// Chooser attempted another action instead of choosing color
+			return new CommandResult(false, List.of(new CommandError("MUST_CHOOSE_COLOR","You must choose a color for the wild")), buildView(cmd.playerId()));
+		}
 		UnoPlayer current = (UnoPlayer) board.currentPlayer();
 		if (!current.getId().equals(cmd.playerId())) {
 			return new CommandResult(false, List.of(new CommandError("NOT_TURN","Not your turn")), buildView(cmd.playerId()));
@@ -79,14 +88,28 @@ public class UnoRuntimePhase extends RuntimePhase {
 					if (!event.isValid()) return fail("ILLEGAL_PLAY","Card not playable", cmd.playerId());
 					queue.enqueue(event);
 					processQueue();
-					applied = true; endTurn = true;
+					// After processing, detect if a color selection is required (event sets flag for human wild plays)
+					if (!current.isBot() && (card.getType()==UnoCard.Type.WILD || card.getType()==UnoCard.Type.WILD_DRAW_FOUR) && board.activeColor() == null) {
+						pendingColorChooserPlayerId = current.getId();
+						applied = true; endTurn = false; // wait for color
+					} else { applied = true; endTurn = true; }
 				}
 				case "DRAW_CARD" -> {
 					var draw = new UnoDrawCardEvent(deck, current);
 					queue.enqueue(draw); processQueue(); applied = true; endTurn = true;
 				}
-				case "CHOOSE_COLOR", "DECLARE_UNO" -> {
-					// Not implemented yet
+				case "CHOOSE_COLOR" -> {
+					if (pendingColorChooserPlayerId == null) return fail("NO_PENDING","No color selection pending", cmd.playerId());
+					if (!pendingColorChooserPlayerId.equals(cmd.playerId())) return fail("NOT_CHOOSER","Not your color choice", cmd.playerId());
+					UnoCard.Color chosen;
+					try { chosen = UnoCard.Color.valueOf(cmd.color().toUpperCase()); }
+					catch (Exception e) { return fail("BAD_COLOR","Invalid color", cmd.playerId()); }
+					if (chosen == UnoCard.Color.WILD) return fail("BAD_COLOR","Cannot choose WILD as color", cmd.playerId());
+					board.setActiveColor(chosen);
+					// Apply any delayed draw four penalty (already applied in event execute for cards) -> nothing extra now
+					pendingColorChooserPlayerId = null; applied = true; endTurn = true;
+				}
+				case "DECLARE_UNO" -> {
 					return new CommandResult(false, List.of(new CommandError("UNSUPPORTED","Command not implemented")), buildView(cmd.playerId()));
 				}
 				default -> { return new CommandResult(false, List.of(new CommandError("UNKNOWN_TYPE","Unknown command type")), buildView(cmd.playerId())); }
@@ -170,6 +193,9 @@ public class UnoRuntimePhase extends RuntimePhase {
 		}
 		return new UnoView(boardView, java.util.List.copyOf(playerViews), perspectivePlayerId);
 	}
+
+	public boolean isAwaitingColorChoice() { return pendingColorChooserPlayerId != null; }
+	public String awaitingColorChooser() { return pendingColorChooserPlayerId; }
 
 	private void planTurn(UnoPlayer player) {
 		UnoCard top = board.lastPlayedCard();

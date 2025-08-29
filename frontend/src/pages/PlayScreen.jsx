@@ -8,7 +8,7 @@ import useUnoGame from '../hooks/useUnoGame';
 import UnoPlayerStrip from '../components/uno/UnoPlayerStrip';
 import UnoHand from '../components/uno/UnoHand';
 import DiscardPile from '../components/uno/DiscardPile';
-import ColorPickerModal from '../components/uno/ColorPickerModal';
+import ChooseColorModal from '../components/uno/ChooseColorModal';
 import ActionPanel from '../components/uno/ActionPanel';
 import ResultOverlay from '../components/uno/ResultOverlay';
 import GameOverModal from '../components/uno/GameOverModal';
@@ -116,6 +116,7 @@ export default function PlayScreen() {
 										<div>Turn: {currentPlayerId?.slice(0,6)}</div>
 										<div>Pending Draw: {pendingDraw}</div>
 										<div>Must Choose Color: {mustChooseColor ? 'Yes' : 'No'}</div>
+										<div>Active Color: {view.activeColor || (mustChooseColor ? '— (await)' : (view.top?.color || '—'))}</div>
 										<div>Phase: {view.phase}</div>
 										<div>Your Turn: {myTurn ? 'Yes' : 'No'}</div>
 									</div>
@@ -131,7 +132,7 @@ export default function PlayScreen() {
 					)}
 				</CardContainer>
 			</div>
-			<ColorPickerModal open={mustChooseColor && myTurn} onPick={chooseColor} />
+			<ChooseColorModal open={mustChooseColor && myTurn} onPick={chooseColor} />
 			<ResultOverlay open={isFinished} players={view?.players || []} onClose={() => nav(-1)} />
 		<GameOverModal
 			open={modalOpen && !!winner}

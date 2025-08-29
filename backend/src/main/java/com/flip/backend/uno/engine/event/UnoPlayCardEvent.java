@@ -9,6 +9,7 @@ public class UnoPlayCardEvent extends GameEvent {
     private final UnoPlayer player;
     private final UnoCard card;
     private int advanceSteps = 1; // how many seats to step after this card resolves
+    private boolean requiresColorSelection = false; // set true when a human plays a wild and must choose
 
     public UnoPlayCardEvent(UnoBoard board, UnoDeck deck, UnoPlayer player, UnoCard card) {
         super(player, System.currentTimeMillis());
@@ -31,17 +32,39 @@ public class UnoPlayCardEvent extends GameEvent {
         player.playCard(card);
         deck.discard(card);
         UnoCard.Color chosen = null;
-        if (card.getColor() == UnoCard.Color.WILD) {
-            chosen = player.getHand().view().stream().filter(c -> c.getColor() != UnoCard.Color.WILD)
-                    .map(UnoCard::getColor).findFirst().orElse(UnoCard.Color.RED);
+        if (card.getType() == UnoCard.Type.WILD || card.getType() == UnoCard.Type.WILD_DRAW_FOUR) {
+            if (player.isBot()) {
+                // Bot auto-select color heuristically: pick most frequent remaining color (excluding wild)
+                java.util.Map<UnoCard.Color, Integer> freq = new java.util.EnumMap<>(UnoCard.Color.class);
+                for (UnoCard c : player.getHand().view()) {
+                    if (c.getColor() != UnoCard.Color.WILD) {
+                        freq.merge(c.getColor(), 1, Integer::sum);
+                    }
+                }
+                chosen = freq.entrySet().stream()
+                        .filter(e -> e.getKey() != UnoCard.Color.WILD)
+                        .max(java.util.Map.Entry.comparingByValue())
+                        .map(java.util.Map.Entry::getKey)
+                        .orElseGet(() -> {
+                            // fallback random color
+                            UnoCard.Color[] colors = {UnoCard.Color.RED, UnoCard.Color.GREEN, UnoCard.Color.BLUE, UnoCard.Color.YELLOW};
+                            return colors[new java.util.Random().nextInt(colors.length)];
+                        });
+            } else {
+                // Human must choose later -> clear any previous active color to signal pending state
+                requiresColorSelection = true;
+                chosen = null; // ensure not applied
+                // Explicitly clear active color (previous color could wrongly satisfy next-player logic)
+                board.setActiveColor(null);
+            }
         }
-        board.applyTop(card, chosen);
+        board.applyTop(card, chosen); // chosen may be null awaiting human selection
         // Apply action effects (simplified order): Skip, Reverse, Draw Two, Wild Draw Four
         switch (card.getType()) {
             case SKIP -> advanceSteps = 2; // skip next player
             case REVERSE -> { board.reverse(); advanceSteps = 1; }
             case DRAW_TWO -> { drawNext(2); advanceSteps = 2; }
-            case WILD_DRAW_FOUR -> { if (chosen == null) chosen = UnoCard.Color.RED; drawNext(4); advanceSteps = 2; }
+            case WILD_DRAW_FOUR -> { drawNext(4); advanceSteps = 2; }
             case WILD, NUMBER -> { /* no extra */ }
         }
     }
@@ -55,4 +78,6 @@ public class UnoPlayCardEvent extends GameEvent {
     }
 
     public int getAdvanceSteps() { return advanceSteps; }
+    public boolean requiresColorSelection() { return requiresColorSelection; }
+    public UnoPlayer getPlayer() { return player; }
 }
