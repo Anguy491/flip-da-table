@@ -15,7 +15,7 @@ export default function UnoCard({ card, onClick, disabled }) {
     <button
       type="button"
       onClick={() => !disabled && onClick?.(card)}
-      className={`relative w-16 h-24 rounded-lg border-2 text-white font-bold flex items-center justify-center shadow-md transition-transform ${bg} ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+      className={`relative w-24 h-48 rounded-lg border-2 text-white font-bold flex items-center justify-center shadow-md transition-transform ${bg} ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
       aria-disabled={disabled}
     >
       <span className="text-sm text-center px-1 leading-tight">

@@ -5,16 +5,23 @@ import CardContainer from '../components/CardContainer';
 import SubmitButton from '../components/SubmitButton';
 import { AuthContext } from '../context/AuthContext';
 import useUnoGame from '../hooks/useUnoGame';
-import UnoPlayerStrip from '../components/uno/UnoPlayerStrip';
-import UnoHand from '../components/uno/UnoHand';
 import DiscardPile from '../components/uno/DiscardPile';
 import ChooseColorModal from '../components/uno/ChooseColorModal';
-import ActionPanel from '../components/uno/ActionPanel';
 import ResultOverlay from '../components/uno/ResultOverlay';
 import GameOverModal from '../components/uno/GameOverModal';
-import { startFirstGame, startNextGame } from '../api/sessions';
+import { startNextGame } from '../api/sessions';
+// New layout components
+import PlayerArea from '../components/uno/layout/PlayerArea';
+import InfoPanel from '../components/uno/layout/InfoPanel';
+import EventLog from '../components/uno/layout/EventLog';
+import HandArea from '../components/uno/layout/HandArea';
 
-export default function PlayScreen() {
+/**
+ * Refactored PlayScreen implementing specified flex layout.
+ * Backwards compatibility: if props not provided (router usage), falls back to internal hook logic.
+ * Props (presentation mode): players, currentPlayerId, direction, gameCount, activeColor, pendingDraw, lastCard, events, hand, onPlay, onDraw
+ */
+export default function PlayScreen(presentationalProps) {
 	const { state } = useLocation();
 	const { sessionid } = useParams();
 	const nav = useNavigate();
@@ -34,11 +41,29 @@ export default function PlayScreen() {
 		if (!token) nav('/login');
 	}, [token, gameId, nav]);
 
-	const uno = useUnoGame({ gameId, playerId, token });
-	const { view, loading, error, myTurn, hand, playableCards, mustChooseColor, pendingDraw, isFinished, sending } = uno;
-	const { playCard, drawCard, chooseColor, declareUno } = uno.actions;
+		// If presentationalProps has players assume external control; otherwise derive from hook
+		const inPresentationalMode = !!presentationalProps?.players;
 
-	const currentPlayerId = useMemo(() => view?.players?.find(p => p.isCurrent)?.playerId, [view]);
+		const uno = useUnoGame({ gameId: inPresentationalMode ? undefined : gameId, playerId: inPresentationalMode ? undefined : playerId, token });
+		const { view, loading, error, myTurn, hand, playableCards, mustChooseColor, pendingDraw, isFinished, sending } = inPresentationalMode ? {
+			view: null,
+			loading: false,
+			error: null,
+			myTurn: true,
+			hand: presentationalProps.hand || [],
+			playableCards: presentationalProps.hand || [],
+			mustChooseColor: false,
+			pendingDraw: presentationalProps.pendingDraw || 0,
+			isFinished: false,
+			sending: false
+		} : uno;
+		const { playCard, drawCard, chooseColor } = inPresentationalMode ? {
+			playCard: (c) => presentationalProps.onPlay?.(c.id || c),
+			drawCard: () => presentationalProps.onDraw?.(),
+			chooseColor: () => {}
+		} : uno.actions;
+
+		const currentPlayerId = useMemo(() => inPresentationalMode ? presentationalProps.currentPlayerId : view?.players?.find(p => p.isCurrent)?.playerId, [inPresentationalMode, presentationalProps, view]);
 
 	// winner detection (handSize === 0)
 	const winner = useMemo(() => view?.players?.find(p => p.handSize === 0), [view]);
@@ -81,7 +106,7 @@ export default function PlayScreen() {
 
 	const leaveDashboard = useCallback(() => { nav('/dashboard'); }, [nav]);
 
-	if (!gameId) {
+	if (!gameId && !inPresentationalMode) {
 		return (
 			<PageContainer>
 				<CardContainer className="max-w-xl w-full text-center">
@@ -93,59 +118,58 @@ export default function PlayScreen() {
 		);
 	}
 
+	// Build presentation data either from props or from internal view
+    const players = inPresentationalMode ? presentationalProps.players : (view?.players || []).map(p => ({ id: p.playerId, name: p.playerId.slice(0,6), handCount: p.handSize }));
+    const direction = inPresentationalMode ? presentationalProps.direction : (view?.direction || 'CW');
+    const gameCount = inPresentationalMode ? presentationalProps.gameCount : roundIndex;
+    const activeColor = inPresentationalMode ? presentationalProps.activeColor : (view?.activeColor || view?.top?.color);
+    const lastCard = inPresentationalMode ? presentationalProps.lastCard : view?.top;
+    const events = inPresentationalMode ? presentationalProps.events : [];
+    const handCards = inPresentationalMode ? presentationalProps.hand : hand;
+    const playableIds = new Set(playableCards.map(c => c.id || c));
+
 	return (
 		<PageContainer>
-			<div className="w-full flex flex-col gap-4 items-center">
-				<div className="flex w-full max-w-5xl justify-between items-center px-2">
-					<div className="text-xs opacity-70">Session <span className="font-mono font-semibold">{sessionid}</span></div>
-					<div className="text-xs opacity-70">Game <span className="font-mono font-semibold">{gameId}</span> Round {roundIndex}</div>
-					<div>
-						<button type="button" className="btn btn-ghost btn-xs" onClick={() => nav(-1)}>Back</button>
-					</div>
+			<div className="w-full max-w-6xl mx-auto flex flex-col gap-2">{/* main vertical container */}
+				{/* Top meta bar */}
+				<div className="flex justify-between items-center text-xs px-2">
+					<div className="opacity-70">Session <span className="font-mono font-semibold">{sessionid}</span></div>
+					<div className="opacity-70">Game <span className="font-mono font-semibold">{gameId}</span></div>
+					<button type="button" className="btn btn-ghost btn-xs" onClick={() => nav(-1)}>Back</button>
 				</div>
-
-				<CardContainer className="max-w-5xl w-full">
-					<h2 className="text-lg font-semibold text-center mb-2">UNO</h2>
-					{loading && <div className="text-center text-xs opacity-70">Loading...</div>}
-					{error && <div className="alert alert-error py-1 px-2 text-xs mb-2">{error}</div>}
-					{view && (
-						<div className="flex flex-col gap-6">
-							<UnoPlayerStrip players={view.players} currentPlayerId={currentPlayerId} viewerId={view.viewerId} />
-							<div className="flex flex-col items-center gap-4">
-								<div className="flex items-center gap-6">
-									<DiscardPile top={view.top} />
-									<div className="flex flex-col gap-1 text-xs">
-										<div>Turn: {currentPlayerId?.slice(0,6)}</div>
-										<div>Pending Draw: {pendingDraw}</div>
-										<div>Must Choose Color: {mustChooseColor ? 'Yes' : 'No'}</div>
-										<div>Active Color: {view.activeColor || (mustChooseColor ? '— (await)' : (view.top?.color || '—'))}</div>
-										<div>Phase: {view.phase}</div>
-										<div>Your Turn: {myTurn ? 'Yes' : 'No'}</div>
-									</div>
-								</div>
-								<div className="w-full">
-									<h3 className="text-sm font-semibold mb-1 text-center">Your Hand</h3>
-									<UnoHand hand={hand} playableCards={playableCards} onPlay={playCard} myTurn={myTurn} mustChooseColor={mustChooseColor} />
-								</div>
-								<ActionPanel myTurn={myTurn} canDraw={uno.canDraw} onDraw={drawCard} onDeclareUno={declareUno} canDeclareUno={uno.canDeclareUno} pendingDraw={pendingDraw} isFinished={isFinished} sending={sending} />
-								<div className="text-center text-xs opacity-70">{myTurn ? (mustChooseColor ? 'Choose a color.' : playableCards.length ? 'Select a playable card or draw.' : 'No playable card: draw a card.') : 'Waiting for opponent / bot...'}</div>
-							</div>
+				<CardContainer noMax className="flex-1 flex flex-col p-2 h-full">{/* Outer card hosting the 1:3:2 layout (override default max-w) */}
+					<div className="flex flex-col h-full w-full">
+						{/* PlayerArea */}
+						<div className="flex-[1_1_0] border-b mb-1 pb-1"><PlayerArea players={players} currentPlayerId={currentPlayerId} /></div>
+						{/* GameMain */}
+						<div className="flex-[3_1_0] flex flex-row gap-2 py-1">
+							{/* DiscardPile column */}
+							<div className="flex-[1_1_0] flex items-center justify-center"><DiscardPile top={lastCard} /></div>
+							{/* InfoPanel column */}
+							<div className="flex-[2_1_0] bg-base-200/40 rounded"><InfoPanel gameCount={gameCount} direction={direction} activeColor={activeColor} currentPlayerName={players.find(p=>p.id===currentPlayerId)?.name} pendingDraw={pendingDraw} /></div>
+							{/* EventLog column */}
+							<div className="flex-[3_1_0]"><EventLog events={events} /></div>
 						</div>
-					)}
+						{/* HandArea */}
+						<div className="flex-[2_1_0] mt-1 pt-1 border-t">
+							<HandArea hand={handCards} playableIds={playableIds} disabled={!myTurn || mustChooseColor || isFinished} onPlay={playCard} onDraw={drawCard} pendingDraw={pendingDraw} />
+							<div className="text-center text-xs opacity-70 mt-1">{myTurn ? (mustChooseColor ? 'Choose a color.' : playableCards.length ? 'Select a playable card or draw.' : 'No playable card: draw a card.') : 'Waiting for opponent / bot...'}</div>
+						</div>
+					</div>
 				</CardContainer>
 			</div>
 			<ChooseColorModal open={mustChooseColor && myTurn} onPick={chooseColor} />
 			<ResultOverlay open={isFinished} players={view?.players || []} onClose={() => nav(-1)} />
-		<GameOverModal
-			open={modalOpen && !!winner}
-			winnerName={winnerName}
-			winnerId={winner?.playerId}
-			turns={view?.turnCount || 0}
-			onClose={leaveDashboard}
-			onNext={startNext}
-			isLast={roundIndex >= totalRounds}
-			onSummary={goSummary}
-		/>
-	</PageContainer>
+			<GameOverModal
+				open={modalOpen && !!winner}
+				winnerName={winnerName}
+				winnerId={winner?.playerId}
+				turns={view?.turnCount || 0}
+				onClose={leaveDashboard}
+				onNext={startNext}
+				isLast={roundIndex >= totalRounds}
+				onSummary={goSummary}
+			/>
+		</PageContainer>
 	);
 }
