@@ -45,7 +45,7 @@ export default function PlayScreen(presentationalProps) {
 		const inPresentationalMode = !!presentationalProps?.players;
 
 		const uno = useUnoGame({ gameId: inPresentationalMode ? undefined : gameId, playerId: inPresentationalMode ? undefined : playerId, token });
-		const { view, loading, error, myTurn, hand, playableCards, mustChooseColor, pendingDraw, isFinished, sending } = inPresentationalMode ? {
+		const { view, loading, error, myTurn, hand, playableCards, mustChooseColor, pendingDraw, isFinished, sending, events: hookEvents } = inPresentationalMode ? {
 			view: null,
 			loading: false,
 			error: null,
@@ -55,7 +55,8 @@ export default function PlayScreen(presentationalProps) {
 			mustChooseColor: false,
 			pendingDraw: presentationalProps.pendingDraw || 0,
 			isFinished: false,
-			sending: false
+			sending: false,
+			events: presentationalProps.events || []
 		} : uno;
 		const { playCard, drawCard, chooseColor } = inPresentationalMode ? {
 			playCard: (c) => presentationalProps.onPlay?.(c.id || c),
@@ -124,7 +125,7 @@ export default function PlayScreen(presentationalProps) {
     const gameCount = inPresentationalMode ? presentationalProps.gameCount : roundIndex;
     const activeColor = inPresentationalMode ? presentationalProps.activeColor : (view?.activeColor || view?.top?.color);
     const lastCard = inPresentationalMode ? presentationalProps.lastCard : view?.top;
-    const events = inPresentationalMode ? presentationalProps.events : [];
+	const events = inPresentationalMode ? presentationalProps.events : (hookEvents || view?.events || []);
     const handCards = inPresentationalMode ? presentationalProps.hand : hand;
     const playableIds = new Set(playableCards.map(c => c.id || c));
 
@@ -142,7 +143,7 @@ export default function PlayScreen(presentationalProps) {
 						{/* PlayerArea */}
 						<div className="flex-[1_1_0] border-b mb-1 pb-1"><PlayerArea players={players} currentPlayerId={currentPlayerId} /></div>
 						{/* GameMain */}
-						<div className="flex-[3_1_0] flex flex-row gap-2 py-1">
+						<div className="flex-[3_1_0] flex flex-row gap-2 py-1 max-h-32">
 							{/* DiscardPile column */}
 							<div className="flex-[1_1_0] flex items-center justify-center"><DiscardPile top={lastCard} /></div>
 							{/* InfoPanel column */}

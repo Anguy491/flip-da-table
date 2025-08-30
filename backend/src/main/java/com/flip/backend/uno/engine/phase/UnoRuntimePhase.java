@@ -18,6 +18,20 @@ public class UnoRuntimePhase extends RuntimePhase {
 	private UnoEndingPhase endingPhase; // populated when winner decided
 	private int pendingAdvanceSteps = 1;
 	private String pendingColorChooserPlayerId; // if set, waiting for this human to choose wild color
+	private java.util.function.Consumer<UnoRuntimePhase> turnListener; // callback after each turn advance
+	// --- Action log (Stage 1) ---
+	public record ActionLogEntry(long seq, long turnId, String type, String actorId, String text, long ts) {}
+	private final java.util.Deque<ActionLogEntry> actionLog = new java.util.ArrayDeque<>();
+	private long nextSeq = 1L;
+	private static final int LOG_CAPACITY = 50;
+	private void addLog(String type, String actorId, String text) {
+		long seq = nextSeq++;
+		actionLog.addLast(new ActionLogEntry(seq, board.turnCount(), type, actorId, text, System.currentTimeMillis()));
+		while (actionLog.size() > LOG_CAPACITY) actionLog.removeFirst();
+	}
+	public java.util.List<ActionLogEntry> actionLogSnapshot() { return java.util.List.copyOf(actionLog); }
+	public long lastEventSeq() { return actionLog.isEmpty() ? 0L : actionLog.getLast().seq(); }
+	public void setTurnListener(java.util.function.Consumer<UnoRuntimePhase> l) { this.turnListener = l; }
 	public UnoRuntimePhase(UnoDeck deck, UnoBoard board, List<UnoPlayer> players) {
 		this.deck = deck; this.board = board; // players list not needed for now
 	}
@@ -41,6 +55,9 @@ public class UnoRuntimePhase extends RuntimePhase {
 		processQueue();
 		if (resolveWinnerIfAny(current)) return;
 		advanceTurn();
+		// Log turn advance (bot sequence)
+		addLog("TURN", null, "Turn -> " + board.currentPlayer().getId());
+		if (turnListener != null) turnListener.accept(this);
 	}
 
 	private boolean resolveWinnerIfAny(UnoPlayer current) {
@@ -108,6 +125,7 @@ public class UnoRuntimePhase extends RuntimePhase {
 					board.setActiveColor(chosen);
 					// Apply any delayed draw four penalty (already applied in event execute for cards) -> nothing extra now
 					pendingColorChooserPlayerId = null; applied = true; endTurn = true;
+					addLog("COLOR_CHOOSE", cmd.playerId(), cmd.playerId()+" chose "+chosen.name());
 				}
 				case "DECLARE_UNO" -> {
 					return new CommandResult(false, List.of(new CommandError("UNSUPPORTED","Command not implemented")), buildView(cmd.playerId()));
@@ -119,6 +137,8 @@ public class UnoRuntimePhase extends RuntimePhase {
 			}
 			if (endTurn) {
 				advanceTurn();
+				addLog("TURN", null, "Turn -> " + board.currentPlayer().getId());
+				if (turnListener != null) turnListener.accept(this);
 				// Auto-run consecutive bot turns
 				while (winnerId == null && board.currentPlayer() instanceof UnoBot) {
 					runBotTurn();
@@ -219,11 +239,16 @@ public class UnoRuntimePhase extends RuntimePhase {
 				if (e instanceof UnoDrawCardEvent d) {
 					UnoCard drawn = d.drawnCard();
 					UnoPlayer player = (UnoPlayer) d.source();
+					addLog("DRAW", player.getId(), player.getId()+" drew 1 card");
 					if (drawn != null && canPlay(drawn, board.lastPlayedCard(), board.activeColor())) {
 						queue.enqueue(new UnoPlayCardEvent(board, deck, player, drawn));
 					}
 				} else if (e instanceof UnoPlayCardEvent pce) {
 					pendingAdvanceSteps = pce.getAdvanceSteps();
+					UnoCard card = board.lastPlayedCard();
+					UnoPlayer player = pce.getPlayer();
+					String disp = card != null ? card.getDisplay() : "?";
+					addLog("PLAY", player.getId(), player.getId()+" played "+disp + (card!=null && card.getType()==UnoCard.Type.WILD?" (color "+(board.activeColor()!=null?board.activeColor().name():"?")+")":""));
 				}
 			}
 		}

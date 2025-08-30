@@ -7,13 +7,15 @@ import com.flip.backend.uno.engine.view.UnoPlayerView;
 import com.flip.backend.uno.engine.view.UnoBoardView;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.*;
 
 @RestController
 @RequestMapping("/api/games/uno")
 public class UnoController {
     private final UnoGameRegistry registry;
-    public UnoController(UnoGameRegistry registry) { this.registry = registry; }
+    private final UnoSseService sseService;
+    public UnoController(UnoGameRegistry registry, UnoSseService sseService) { this.registry = registry; this.sseService = sseService; }
 
     /** DTO for incoming commands. */
     public record UnoCommand(String type, String playerId, String color, String value) {}
@@ -36,13 +38,30 @@ public class UnoController {
     public ResponseEntity<CommandResult> command(@PathVariable String gameId, @RequestBody UnoCommand cmd) {
         UnoRuntimePhase runtime = registry.get(gameId);
         if (runtime == null) return ResponseEntity.ok(CommandResult.error("Game not found", null));
+        // Ensure listener installed
+        if (runtime.actionLogSnapshot().isEmpty()) { // crude guard for first-time
+            runtime.setTurnListener(rt -> {
+                // Broadcast generic perspective (no private hand exposure)
+                var vGen = transformView(rt, rt.buildView(null));
+                sseService.broadcastView(gameId, vGen);
+            });
+        }
         var result = runtime.applyPlayerCommand(new UnoRuntimePhase.PlayerCommand(cmd.type(), cmd.playerId(), cmd.color(), cmd.value()));
         var v = transformView(runtime, result.view());
         if (!result.applied()) {
             List<ErrorInfo> errs = result.errors().stream().map(e -> new ErrorInfo(e.code()+":"+e.message())).toList();
+            // Broadcast even on error? Only if state mutated. For simplicity: broadcast always.
+            sseService.broadcastView(gameId, v);
             return ResponseEntity.ok(new CommandResult(false, errs, v));
         }
+        sseService.broadcastView(gameId, v);
         return ResponseEntity.ok(new CommandResult(true, List.of(), v));
+    }
+
+    /** SSE stream for live view updates. */
+    @GetMapping("/{gameId}/stream")
+    public SseEmitter stream(@PathVariable String gameId) {
+        return sseService.subscribe(gameId);
     }
 
     /** Convert internal UnoView (string hand displays) into front-end expected structure. */
@@ -79,6 +98,19 @@ public class UnoController {
         if (mustChoose) {
             out.put("colorChooser", runtime.awaitingColorChooser());
         }
+        // --- Action events (Stage 1) ---
+        var events = new ArrayList<Map<String,Object>>();
+        for (var e : runtime.actionLogSnapshot()) {
+            Map<String,Object> ev = new LinkedHashMap<>();
+            ev.put("id", e.seq());
+            ev.put("type", e.type());
+            ev.put("actorId", e.actorId());
+            ev.put("text", e.text());
+            ev.put("ts", e.ts());
+            events.add(ev);
+        }
+        out.put("events", events);
+        out.put("lastEventSeq", runtime.lastEventSeq());
         return out;
     }
 

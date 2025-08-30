@@ -23,6 +23,7 @@ public class SecurityConfig {
            .authorizeHttpRequests(auth -> auth
               .requestMatchers("/api/health", "/actuator/health", "/api/auth/register", "/api/auth/login").permitAll()
               .requestMatchers("/ws/**").permitAll()
+              .requestMatchers("/api/games/uno/*/stream").permitAll()
               .anyRequest().authenticated()
            )
            .httpBasic(Customizer.withDefaults());

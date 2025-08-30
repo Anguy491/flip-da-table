@@ -15,11 +15,14 @@ function matchesTop(card, top, activeColor) {
 
 export default function useUnoGame({ gameId, playerId, token, autoPoll = false, pollMs = 5000 }) {
   const [view, setView] = useState(null);
+  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [lastResult, setLastResult] = useState(null);
   const timerRef = useRef(null);
+  const sseRef = useRef(null);
+  const sseFailures = useRef(0);
 
   const load = useCallback(async () => {
   if (!gameId || !playerId) { setLoading(false); return; }
@@ -27,6 +30,7 @@ export default function useUnoGame({ gameId, playerId, token, autoPoll = false, 
       setLoading(true); setError('');
       const v = await getUnoView(gameId, playerId, token);
       setView(v);
+  if (Array.isArray(v?.events)) setEvents(v.events);
     } catch (e) {
       setError(e.message || 'Failed to load view');
     } finally { setLoading(false); }
@@ -34,10 +38,41 @@ export default function useUnoGame({ gameId, playerId, token, autoPoll = false, 
 
   useEffect(() => { load(); }, [load]);
 
+  // SSE setup (Stage 2)
+  useEffect(() => {
+    if (!gameId || !playerId || !token) return;
+    // Avoid duplicate
+    if (sseRef.current) return;
+    try {
+      const ev = new EventSource(`/api/games/uno/${gameId}/stream`);
+      sseRef.current = ev;
+      ev.onmessage = (m) => {
+        // Default unnamed events (INIT) ignored; named handled in addEventListener below
+      };
+      ev.addEventListener('VIEW', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          // Because SSE broadcast uses null perspective, we only take public fields (no private hand) unless a command response overrides later.
+          setView(v => ({ ...(v||{}), ...payload }));
+          if (Array.isArray(payload?.events)) setEvents(payload.events);
+        } catch {/* ignore parse errors */}
+      });
+      ev.onerror = () => {
+        sseFailures.current += 1;
+        ev.close();
+        sseRef.current = null;
+      };
+    } catch (e) {
+      sseFailures.current += 1;
+    }
+    return () => { if (sseRef.current) { sseRef.current.close(); sseRef.current = null; } };
+  }, [gameId, playerId, token]);
+
   // polling optional (for future multi-human games)
   useEffect(() => {
-    if (!autoPoll || !view) return;
-    if (view.phase === 'FINISHED') return; // stop after finish
+    const needPollingFallback = autoPoll || (!sseRef.current && sseFailures.current > 0);
+    if (!needPollingFallback || !view) return;
+    if (view.phase === 'FINISHED') return;
     timerRef.current && clearInterval(timerRef.current);
     timerRef.current = setInterval(() => { load(); }, pollMs);
     return () => timerRef.current && clearInterval(timerRef.current);
@@ -70,6 +105,7 @@ export default function useUnoGame({ gameId, playerId, token, autoPoll = false, 
   const applyResult = (resp) => {
     setLastResult(resp);
     if (resp?.view) setView(resp.view);
+  if (Array.isArray(resp?.view?.events)) setEvents(resp.view.events);
     if (!resp.applied && resp.errors?.length) {
       setError(resp.errors.map(e => e.message).join('; '));
     } else {
@@ -112,6 +148,7 @@ export default function useUnoGame({ gameId, playerId, token, autoPoll = false, 
 
   return {
     view, loading, sending, error, lastResult,
+  events,
     myTurn, hand, playableCards, canDraw, canDeclareUno, mustChooseColor, pendingDraw, isFinished,
     actions: { playCard, drawCard, chooseColor, declareUno, reload: load },
   };
