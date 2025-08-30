@@ -15,6 +15,7 @@ import PlayerArea from '../components/uno/layout/PlayerArea';
 import InfoPanel from '../components/uno/layout/InfoPanel';
 import EventLog from '../components/uno/layout/EventLog';
 import HandArea from '../components/uno/layout/HandArea';
+import usePlayAnimations from '../hooks/usePlayAnimations';
 
 /**
  * Refactored PlayScreen implementing specified flex layout.
@@ -126,6 +127,9 @@ export default function PlayScreen(presentationalProps) {
     const activeColor = inPresentationalMode ? presentationalProps.activeColor : (view?.activeColor || view?.top?.color);
     const lastCard = inPresentationalMode ? presentationalProps.lastCard : view?.top;
 	const events = inPresentationalMode ? presentationalProps.events : (hookEvents || view?.events || []);
+
+	// Attach play animation hook (only runtime mode)
+	usePlayAnimations({ view });
     const handCards = inPresentationalMode ? presentationalProps.hand : hand;
     const playableIds = new Set(playableCards.map(c => c.id || c));
 
@@ -145,7 +149,7 @@ export default function PlayScreen(presentationalProps) {
 						{/* GameMain */}
 						<div className="flex-[3_1_0] flex flex-row gap-2 py-1 max-h-32">
 							{/* DiscardPile column */}
-							<div className="flex-[1_1_0] flex items-center justify-center"><DiscardPile top={lastCard} /></div>
+							<div className="flex-[1_1_0] flex items-center justify-center" data-role="discard"><DiscardPile top={lastCard} /></div>
 							{/* InfoPanel column */}
 							<div className="flex-[2_1_0] bg-base-200/40 rounded"><InfoPanel gameCount={gameCount} direction={direction} activeColor={activeColor} currentPlayerName={players.find(p=>p.id===currentPlayerId)?.name} pendingDraw={pendingDraw} /></div>
 							{/* EventLog column */}

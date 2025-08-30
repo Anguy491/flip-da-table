@@ -12,6 +12,7 @@ export default function PlayerArea({ players = [], currentPlayerId }) {
         return (
           <div
             key={p.id}
+            data-player-id={p.id}
             className={`flex-1 min-w-[90px] flex flex-col items-center justify-center rounded-md border text-xs relative py-1 select-none transition-colors ${isCurrent ? 'border-primary bg-primary/10 shadow-inner' : 'border-base-300 bg-base-200/40'}`}
           >
             <div className="flex flex-col items-center gap-1">

@@ -1,0 +1,99 @@
+import { useEffect, useRef } from 'react';
+
+export default function usePlayAnimations({ view }) {
+  const lastSeqRef = useRef(0);
+  const queueRef = useRef([]);
+  const playingRef = useRef(false);
+  const styleInjectedRef = useRef(false);
+
+  const DURATION = 900;
+  const GAP = 120;
+
+  useEffect(() => {
+    if (styleInjectedRef.current) return;
+    const css = `@keyframes unoPlayPulse {0%{transform:translate(-50%,-50%) scale(1)}30%{transform:translate(-50%,-50%) scale(1.38) rotate(-4deg)}45%{transform:translate(-50%,-50%) scale(1.30) rotate(3deg)}60%{transform:translate(-50%,-50%) scale(1.36) rotate(-2deg)}75%{transform:translate(-50%,-50%) scale(1.26) rotate(2deg)}100%{transform:translate(-50%,-50%) scale(1)} }
+    @keyframes unoRing {0%{transform:translate(-50%,-50%) scale(.55);opacity:.85;}65%{opacity:.25;}100%{transform:translate(-50%,-50%) scale(1.5);opacity:0;}}
+    .uno-play-overlay{position:fixed;left:0;top:0;z-index:9998;pointer-events:none;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;width:80px;height:120px;border-radius:12px;border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.35);transform:translate(-50%,-50%) scale(1);}
+    .uno-play-overlay.animating{animation:unoPlayPulse ${DURATION}ms cubic-bezier(.34,1.56,.4,1);}
+    .uno-play-overlay .ring{position:absolute;left:50%;top:50%;width:100%;height:100%;border:3px solid rgba(255,255,255,.55);border-radius:14px;transform:translate(-50%,-50%) scale(.55);opacity:.9;animation:unoRing ${DURATION}ms ease forwards;}
+    `;
+    const tag = document.createElement('style');
+    tag.id = 'uno-play-overlay-style';
+    tag.textContent = css;
+    document.head.appendChild(tag);
+    styleInjectedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!view?.events) return;
+    const fresh = view.events.filter(e => e.type === 'PLAY' && e.id > lastSeqRef.current);
+    if (fresh.length === 0) return;
+    lastSeqRef.current = Math.max(...fresh.map(e => e.id));
+    fresh.forEach(e => queueRef.current.push(e));
+    if (!playingRef.current) playNext();
+  }, [view]);
+
+  function playNext() {
+    const ev = queueRef.current.shift();
+    if (!ev) { playingRef.current = false; return; }
+    playingRef.current = true;
+    animateOverlay(ev)
+      .then(() => new Promise(r => setTimeout(r, GAP)))
+      .finally(() => playNext());
+  }
+
+  function animateOverlay(ev) {
+    return new Promise(resolve => {
+      const discardWrapper = document.querySelector('[data-role="discard"]');
+      if (!discardWrapper) return resolve();
+      const targetRect = discardWrapper.getBoundingClientRect();
+
+      const cardInfo = parseCardFromText(ev.text || '');
+
+      const overlay = document.createElement('div');
+      overlay.className = 'uno-play-overlay animating';
+      overlay.style.left = (targetRect.left + targetRect.width / 2) + 'px';
+      overlay.style.top = (targetRect.top + targetRect.height / 2) + 'px';
+
+      if (cardInfo.colorStyle) {
+        overlay.style.background = cardInfo.colorStyle.bg;
+        overlay.style.color = cardInfo.colorStyle.fg;
+        if (cardInfo.colorStyle.border) overlay.style.borderColor = cardInfo.colorStyle.border;
+      } else {
+        overlay.style.background = '#444';
+      }
+      overlay.textContent = cardInfo.label;
+      const ring = document.createElement('div');
+      ring.className = 'ring';
+      overlay.appendChild(ring);
+      document.body.appendChild(overlay);
+
+      setTimeout(() => { overlay.remove(); resolve(); }, DURATION + 40);
+    });
+  }
+
+  function parseCardFromText(txt) {
+    const out = { label: 'CARD', colorStyle: null };
+    const afterPlayed = txt.split('played ').pop() || '';
+    let core = afterPlayed.split(' (color')[0].trim();
+    const colors = ['RED','GREEN','BLUE','YELLOW'];
+    const colorMap = { RED:{bg:'#ef4444',fg:'#fff'}, GREEN:{bg:'#22c55e',fg:'#fff'}, BLUE:{bg:'#3b82f6',fg:'#fff'}, YELLOW:{bg:'#facc15',fg:'#000'} };
+    let color = null; let value = core;
+    const parts = core.split(/\s+/);
+    if (parts.length >= 2 && colors.includes(parts[0])) { color = parts[0]; value = parts.slice(1).join('_'); }
+    value = value.replace(/\s+/g,'_');
+    let label = value;
+    if (label === 'DRAW_TWO') label = '+2';
+    else if (label === 'WILD_DRAW_FOUR') label = '+4';
+    else if (label === 'REVERSE') label = '↺';
+    else if (label === 'SKIP') label = '⦸';
+    else if (label === 'WILD') label = 'WILD';
+    if (!color && value.startsWith('WILD')) {
+      out.colorStyle = { bg: 'linear-gradient(135deg,#111,#000,#333)', fg:'#fff', border:'#facc15' };
+    } else if (color && colorMap[color]) {
+      out.colorStyle = { ...colorMap[color] };
+    }
+    out.label = label;
+    return out;
+  }
+}
