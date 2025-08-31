@@ -1,3 +1,7 @@
+{
+	admin off
+}
+
 game.anguy.dev {
 	encode gzip
 	log {
@@ -5,21 +9,13 @@ game.anguy.dev {
 		format json
 	}
 
-	reverse_proxy /api/* backend:8080 {
-		header_up Host {host}
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
-		header_up X-Forwarded-Proto {scheme}
-	}
-	reverse_proxy /ws backend:8080 {
-		header_up Host {host}
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
-		header_up X-Forwarded-Proto {scheme}
+	@ws path /ws
+	reverse_proxy @ws backend:8080 {
 		transport http {
 			versions h1
 		}
 	}
 
+	reverse_proxy /api/* backend:8080
 	reverse_proxy frontend:80
 }

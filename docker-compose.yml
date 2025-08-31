@@ -57,8 +57,6 @@ services:
     depends_on:
       - frontend
       - backend
-    environment:
-      CADDY_ADMIN: off
     restart: unless-stopped
 
 volumes:
