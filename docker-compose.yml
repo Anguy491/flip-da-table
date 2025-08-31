@@ -18,8 +18,7 @@ services:
       retries: 5
 
   backend:
-    # Uses pre-built image (build jar on host then: docker build -t flip-da-table-backend ./backend)
-    image: flip-da-table-backend
+    image: anguy491/v1:latest
     depends_on:
       postgres:
         condition: service_healthy
@@ -27,7 +26,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/flip
       SPRING_DATASOURCE_USERNAME: flip
       SPRING_DATASOURCE_PASSWORD: flip
-      APP_JWT_SECRET: ${APP_JWT_SECRET:-dev-local-secret-change}
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
       JAVA_OPTS: -XX:MaxRAMPercentage=75.0
     expose:
       - "8080"
@@ -38,14 +37,11 @@ services:
       retries: 5
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: anguy491/flip-frontend:latest
     depends_on:
       - backend
     ports:
       - "80:80"
-    # No volumes: built assets baked into image
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://localhost/healthz.json || exit 1"]
       interval: 30s
