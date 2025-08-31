@@ -2,10 +2,10 @@
 # Stage 1: build static assets
 FROM node:20-alpine AS build
 WORKDIR /app
-# Install deps (if you later add a lock file, COPY it here too for better caching)
+# Copy manifests first for better layer caching
 COPY package.json ./
 RUN npm install --no-audit --no-fund || true
-COPY . .
+COPY frontend/. .
 RUN npm run build
 
 # Stage 2: lightweight nginx serving the built SPA + reverse proxy config
