@@ -1,0 +1,17 @@
+# Exclude sources & build tooling for runtime-only image
+src/
+.gradle/
+gradle/
+gradlew
+gradlew.bat
+
+# Ignore everything under build except the libs directory with jars
+build/*
+!build/libs/
+!build/libs/*.jar
+
+# Misc
+**/*.iml
+.idea/
+.vscode/
+.git/

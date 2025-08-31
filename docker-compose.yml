@@ -18,9 +18,8 @@ services:
       retries: 5
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    # Uses pre-built image (build jar on host then: docker build -t flip-da-table-backend ./backend)
+    image: flip-da-table-backend
     depends_on:
       postgres:
         condition: service_healthy
