@@ -10,6 +10,7 @@ public class UnoPlayCardEvent extends GameEvent {
     private final UnoCard card;
     private int advanceSteps = 1; // how many seats to step after this card resolves
     private boolean requiresColorSelection = false; // set true when a human plays a wild and must choose
+    private int penaltyAmount = 0; // 2 for DRAW_TWO, 4 for WILD_DRAW_FOUR, 0 otherwise (stacking handled in runtime phase)
 
     public UnoPlayCardEvent(UnoBoard board, UnoDeck deck, UnoPlayer player, UnoCard card) {
         super(player, System.currentTimeMillis());
@@ -59,23 +60,19 @@ public class UnoPlayCardEvent extends GameEvent {
             }
         }
         board.applyTop(card, chosen); // chosen may be null awaiting human selection
-        // Apply action effects (simplified order): Skip, Reverse, Draw Two, Wild Draw Four
+        // Apply action effects (reworked for stacking penalties):
+        // - DRAW_TWO / WILD_DRAW_FOUR no longer immediately force next player to draw; instead we set penaltyAmount.
+        //   Turn advances only 1 seat so targeted player can react (stack or accept penalty).
         switch (card.getType()) {
             case SKIP -> advanceSteps = 2; // skip next player
             case REVERSE -> { board.reverse(); advanceSteps = 1; }
-            case DRAW_TWO -> { drawNext(2); advanceSteps = 2; }
-            case WILD_DRAW_FOUR -> { drawNext(4); advanceSteps = 2; }
+            case DRAW_TWO -> { penaltyAmount = 2; advanceSteps = 1; }
+            case WILD_DRAW_FOUR -> { penaltyAmount = 4; advanceSteps = 1; }
             case WILD, NUMBER -> { /* no extra */ }
         }
     }
 
-    private void drawNext(int n) {
-        UnoPlayer target = (UnoPlayer) board.peekNext();
-        for (int i=0;i<n;i++) {
-            UnoCard d = deck.draw();
-            if (d != null) target.giveCard(d);
-        }
-    }
+    public int getPenaltyAmount() { return penaltyAmount; }
 
     public int getAdvanceSteps() { return advanceSteps; }
     public boolean requiresColorSelection() { return requiresColorSelection; }

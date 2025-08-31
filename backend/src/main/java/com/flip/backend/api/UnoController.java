@@ -92,7 +92,12 @@ public class UnoController {
             playerList.add(p);
         }
         out.put("players", playerList);
-        out.put("pendingDraw", 0);
+        // Stacking penalty exposure
+        int pen = runtime.pendingDrawPenalty();
+        out.put("pendingDraw", pen);
+        if (pen > 0 && runtime.pendingPenaltyType() != null) {
+            out.put("pendingDrawType", runtime.pendingPenaltyType().name());
+        }
         boolean mustChoose = runtime.isAwaitingColorChoice();
         out.put("mustChooseColor", mustChoose);
         if (mustChoose) {

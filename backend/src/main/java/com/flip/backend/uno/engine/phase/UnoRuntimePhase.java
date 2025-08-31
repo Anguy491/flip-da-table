@@ -17,6 +17,9 @@ public class UnoRuntimePhase extends RuntimePhase {
 	private String winnerId;
 	private UnoEndingPhase endingPhase; // populated when winner decided
 	private int pendingAdvanceSteps = 1;
+	// Stacking penalty state: if >0, the current player must either play same penalty type card to stack or draw total and lose turn
+	private int pendingDrawPenalty = 0; // total cards to draw if player cannot / chooses not to stack
+	private UnoCard.Type pendingPenaltyType = null; // DRAW_TWO or WILD_DRAW_FOUR while stacking
 	private String pendingColorChooserPlayerId; // if set, waiting for this human to choose wild color
 	private java.util.function.Consumer<UnoRuntimePhase> turnListener; // callback after each turn advance
 	// --- Action log (Stage 1) ---
@@ -51,11 +54,32 @@ public class UnoRuntimePhase extends RuntimePhase {
 
 	private void runBotTurn() {
 		UnoPlayer current = (UnoPlayer) board.currentPlayer();
+		// If under stacking penalty: bot either stacks or takes penalty; no other options
+		if (pendingDrawPenalty > 0) {
+			UnoCard stackable = current.getHand().view().stream()
+				.filter(c -> c.getType() == pendingPenaltyType)
+				.findFirst().orElse(null);
+			if (stackable != null) {
+				queue.enqueue(new UnoPlayCardEvent(board, deck, current, stackable));
+				processQueue();
+				if (resolveWinnerIfAny(current)) return;
+				advanceTurn();
+				addLog("TURN", null, "Turn -> " + board.currentPlayer().getId());
+				if (turnListener != null) turnListener.accept(this);
+				return;
+			} else {
+				applyAccumulatedPenalty(current); // draws all, loses turn
+				if (resolveWinnerIfAny(current)) return; // Unlikely after drawing, but safe
+				advanceTurn();
+				addLog("TURN", null, "Turn -> " + board.currentPlayer().getId());
+				if (turnListener != null) turnListener.accept(this);
+				return;
+			}
+		}
 		planTurn(current);
 		processQueue();
 		if (resolveWinnerIfAny(current)) return;
 		advanceTurn();
-		// Log turn advance (bot sequence)
 		addLog("TURN", null, "Turn -> " + board.currentPlayer().getId());
 		if (turnListener != null) turnListener.accept(this);
 	}
@@ -103,6 +127,15 @@ public class UnoRuntimePhase extends RuntimePhase {
 					if (card == null) return fail("CARD_NOT_FOUND","Card not in hand", cmd.playerId());
 					var event = new UnoPlayCardEvent(board, deck, current, card);
 					if (!event.isValid()) return fail("ILLEGAL_PLAY","Card not playable", cmd.playerId());
+					// If there is an active stacking penalty, only allow playing same penalty type to stack (or any wild needing color choice?)
+					if (pendingDrawPenalty > 0) {
+						if (pendingPenaltyType == UnoCard.Type.DRAW_TWO && card.getType() != UnoCard.Type.DRAW_TWO) {
+							return fail("MUST_STACK_OR_DRAW","Must stack another DRAW_TWO or draw penalty", cmd.playerId());
+						}
+						if (pendingPenaltyType == UnoCard.Type.WILD_DRAW_FOUR && card.getType() != UnoCard.Type.WILD_DRAW_FOUR) {
+							return fail("MUST_STACK_OR_DRAW","Must stack another WILD_DRAW_FOUR or draw penalty", cmd.playerId());
+						}
+					}
 					queue.enqueue(event);
 					processQueue();
 					// After processing, detect if a color selection is required (event sets flag for human wild plays)
@@ -110,10 +143,17 @@ public class UnoRuntimePhase extends RuntimePhase {
 						pendingColorChooserPlayerId = current.getId();
 						applied = true; endTurn = false; // wait for color
 					} else { applied = true; endTurn = true; }
+					// (stack accumulation now handled centrally in processQueue)
 				}
 				case "DRAW_CARD" -> {
-					var draw = new UnoDrawCardEvent(deck, current);
-					queue.enqueue(draw); processQueue(); applied = true; endTurn = true;
+					if (pendingDrawPenalty > 0) {
+						// Player chooses / is forced to take accumulated penalty now.
+						applyAccumulatedPenalty(current);
+						applied = true; endTurn = true;
+					} else {
+						var draw = new UnoDrawCardEvent(deck, current);
+						queue.enqueue(draw); processQueue(); applied = true; endTurn = true;
+					}
 				}
 				case "CHOOSE_COLOR" -> {
 					if (pendingColorChooserPlayerId == null) return fail("NO_PENDING","No color selection pending", cmd.playerId());
@@ -137,12 +177,11 @@ public class UnoRuntimePhase extends RuntimePhase {
 			}
 			if (endTurn) {
 				advanceTurn();
-				addLog("TURN", null, "Turn -> " + board.currentPlayer().getId());
+				// If next player is under accumulation (pendingDrawPenalty>0) and is a bot, auto-resolution logic: try stacking else draw all.
+				UnoPlayer next = (UnoPlayer) board.currentPlayer();
+				addLog("TURN", null, "Turn -> " + next.getId());
 				if (turnListener != null) turnListener.accept(this);
-				// Auto-run consecutive bot turns
-				while (winnerId == null && board.currentPlayer() instanceof UnoBot) {
-					runBotTurn();
-				}
+					while (winnerId == null && board.currentPlayer() instanceof UnoBot) { runBotTurn(); }
 			}
 			return new CommandResult(applied, List.copyOf(errors), buildView(cmd.playerId()));
 		} catch (Exception ex) {
@@ -248,7 +287,14 @@ public class UnoRuntimePhase extends RuntimePhase {
 					UnoCard card = board.lastPlayedCard();
 					UnoPlayer player = pce.getPlayer();
 					String disp = card != null ? card.getDisplay() : "?";
-					addLog("PLAY", player.getId(), player.getId()+" played "+disp + (card!=null && card.getType()==UnoCard.Type.WILD?" (color "+(board.activeColor()!=null?board.activeColor().name():"?")+")":""));
+					boolean wildType = card!=null && (card.getType()==UnoCard.Type.WILD || card.getType()==UnoCard.Type.WILD_DRAW_FOUR);
+					addLog("PLAY", player.getId(), player.getId()+" played "+disp + (wildType?" (color "+(board.activeColor()!=null?board.activeColor().name():"?")+")":""));
+					// Accumulate penalty if applicable
+					if (pce.getPenaltyAmount() > 0) {
+						if (pendingDrawPenalty == 0 && card != null) pendingPenaltyType = card.getType();
+						pendingDrawPenalty += pce.getPenaltyAmount();
+						addLog("PENALTY_STACK", player.getId(), player.getId()+" stacked "+pce.getPenaltyAmount()+" (total "+pendingDrawPenalty+")");
+					}
 				}
 			}
 		}
@@ -260,5 +306,20 @@ public class UnoRuntimePhase extends RuntimePhase {
 		if (card.getColor() != UnoCard.Color.WILD && card.getColor() == activeColor) return true;
 		if (card.getType() == top.getType() && card.getType() != UnoCard.Type.NUMBER) return true;
 		return card.getType() == UnoCard.Type.NUMBER && top.getType() == UnoCard.Type.NUMBER && card.getNumber().equals(top.getNumber());
+	}
+
+	public int pendingDrawPenalty() { return pendingDrawPenalty; }
+	public UnoCard.Type pendingPenaltyType() { return pendingPenaltyType; }
+
+	/** Apply and clear any accumulated draw penalty to the provided player. */
+	private void applyAccumulatedPenalty(UnoPlayer target) {
+		if (pendingDrawPenalty <= 0) return;
+		for (int i=0;i<pendingDrawPenalty;i++) {
+			var card = deck.draw();
+			if (card != null) target.giveCard(card);
+		}
+		addLog("PENALTY_DRAW", target.getId(), target.getId()+" drew "+pendingDrawPenalty+" cards (penalty)");
+		pendingDrawPenalty = 0;
+		pendingPenaltyType = null;
 	}
 }
