@@ -48,7 +48,7 @@ docker-compose down
 #### 3.3 获取SSL证书
 ```bash
 sudo certbot certonly --standalone \
-  --email your-email@example.com \
+  --email zbingkun48@gmail.com \
   --agree-tos \
   --no-eff-email \
   -d game.anguy.dev
