@@ -53,7 +53,22 @@ export default function useUnoGame({ gameId, playerId, token, autoPoll = false, 
         try {
           const payload = JSON.parse(e.data);
           // Because SSE broadcast uses null perspective, we only take public fields (no private hand) unless a command response overrides later.
-          setView(v => ({ ...(v||{}), ...payload }));
+          setView(v => {
+            if (!v) return payload;
+            const existingPlayers = Array.isArray(v.players) ? v.players : [];
+            const incomingPlayers = Array.isArray(payload.players) ? payload.players : [];
+            // Merge players preserving our hand if SSE payload omits it
+            const mergedPlayers = incomingPlayers.map(np => {
+              const ep = existingPlayers.find(p => p.playerId === np.playerId);
+              if (np.playerId === playerId) {
+                if (!np.hand && ep?.hand) {
+                  return { ...np, hand: ep.hand }; // preserve private hand
+                }
+              }
+              return np;
+            });
+            return { ...v, ...payload, players: mergedPlayers };
+          });
           if (Array.isArray(payload?.events)) setEvents(payload.events);
         } catch {/* ignore parse errors */}
       });

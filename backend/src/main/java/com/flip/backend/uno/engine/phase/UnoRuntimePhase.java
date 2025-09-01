@@ -265,7 +265,7 @@ public class UnoRuntimePhase extends RuntimePhase {
 		} else {
 			UnoDrawCardEvent draw = new UnoDrawCardEvent(deck, player);
 			queue.enqueue(draw);
-			// After draw we may attempt play of that single card (lazy decision in processing after draw)
+			// Rule variant: drawing a card always ends the turn; no immediate auto-play even if playable
 		}
 	}
 
@@ -274,14 +274,10 @@ public class UnoRuntimePhase extends RuntimePhase {
 			var e = queue.poll();
 			if (e.isValid()) {
 				e.execute();
-				// If it's a draw, see if drawn is playable -> enqueue play event
+				// If it's a draw, log only. Drawn card cannot be played immediately this turn per house rule.
 				if (e instanceof UnoDrawCardEvent d) {
-					UnoCard drawn = d.drawnCard();
 					UnoPlayer player = (UnoPlayer) d.source();
 					addLog("DRAW", player.getId(), player.getId()+" drew 1 card");
-					if (drawn != null && canPlay(drawn, board.lastPlayedCard(), board.activeColor())) {
-						queue.enqueue(new UnoPlayCardEvent(board, deck, player, drawn));
-					}
 				} else if (e instanceof UnoPlayCardEvent pce) {
 					pendingAdvanceSteps = pce.getAdvanceSteps();
 					UnoCard card = board.lastPlayedCard();
