@@ -108,6 +108,23 @@ export default function PlayScreen(presentationalProps) {
 
 	const leaveDashboard = useCallback(() => { nav('/dashboard'); }, [nav]);
 
+	// --- Mobile small-screen portrait hint (rotate suggestion) ---
+	const [showRotateHint, setShowRotateHint] = useState(false);
+	useEffect(() => {
+		const evaluate = () => {
+			// Tailwind md breakpoint ~768px; treat below that & portrait as needing hint
+			const w = window.innerWidth; const h = window.innerHeight;
+			const dismissed = sessionStorage.getItem('dismissRotateHint') === '1';
+			if (!dismissed && w < 780 && h > w) setShowRotateHint(true); else setShowRotateHint(false);
+		};
+		evaluate();
+		window.addEventListener('resize', evaluate);
+		window.addEventListener('orientationchange', evaluate);
+		return () => { window.removeEventListener('resize', evaluate); window.removeEventListener('orientationchange', evaluate); };
+	}, []);
+
+	const dismissRotateHint = useCallback(() => { sessionStorage.setItem('dismissRotateHint','1'); setShowRotateHint(false); }, []);
+
 	if (!gameId && !inPresentationalMode) {
 		return (
 			<PageContainer>
@@ -135,6 +152,15 @@ export default function PlayScreen(presentationalProps) {
 
 	return (
 		<PageContainer>
+			{showRotateHint && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+					<div className="bg-base-100 rounded-lg p-4 w-full max-w-xs text-center shadow-xl animate-fade-in">
+						<h3 className="font-semibold mb-2 text-sm">Rotate to Landscape</h3>
+						<p className="text-xs mb-3 leading-snug">For a better game layout and hand display, please rotate your phone to landscape mode.</p>
+						<button type="button" className="btn btn-primary btn-sm w-full" onClick={dismissRotateHint}>Got it</button>
+					</div>
+				</div>
+			)}
 			<div className="w-full max-w-6xl mx-auto flex flex-col gap-2">{/* main vertical container */}
 				{/* Top meta bar */}
 				<div className="flex justify-between items-center text-xs px-2">
