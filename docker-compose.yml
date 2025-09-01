@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: anguy491/v1:latest
+    image: anguy491/flip-backend:latest
     depends_on:
       postgres:
         condition: service_healthy
