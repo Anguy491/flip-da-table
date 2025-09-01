@@ -22,9 +22,28 @@ http {
 	sendfile        on;
 	keepalive_timeout  65;
 
+	# HTTP server - redirect to HTTPS
 	server {
 		listen 80;
-		server_name _;
+		server_name game.anguy.dev;
+		return 301 https://$server_name$request_uri;
+	}
+
+	# HTTPS server
+	server {
+		listen 443 ssl http2;
+		server_name game.anguy.dev;
+
+		# SSL certificate paths (will be created by certbot)
+		ssl_certificate /etc/letsencrypt/live/game.anguy.dev/fullchain.pem;
+		ssl_certificate_key /etc/letsencrypt/live/game.anguy.dev/privkey.pem;
+
+		# SSL configuration
+		ssl_protocols TLSv1.2 TLSv1.3;
+		ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA;
+		ssl_prefer_server_ciphers on;
+		ssl_session_cache shared:SSL:10m;
+		ssl_session_timeout 10m;
 
 		root /usr/share/nginx/html;
 		index index.html;
@@ -43,6 +62,7 @@ http {
 			proxy_set_header Upgrade $http_upgrade;
 			proxy_set_header Connection "Upgrade";
 			proxy_set_header Host $host;
+			proxy_set_header X-Forwarded-Proto $scheme;
 		}
 
 		location / {
