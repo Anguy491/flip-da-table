@@ -85,7 +85,13 @@ public class UnoRuntimePhase extends RuntimePhase {
 	}
 
 	private boolean resolveWinnerIfAny(UnoPlayer current) {
-		if (current.cardCount() == 0) { winnerId = current.getId(); endingPhase = new UnoEndingPhase(current); return true; }
+		if (current.cardCount() == 0) {
+			winnerId = current.getId();
+			endingPhase = new UnoEndingPhase(current);
+			// Log winner once
+			addLog("WIN", current.getId(), current.getId()+" wins");
+			return true;
+		}
 		return false;
 	}
 
@@ -226,6 +232,7 @@ public class UnoRuntimePhase extends RuntimePhase {
 	}
 
 	public UnoEndingPhase endingPhase() { return endingPhase; }
+	public String winnerId() { return winnerId; }
 
 	/** Build a snapshot view for the given player id (full hand for self, counts for others). */
 	public UnoView buildView(String perspectivePlayerId) {

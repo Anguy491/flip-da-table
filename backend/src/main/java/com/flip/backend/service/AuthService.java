@@ -47,8 +47,12 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest r) {
         Authentication auth = new UsernamePasswordAuthenticationToken(r.email(), r.password());
-        authManager.authenticate(auth);
-        var user = repo.findByEmail(r.email()).orElseThrow();
+        try {
+            authManager.authenticate(auth);
+        } catch (org.springframework.security.core.AuthenticationException ex) {
+            throw new org.springframework.security.authentication.BadCredentialsException("bad credentials");
+        }
+        var user = repo.findByEmail(r.email()).orElseThrow(() -> new org.springframework.security.authentication.BadCredentialsException("bad credentials"));
         String token = jwt.generate(user.getEmail(), Map.of(
                 "uid", user.getId(),
                 "nick", user.getNickname(),

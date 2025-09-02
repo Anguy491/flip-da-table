@@ -67,8 +67,11 @@ export default function PlayScreen(presentationalProps) {
 
 		const currentPlayerId = useMemo(() => inPresentationalMode ? presentationalProps.currentPlayerId : view?.players?.find(p => p.isCurrent)?.playerId, [inPresentationalMode, presentationalProps, view]);
 
-	// winner detection (handSize === 0)
-	const winner = useMemo(() => view?.players?.find(p => p.handSize === 0), [view]);
+	// Winner detection: prefer backend winnerId (FINISHED phase) else fallback to empty-hand heuristic
+	const winner = useMemo(() => {
+		if (view?.winnerId) return view.players?.find(p => p.playerId === view.winnerId) || { playerId: view.winnerId };
+		return view?.players?.find(p => p.handSize === 0);
+	}, [view]);
 	const [modalOpen, setModalOpen] = useState(false);
 	useEffect(() => { if (winner && !modalOpen) setModalOpen(true); }, [winner, modalOpen]);
 
@@ -78,20 +81,28 @@ export default function PlayScreen(presentationalProps) {
 		return meta?.name || winner.playerId;
 	}, [winner, playersMeta]);
 
-	// Persist result to sessionStorage for summary
+	// Persist result to sessionStorage for summary (idempotent per round)
 	useEffect(() => {
-		if (!winner) return;
+		if (!winner || !winner.playerId) return;
 		const key = `uno-results-${sessionid}`;
 		let stored = { totalRounds, results: [], playersMeta };
 		try { const raw = sessionStorage.getItem(key); if (raw) stored = JSON.parse(raw); } catch { /* ignore */ }
-		// ensure we always persist latest playersMeta (names may change)
 		stored.playersMeta = playersMeta;
-		if (!stored.results.some(r => r.round === roundIndex)) {
+		const existing = stored.results.find(r => r.round === roundIndex);
+		if (!existing) {
 			stored.totalRounds = totalRounds;
-			stored.results.push({ round: roundIndex, winnerId: winner.playerId, turns: view?.turnCount || 0 });
+			stored.results.push({ round: roundIndex, winnerId: winner.playerId, winnerName, turns: view?.turnCount || 0 });
+			// keep results sorted by round to avoid later mismatch
+			stored.results.sort((a,b)=>a.round-b.round);
+			sessionStorage.setItem(key, JSON.stringify(stored));
+		} else if (existing.winnerId !== winner.playerId) {
+			// Correct any earlier heuristic mis-write
+			existing.winnerId = winner.playerId;
+			existing.winnerName = winnerName;
+			existing.turns = view?.turnCount || existing.turns;
 			sessionStorage.setItem(key, JSON.stringify(stored));
 		}
-	}, [winner, roundIndex, sessionid, totalRounds, playersMeta, view]);
+	}, [winner, winnerName, roundIndex, sessionid, totalRounds, playersMeta, view]);
 
 	const startNext = useCallback(async () => {
 		if (roundIndex >= totalRounds) return;
@@ -145,8 +156,8 @@ export default function PlayScreen(presentationalProps) {
     const lastCard = inPresentationalMode ? presentationalProps.lastCard : view?.top;
 	const events = inPresentationalMode ? presentationalProps.events : (hookEvents || view?.events || []);
 
-	// Attach play animation hook (only runtime mode)
-	usePlayAnimations({ view });
+	// Attach play animation hook (only runtime mode). Provide gameId so hook can reset between rounds.
+	usePlayAnimations({ view, gameId });
     const handCards = inPresentationalMode ? presentationalProps.hand : hand;
     const playableIds = new Set(playableCards.map(c => c.id || c));
 

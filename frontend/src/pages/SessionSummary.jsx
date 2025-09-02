@@ -66,8 +66,8 @@ export default function SessionSummary() {
           <table className="table table-zebra w-full text-xs">
             <thead><tr><th>Round</th><th>Winner</th><th>Turns</th></tr></thead>
             <tbody>
-              {data.results.map(r => {
-                const name = idToName.get(r.winnerId) || r.winnerId;
+              {[...data.results].sort((a,b)=>a.round-b.round).map(r => {
+                const name = r.winnerName || idToName.get(r.winnerId) || r.winnerId;
                 return (
                   <tr key={r.round}>
                     <td>{r.round}</td>

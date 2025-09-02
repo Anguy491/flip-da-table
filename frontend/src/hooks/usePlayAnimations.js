@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react';
 
-export default function usePlayAnimations({ view }) {
+// view: latest UNO view object (must contain events[] and optional lastEventSeq)
+// gameId: reset key when a new game instance starts so we replay animations
+export default function usePlayAnimations({ view, gameId }) {
   const lastSeqRef = useRef(0);
   const queueRef = useRef([]);
   const playingRef = useRef(false);
   const styleInjectedRef = useRef(false);
+  const gameRef = useRef();
 
   const DURATION = 900;
   const GAP = 120;
@@ -24,14 +27,27 @@ export default function usePlayAnimations({ view }) {
     styleInjectedRef.current = true;
   }, []);
 
+  // Reset when gameId changes or sequence appears to restart (e.g., new round new runtime with small event ids)
   useEffect(() => {
+    if (gameId && gameRef.current !== gameId) {
+      gameRef.current = gameId;
+      lastSeqRef.current = 0;
+      queueRef.current = [];
+      playingRef.current = false;
+    }
+    // Detect server-side log reset via decreasing lastEventSeq
+    if (view?.lastEventSeq !== undefined && view.lastEventSeq < lastSeqRef.current) {
+      lastSeqRef.current = 0;
+      queueRef.current = [];
+      playingRef.current = false;
+    }
     if (!view?.events) return;
     const fresh = view.events.filter(e => e.type === 'PLAY' && e.id > lastSeqRef.current);
     if (fresh.length === 0) return;
     lastSeqRef.current = Math.max(...fresh.map(e => e.id));
     fresh.forEach(e => queueRef.current.push(e));
     if (!playingRef.current) playNext();
-  }, [view]);
+  }, [view, gameId]);
 
   function playNext() {
     const ev = queueRef.current.shift();

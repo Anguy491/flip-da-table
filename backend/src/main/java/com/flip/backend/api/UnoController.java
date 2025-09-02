@@ -68,12 +68,14 @@ public class UnoController {
     private Map<String,Object> transformView(UnoRuntimePhase runtime, UnoView view) {
         Map<String,Object> out = new LinkedHashMap<>();
         UnoBoardView b = view.board();
-        out.put("phase", "RUNTIME");
+        boolean finished = runtime.endingPhase() != null;
+        out.put("phase", finished ? "FINISHED" : "RUNTIME");
         out.put("turnCount", b.turnCount());
         String topDisp = b.topCard();
         if (topDisp != null) out.put("top", parseCard(topDisp));
         if (b.activeColor() != null) out.put("activeColor", b.activeColor());
         out.put("viewerId", view.perspectivePlayerId());
+        if (finished && runtime.winnerId() != null) out.put("winnerId", runtime.winnerId());
         // players
         List<Map<String,Object>> playerList = new ArrayList<>();
         for (int i=0;i<view.players().size();i++) {
@@ -83,7 +85,7 @@ public class UnoController {
             p.put("bot", pv.bot());
             p.put("handSize", pv.handSize());
             p.put("isCurrent", i == b.currentPlayerIndex());
-            p.put("isWinner", false); // placeholder
+            p.put("isWinner", finished && pv.playerId().equals(runtime.winnerId()));
             if (pv.hand() != null) {
                 List<Map<String,String>> hand = new ArrayList<>();
                 for (String disp : pv.hand()) hand.add(parseCard(disp));
