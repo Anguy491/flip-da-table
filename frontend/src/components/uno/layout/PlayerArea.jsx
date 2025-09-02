@@ -21,7 +21,7 @@ export default function PlayerArea({ players = [], currentPlayerId }) {
               </div>
               <span className={`font-medium truncate max-w-[80px] ${isCurrent ? 'text-primary' : ''}`} title={p.name || p.id}>{p.name || p.id}</span>
             </div>
-            <span className="absolute top-1 right-1 badge badge-xs badge-neutral font-mono" title="Hand Size">{p.handCount}</span>
+            <span className="absolute top-1 right-1 badge badge-s badge-neutral font-mono border-0" title="Hand Size">{p.handCount}</span>
           </div>
         );
       })}

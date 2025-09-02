@@ -8,17 +8,20 @@ export default function usePlayAnimations({ view, gameId }) {
   const playingRef = useRef(false);
   const styleInjectedRef = useRef(false);
   const gameRef = useRef();
+  const processedDrawRef = useRef(new Set());
 
   const DURATION = 900;
   const GAP = 120;
 
   useEffect(() => {
     if (styleInjectedRef.current) return;
-    const css = `@keyframes unoPlayPulse {0%{transform:translate(-50%,-50%) scale(1)}30%{transform:translate(-50%,-50%) scale(1.38) rotate(-4deg)}45%{transform:translate(-50%,-50%) scale(1.30) rotate(3deg)}60%{transform:translate(-50%,-50%) scale(1.36) rotate(-2deg)}75%{transform:translate(-50%,-50%) scale(1.26) rotate(2deg)}100%{transform:translate(-50%,-50%) scale(1)} }
+  const css = `@keyframes unoPlayPulse {0%{transform:translate(-50%,-50%) scale(1)}30%{transform:translate(-50%,-50%) scale(1.38) rotate(-4deg)}45%{transform:translate(-50%,-50%) scale(1.30) rotate(3deg)}60%{transform:translate(-50%,-50%) scale(1.36) rotate(-2deg)}75%{transform:translate(-50%,-50%) scale(1.26) rotate(2deg)}100%{transform:translate(-50%,-50%) scale(1)} }
     @keyframes unoRing {0%{transform:translate(-50%,-50%) scale(.55);opacity:.85;}65%{opacity:.25;}100%{transform:translate(-50%,-50%) scale(1.5);opacity:0;}}
     .uno-play-overlay{position:fixed;left:0;top:0;z-index:9998;pointer-events:none;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;width:80px;height:120px;border-radius:12px;border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.35);transform:translate(-50%,-50%) scale(1);}
     .uno-play-overlay.animating{animation:unoPlayPulse ${DURATION}ms cubic-bezier(.34,1.56,.4,1);}
     .uno-play-overlay .ring{position:absolute;left:50%;top:50%;width:100%;height:100%;border:3px solid rgba(255,255,255,.55);border-radius:14px;transform:translate(-50%,-50%) scale(.55);opacity:.9;animation:unoRing ${DURATION}ms ease forwards;}
+  .uno-draw-flash{transition:all .15s ease;font-weight:600 !important;}
+  .uno-draw-flash-active{background:#2563eb !important;color:#fff !important;box-shadow:0 0 0 2px rgba(37,99,235,.4);scale:1.15;}
     `;
     const tag = document.createElement('style');
     tag.id = 'uno-play-overlay-style';
@@ -48,6 +51,17 @@ export default function usePlayAnimations({ view, gameId }) {
     fresh.forEach(e => queueRef.current.push(e));
     if (!playingRef.current) playNext();
   }, [view, gameId]);
+
+  // Draw / penalty draw animations (not queued with play overlay, light-weight flash)
+  useEffect(() => {
+    if (!view?.events) return;
+    for (const ev of view.events) {
+      if ((ev.type === 'DRAW' || ev.type === 'PENALTY_DRAW') && !processedDrawRef.current.has(ev.id)) {
+        processedDrawRef.current.add(ev.id);
+        animateDraw(ev);
+      }
+    }
+  }, [view]);
 
   function playNext() {
     const ev = queueRef.current.shift();
@@ -86,6 +100,48 @@ export default function usePlayAnimations({ view, gameId }) {
 
       setTimeout(() => { overlay.remove(); resolve(); }, DURATION + 40);
     });
+  }
+
+  function animateDraw(ev) {
+    const txt = ev.text || '';
+    // text pattern examples: "BOT3 drew 1 card" / "P1_HOST drew 12 cards (penalty)"
+    const m = txt.match(/^(\S+) drew (\d+)/);
+    if (!m) return;
+    const playerId = m[1];
+    const count = parseInt(m[2], 10) || 1;
+    const host = document.querySelector(`[data-player-id="${playerId}"]`);
+    if (!host) return;
+    const badge = host.querySelector('[title="Hand Size"]');
+    if (!badge) return;
+    // Determine target (new) and source (old) values for smooth count-up.
+    // Current badge text is likely already the new hand size rendered by React.
+    const targetVal = parseInt(badge.textContent, 10);
+    if (isNaN(targetVal)) return; // non-numeric badge
+    const sourceVal = Math.max(0, targetVal - count);
+    // Store original final value for potential concurrent updates.
+    badge.setAttribute('data-final', String(targetVal));
+    badge.classList.add('uno-draw-flash','uno-draw-flash-active');
+    const D = 1000; // 1s duration
+    const start = performance.now();
+    function easeOutQuad(t){ return 1 - (1 - t) * (1 - t); }
+    function step(ts){
+      const progress = Math.min(1, (ts - start)/D);
+      const eased = easeOutQuad(progress);
+      const current = Math.round(sourceVal + (targetVal - sourceVal) * eased);
+      if (!badge.isConnected) return; // aborted
+      badge.textContent = String(current);
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        // finalize
+        badge.textContent = String(targetVal);
+        badge.classList.remove('uno-draw-flash-active');
+        setTimeout(()=>badge.classList.remove('uno-draw-flash'), 300);
+      }
+    }
+    // Initialize display at source (so user sees increment start)
+    badge.textContent = String(sourceVal);
+    requestAnimationFrame(step);
   }
 
   function parseCardFromText(txt) {
