@@ -50,8 +50,8 @@ public class DVCGameService extends GameService {
         DVCRuntimePhase runtime = startPhase.transit();
         runtime.enter();
         registry.put(base.gameId(), runtime);
-    var view = runtime.buildView(myPlayerId);
-    return new StartGameResponse(base.gameId(), base.roundIndex(), myPlayerId, java.util.List.copyOf(playerInfos), view);
+        var view = runtime.buildView(myPlayerId);
+        return new StartGameResponse(base.gameId(), base.roundIndex(), myPlayerId, java.util.List.copyOf(playerInfos), view);
     }
 
     @Override

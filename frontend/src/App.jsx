@@ -3,7 +3,8 @@ import Login from './pages/Login.jsx';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Lobby from './pages/Lobby';
-import PlayScreen from './pages/PlayScreen';
+import UnoPlayScreen from './pages/UnoPlayScreen';
+import DVCPlayScreen from './pages/DVCPlayScreen';
 import SessionSummary from './pages/SessionSummary';
 
 function App() {
@@ -15,7 +16,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/lobby/:sessionid" element={<Lobby />} />
-        <Route path="/playscreen/:sessionid" element={<PlayScreen />} />
+        <Route path="/unoplayscreen/:sessionid" element={<UnoPlayScreen />} />
+        <Route path="/dvcplayscreen/:sessionid" element={<DVCPlayScreen />} />
         <Route path="/sessionsum/:sessionid" element={<SessionSummary />} />
       </Routes>
     </BrowserRouter>

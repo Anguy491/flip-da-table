@@ -22,7 +22,7 @@ import usePlayAnimations from '../hooks/usePlayAnimations';
  * Backwards compatibility: if props not provided (router usage), falls back to internal hook logic.
  * Props (presentation mode): players, currentPlayerId, direction, gameCount, activeColor, pendingDraw, lastCard, events, hand, onPlay, onDraw
  */
-export default function PlayScreen(presentationalProps) {
+export default function UnoPlayScreen(presentationalProps) {
 	const { state } = useLocation();
 	const { sessionid } = useParams();
 	const nav = useNavigate();

@@ -12,7 +12,7 @@ export default function Lobby() {
   const { token } = useContext(AuthContext);
   const [players, setPlayers] = useState(() => [
     { name: 'Host', bot: false, ready: false },
-  ]);
+  ]); // TODO: replace with server-fetched player roster
   const [sessionInfo, setSessionInfo] = useState(null); // { id, ownerId, gameType, maxPlayers }
   const [loadingSession, setLoadingSession] = useState(true);
   const [rounds, setRounds] = useState(1);
@@ -57,10 +57,12 @@ export default function Lobby() {
     setPlayers(prev => prev.map((p, i) => i === idx ? { ...p, ...patch } : p));
   };
 
+  const [copied, setCopied] = useState(false);
   const copyInvite = useCallback(() => {
-    navigator.clipboard.writeText(sessionid).catch(() => {
-      // ignore
-    });
+    navigator.clipboard.writeText(sessionid).then(()=>{
+      setCopied(true);
+      setTimeout(()=>setCopied(false), 1800);
+    }).catch(() => {/* ignore */});
   }, [sessionid]);
 
   const startGame = async () => {
@@ -68,7 +70,8 @@ export default function Lobby() {
     setStarting(true); setError('');
     try {
       const resp = await startFirstGame(sessionid, { rounds, players }, token);
-      nav(`/playscreen/${sessionid}`, { state: { gameId: resp.gameId, roundIndex: resp.roundIndex, playerId: resp.myPlayerId, players: resp.players, totalRounds: rounds, results: [] } });
+      const route = (sessionInfo.gameType || '').toUpperCase()==='UNO' ? `/unoplayscreen/${sessionid}` : `/dvcplayscreen/${sessionid}`;
+      nav(route, { state: { gameId: resp.gameId, roundIndex: resp.roundIndex, playerId: resp.myPlayerId, players: resp.players, totalRounds: rounds, results: [] } });
     } catch (e) {
         setError(e.message || 'Failed to start');
       } finally {
@@ -168,7 +171,10 @@ export default function Lobby() {
           {error && <div className="alert alert-error py-2 px-3 text-sm">{error}</div>}
           <div className="flex justify-between items-center">
             <div className="flex gap-2">
-              <button type="button" className="btn btn-secondary btn-sm" onClick={copyInvite}>Invite</button>
+              <button type="button" className="btn btn-secondary btn-sm relative" onClick={copyInvite}>
+                Invite
+                {copied && <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] px-2 py-1 rounded bg-success text-white shadow animate-fade-in">Copied!</span>}
+              </button>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => nav(-1)}>Back</button>
             </div>
             <SubmitButton type="button" disabled={!canStart || starting} onClick={startGame}>
