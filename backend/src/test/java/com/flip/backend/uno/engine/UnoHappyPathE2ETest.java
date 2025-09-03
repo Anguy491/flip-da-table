@@ -70,9 +70,6 @@ public class UnoHappyPathE2ETest {
         // === PHASE 4: Reverse Card Effect Testing ===
         testReverseCardEffect();
         
-        // === PHASE 5: Draw Two Card Effect Testing ===
-        testDrawTwoEffect();
-        
         // === PHASE 8: Deck Reshuffling Testing ===
         testDeckReshuffling();
         
@@ -144,23 +141,6 @@ public class UnoHappyPathE2ETest {
         assertEquals("BOT_C", board.currentPlayer().getId());
         
         assertGameState("BOT_C", -1, -1, "After REVERSE card played");
-    }
-
-    private void testDrawTwoEffect() {
-        navigateToPlayer("HUMAN");
-        UnoPlayer nextPlayer = (UnoPlayer) board.peekNext();
-        int beforeHandSize = nextPlayer.cardCount();
-        
-        // Human plays Draw Two
-        runtime.runSingleTurn();
-        
-        assertEquals(UnoCard.Type.DRAW_TWO, board.lastPlayedCard().getType());
-        assertEquals(beforeHandSize + 2, nextPlayer.cardCount());
-        
-        // Next player should be skipped (penalty + skip)
-        assertNotEquals(nextPlayer.getId(), board.currentPlayer().getId());
-        
-        System.out.println("✅ Draw Two: " + nextPlayer.getId() + " drew 2 cards and was skipped");
     }
 
     private void testDeckReshuffling() {

@@ -1,10 +1,10 @@
 package com.flip.backend.uno.engine.phase;
 
-import com.flip.backend.game.engine.phase.Phase;
+import com.flip.backend.game.engine.phase.EndingPhase;
 import com.flip.backend.uno.entities.UnoPlayer;
 
 /** Simple ending phase for UNO: records winner and prints summary. */
-public class UnoEndingPhase extends Phase {
+public class UnoEndingPhase extends EndingPhase {
     private final UnoPlayer winner;
 
     public UnoEndingPhase(UnoPlayer winner) { this.winner = winner; }

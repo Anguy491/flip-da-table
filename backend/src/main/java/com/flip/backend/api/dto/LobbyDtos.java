@@ -2,9 +2,9 @@ package com.flip.backend.api.dto;
 
 import jakarta.validation.constraints.*;
 import java.util.List;
-import com.flip.backend.uno.engine.view.UnoView; // optional, only populated for UNO
 
 public class LobbyDtos {
+    // For now we use Object for polymorphic game view payload (UnoView, DVCView, etc.)
     public record PlayerSpec(
         @NotBlank String name,
         boolean bot,
@@ -30,7 +30,7 @@ public class LobbyDtos {
         int roundIndex,
         String myPlayerId,
         List<PlayerStartInfo> players,
-        UnoView view // initial perspective view (UNO only for now)
+        Object view // UnoView or DVCView
     ) {}
 
     public record SessionView(

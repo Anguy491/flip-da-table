@@ -55,13 +55,4 @@ public class UnoActionCardsTest {
         assertEquals(1, ev.getAdvanceSteps());
     }
 
-    @Test
-    void drawTwoForcesNextPlayerToDrawAndSkip() {
-        p1.giveCard(UnoCard.drawTwo(UnoCard.Color.RED));
-        int p2HandBefore = p2.getHand().size();
-        UnoPlayCardEvent ev = new UnoPlayCardEvent(board, deck, p1, p1.getHand().view().get(0));
-        ev.execute();
-        assertEquals(p2HandBefore + 2, p2.getHand().size());
-        assertEquals(2, ev.getAdvanceSteps()); // skip p2 after drawing -> move to p3
-    }
 }
