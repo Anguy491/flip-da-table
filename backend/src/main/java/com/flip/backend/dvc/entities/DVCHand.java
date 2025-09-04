@@ -29,12 +29,9 @@ public class DVCHand extends Hand<DVCCard> {
 	/** Reveal a specific card instance. */
 	public void reveal(DVCCard card) { if (card != null && cards.contains(card)) card.reveal(); }
 
-	/** List of displays (optionally hide unrevealed). */
+	/** List of context-sensitive displays: if includeHiddenPlaceholder we still show back face for hidden. */
 	public List<String> display(boolean includeHiddenPlaceholder) {
-		return cards.stream().map(c -> {
-			if (c.isRevealed()) return c.getDisplay();
-			return includeHiddenPlaceholder ? "?" : c.getDisplay();
-		}).toList();
+		return cards.stream().map(c -> c.getDisplay()).toList(); // getDisplay already handles face state
 	}
 
 	/** Immutable snapshot of internal order. */

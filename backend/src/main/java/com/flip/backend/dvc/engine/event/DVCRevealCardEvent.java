@@ -38,7 +38,7 @@ public class DVCRevealCardEvent extends GameEvent {
             if (target == null) return false;
             var list = target.hand().snapshot();
             if (targetIndex < 0 || targetIndex >= list.size()) return false;
-            if (list.get(targetIndex).isRevealed()) return false;
+            if (list.get(targetIndex).isFaceUp()) return false;
             // need decision before execution
             return decisionSet;
         } else {
@@ -60,7 +60,7 @@ public class DVCRevealCardEvent extends GameEvent {
         } else {
             // incorrect guess: reveal pending drawn card if exists
             DVCCard pending = board.getPending(actor.getId());
-            if (pending != null && !pending.isRevealed()) pending.reveal();
+            if (pending != null && !pending.isFaceUp()) pending.reveal();
             queue.enqueue(new DVCSettleCardEvent(board, actor, null));
         }
     }

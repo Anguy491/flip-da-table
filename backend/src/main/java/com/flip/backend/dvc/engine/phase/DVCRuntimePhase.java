@@ -4,7 +4,9 @@ import com.flip.backend.game.engine.phase.RuntimePhase;
 import com.flip.backend.dvc.entities.*;
 import com.flip.backend.game.engine.event.EventQueue;
 import com.flip.backend.dvc.engine.event.*;
-import com.flip.backend.dvc.engine.view.*;
+import com.flip.backend.dvc.engine.view.DVCBoardView;
+import com.flip.backend.dvc.engine.view.DVCPlayerView;
+import com.flip.backend.dvc.engine.view.DVCView;
 import java.util.*;
 
 public class DVCRuntimePhase extends RuntimePhase {
@@ -79,10 +81,16 @@ public class DVCRuntimePhase extends RuntimePhase {
         for (var p : order) {
             boolean self = p.getId().equals(perspectivePlayerId);
             var snapshot = p.hand().snapshot();
-            int hidden = (int) snapshot.stream().filter(c -> !c.isRevealed()).count();
-            List<String> cards = self ? snapshot.stream().map(c -> c.getDisplay()).toList() : null; // opponents不暴露
-            List<Boolean> revealedFlags = snapshot.stream().map(DVCCard::isRevealed).toList();
-            pviews.add(new DVCPlayerView(p.getId(), p.isBot(), snapshot.size(), hidden, cards, revealedFlags));
+            int hidden = (int) snapshot.stream().filter(c -> !c.isFaceUp()).count();
+            List<String> cards;
+            if (self) {
+                // Self: always show full front info regardless of faceUp (private knowledge)
+                cards = snapshot.stream().map(DVCCard::frontDisplay).toList();
+            } else {
+                // Opponent: show only color for each card; if face down still backDisplay (color ≤), if face up show front
+                cards = snapshot.stream().map(c -> c.isFaceUp() ? c.frontDisplay() : c.backDisplay()).toList();
+            }
+            pviews.add(new DVCPlayerView(p.getId(), p.isBot(), snapshot.size(), hidden, cards));
         }
         return new DVCView(boardView, List.copyOf(pviews), perspectivePlayerId);
     }

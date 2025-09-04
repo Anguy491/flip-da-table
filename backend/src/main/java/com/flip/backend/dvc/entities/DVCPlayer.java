@@ -23,7 +23,7 @@ public class DVCPlayer extends Player {
     public int cardCount() { return hand.size(); }
 
     /** How many still hidden (not revealed). */
-    public long hiddenCount() { return hand.snapshot().stream().filter(c -> !c.isRevealed()).count(); }
+    public long hiddenCount() { return hand.snapshot().stream().filter(c -> !c.isFaceUp()).count(); }
 
     /** Reveal a card at a given position (index validation). */
     public DVCCard revealAt(int index) {
@@ -37,7 +37,7 @@ public class DVCPlayer extends Player {
         List<DVCCard> list = hand.snapshot();
         if (index < 0 || index >= list.size()) return false;
         DVCCard target = list.get(index);
-        if (target.isRevealed()) return false; // already revealed cannot be guessed again
+    if (target.isFaceUp()) return false; // already revealed cannot be guessed again
         if (guess.isJoker()) return target.isJoker();
         return !target.isJoker() && Objects.equals(target.getNumber(), guess.number());
     }

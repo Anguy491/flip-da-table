@@ -14,7 +14,9 @@ public class DVCCard extends Card {
     private final Color color;
     private final Integer number; // 0-11; null when joker
     private final boolean joker;
-    private boolean revealed = false; // whether this card has been publicly revealed
+    // faceUp == true means card revealed (front side shown: color + number or joker '-').
+    // faceUp == false means backside visible: show only color + " ≤" symbol (per requirement).
+    private boolean faceUp = false;
 
     private DVCCard(Color color, Integer number, boolean joker) {
         this.color = Objects.requireNonNull(color, "color");
@@ -32,15 +34,21 @@ public class DVCCard extends Card {
     public Color getColor() { return color; }
     public Integer getNumber() { return number; }
     public boolean isJoker() { return joker; }
-    public boolean isRevealed() { return revealed; }
-    public void reveal() { this.revealed = true; }
+    public boolean isFaceUp() { return faceUp; }
+    public void reveal() { this.faceUp = true; }
 
-    /** Human readable display string. Joker printed as "COLOR -" (e.g. BLACK -). */
-    @Override
-    public String getDisplay() {
-        if (joker) return color.name()+" -"; // hyphen Joker
+    /** Front face display (only when faceUp). */
+    public String frontDisplay() {
+        if (joker) return color.name()+" -";
         return color.name()+" "+number;
     }
+
+    /** Back face display (hidden info): color + " ≤". */
+    public String backDisplay() { return color.name()+" ≤"; }
+
+    /** Contextual display depending on face state. */
+    @Override
+    public String getDisplay() { return faceUp ? frontDisplay() : backDisplay(); }
 
     /** Comparator semantics for automatic insertion (Jokers excluded). */
     public static int compareForOrder(DVCCard a, DVCCard b) {
@@ -59,5 +67,5 @@ public class DVCCard extends Card {
     }
 
     @Override
-    public String toString() { return getDisplay() + (revealed ? " (R)" : ""); }
+    public String toString() { return getDisplay() + (faceUp ? " (R)" : ""); }
 }
