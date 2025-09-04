@@ -6,14 +6,17 @@ import com.flip.backend.api.dto.LobbyDtos.PlayerStartInfo;
 import com.flip.backend.persistence.GameRepository;
 import com.flip.backend.persistence.SessionRepository;
 import com.flip.backend.dvc.engine.DVCGameRegistry;
+import com.flip.backend.dvc.engine.DVCStartRegistry;
 import com.flip.backend.dvc.engine.phase.DVCStartPhase;
-import com.flip.backend.dvc.engine.phase.DVCRuntimePhase;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DVCGameService extends GameService {
-    private final DVCGameRegistry registry;
-    public DVCGameService(SessionRepository sessions, GameRepository games, DVCGameRegistry registry) { super(sessions, games); this.registry = registry; }
+    private final DVCStartRegistry startRegistry;
+    public DVCGameService(SessionRepository sessions, GameRepository games, DVCGameRegistry runtimeRegistry, DVCStartRegistry startRegistry) {
+        super(sessions, games);
+        this.startRegistry = startRegistry;
+    }
 
     @Override public boolean supports(String gameType) { return "DAVINCI".equalsIgnoreCase(gameType); }
 
@@ -43,14 +46,10 @@ public class DVCGameService extends GameService {
             .orElse(playerInfos.isEmpty()?null:playerInfos.get(0).playerId());
 
         // Start phase with manual ready concept. For MVP we auto-ready all (could expose API later)
-        DVCStartPhase startPhase = new DVCStartPhase(playerIds);
-        startPhase.enter();
-        // auto ready all players
-        for (var info : playerInfos) startPhase.ready(info.playerId());
-        DVCRuntimePhase runtime = startPhase.transit();
-        runtime.enter();
-        registry.put(base.gameId(), runtime);
-        var view = runtime.buildView(myPlayerId);
+    DVCStartPhase startPhase = new DVCStartPhase(playerIds);
+    startPhase.enter();
+    startRegistry.put(base.gameId(), startPhase);
+    var view = startPhase.buildView(myPlayerId);
         return new StartGameResponse(base.gameId(), base.roundIndex(), myPlayerId, java.util.List.copyOf(playerInfos), view);
     }
 
@@ -77,11 +76,8 @@ public class DVCGameService extends GameService {
             .orElse(playerInfos.isEmpty()?null:playerInfos.get(0).playerId());
         DVCStartPhase startPhase = new DVCStartPhase(playerIds);
         startPhase.enter();
-        for (var info : playerInfos) startPhase.ready(info.playerId());
-        DVCRuntimePhase runtime = startPhase.transit();
-        runtime.enter();
-        registry.put(base.gameId(), runtime);
-    var view = runtime.buildView(myPlayerId);
-    return new StartGameResponse(base.gameId(), base.roundIndex(), myPlayerId, java.util.List.copyOf(playerInfos), view);
+        startRegistry.put(base.gameId(), startPhase);
+        var view = startPhase.buildView(myPlayerId);
+		return new StartGameResponse(base.gameId(), base.roundIndex(), myPlayerId, java.util.List.copyOf(playerInfos), view);
     }
 }

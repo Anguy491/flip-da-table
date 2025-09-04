@@ -39,4 +39,19 @@ public class DVCHand extends Hand<DVCCard> {
 
 	/** Add without ordering (used during initial deal before player manual arrangement). */
 	public void addRaw(DVCCard c) { if (c != null) cards.add(c); }
+
+	/** Replace internal order exactly with provided sequence (cards must match set). */
+	public void setExactOrder(List<DVCCard> ordered) {
+		if (ordered == null) return;
+		if (ordered.size() != cards.size()) throw new IllegalArgumentException("size mismatch");
+		// Validate multiset equality
+		java.util.Map<DVCCard, Integer> counts = new java.util.HashMap<>();
+		for (DVCCard c : cards) counts.merge(c, 1, Integer::sum);
+		for (DVCCard c : ordered) {
+			Integer left = counts.get(c); if (left == null || left == 0) throw new IllegalArgumentException("invalid card set");
+			counts.put(c, left-1);
+		}
+		cards.clear();
+		cards.addAll(ordered);
+	}
 }

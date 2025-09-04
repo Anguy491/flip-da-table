@@ -1,22 +1,28 @@
 package com.flip.backend.api;
 
 import com.flip.backend.dvc.engine.DVCGameRegistry;
+import com.flip.backend.dvc.engine.DVCStartRegistry;
 import com.flip.backend.dvc.engine.phase.DVCRuntimePhase;
+import com.flip.backend.dvc.engine.phase.DVCStartPhase;
 import com.flip.backend.dvc.engine.view.DVCView;
+import com.flip.backend.service.game.DVCGameService;
 import org.springframework.web.bind.annotation.*;
 
 /** Minimal REST controller for DVC interactions (prototype). */
 @RestController
 @RequestMapping("/api/dvc")
 public class DVCController {
-	private final DVCGameRegistry registry;
-	public DVCController(DVCGameRegistry registry) { this.registry = registry; }
+	private final DVCGameRegistry runtimeRegistry;
+	private final DVCStartRegistry startRegistry;
+	public DVCController(DVCGameRegistry runtimeRegistry, DVCStartRegistry startRegistry, DVCGameService gameService) {
+		this.runtimeRegistry = runtimeRegistry; this.startRegistry = startRegistry; }
 
-	private DVCRuntimePhase runtime(String gameId) { return registry.get(gameId); }
+	private DVCRuntimePhase runtime(String gameId) { return runtimeRegistry.get(gameId); }
+	private DVCStartPhase startPhase(String gameId) { return startRegistry.get(gameId); }
 
 	@GetMapping("/{gameId}/view/{playerId}")
 	public DVCView view(@PathVariable String gameId, @PathVariable String playerId) {
-		var rt = runtime(gameId); if (rt==null) return null; return rt.buildView(playerId);
+		var rt = runtime(gameId); if (rt!=null) return rt.buildView(playerId); var sp = startPhase(gameId); return sp==null?null: sp.buildView(playerId);
 	}
 
 	public record DrawColorRequest(String playerId, String color) {}
@@ -43,9 +49,23 @@ public class DVCController {
 		var rt = runtime(gameId); if (rt==null) return false; return rt.provideSelfReveal(req.playerId(), req.ownIndex());
 	}
 
-	public record SettleRequest(String playerId, Integer insertIndex) {}
+	public record SettleRequest(String playerId, Boolean isSettled, String hand) {}
 	@PostMapping("/{gameId}/settle")
 	public boolean settle(@PathVariable String gameId, @RequestBody SettleRequest req) {
-		var rt = runtime(gameId); if (rt==null) return false; return rt.provideSettlePosition(req.playerId(), req.insertIndex());
+		// If still in start phase interpret as initial arrange + settle
+		var sp = startPhase(gameId);
+		if (sp != null) {
+			if (req.hand()!=null) sp.reorderHand(req.playerId(), req.hand());
+			if (Boolean.TRUE.equals(req.isSettled())) sp.settled(req.playerId());
+			// Auto transit when all settled
+			if (sp.allSettled()) {
+				var runtime = sp.transit();
+				runtime.enter();
+				startRegistry.remove(gameId);
+				runtimeRegistry.put(gameId, runtime);
+			}
+			return true;
+		}
+		var rt = runtime(gameId); if (rt==null) return false; return rt.provideSettleHand(req.playerId(), req.hand());
 	}
 }

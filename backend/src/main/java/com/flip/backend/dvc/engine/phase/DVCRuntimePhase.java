@@ -230,6 +230,49 @@ public class DVCRuntimePhase extends RuntimePhase {
         return true;
     }
 
+    /** New API: provide full ordered hand string instead of single insert index. */
+    public boolean provideSettleHand(String playerId, String handString) {
+        if (awaiting != Awaiting.SETTLE_POSITION || pendingSettle == null) return false;
+        if (!current().getId().equals(playerId)) return false;
+        // If no pending card simply allow settle (used for initial phase not handled here)
+    // When pending card exists we still need to execute settle event to move it into hand first (ordered add or joker logic)
+        // We'll perform original settle first (auto ordering) then reorder according to provided sequence of cardIds.
+        pendingSettle.setInsertIndex(null); // auto placement
+        if (!pendingSettle.isValid()) return false;
+        pendingSettle.execute();
+        pendingSettle = null;
+        // Now reorder if handString provided
+        if (handString != null && !handString.isBlank()) {
+            var me = current();
+            var snapshot = new java.util.ArrayList<>(me.hand().snapshot());
+            // Build map id->card list (handle potential duplicate numbers)
+            java.util.Map<String, java.util.Queue<DVCCard>> multimap = new java.util.HashMap<>();
+            for (DVCCard c : snapshot) {
+                multimap.computeIfAbsent(c.cardId(), k->new java.util.ArrayDeque<>()).add(c);
+            }
+            java.util.List<DVCCard> ordered = new java.util.ArrayList<>();
+            int idx = 0; String s = handString.trim();
+            while (idx < s.length()) {
+                char colorChar = s.charAt(idx++);
+                if (colorChar!='B' && colorChar!='W') return false;
+                // consume digits or '_' until '≤'
+                StringBuilder val = new StringBuilder();
+                while (idx < s.length() && s.charAt(idx) != '≤') { val.append(s.charAt(idx++)); }
+                if (idx >= s.length() || s.charAt(idx)!='≤') return false; // missing terminator
+                idx++; // consume ≤
+                String token = colorChar + val.toString() + "≤";
+                var q = multimap.get(token);
+                if (q==null || q.isEmpty()) return false; // unknown token
+                ordered.add(q.poll());
+            }
+            if (ordered.size() != snapshot.size()) return false; // mismatch
+            me.hand().setExactOrder(ordered);
+        }
+        awaiting = Awaiting.NONE;
+        endTurnAndAdvance();
+        return true;
+    }
+
     private void handlePostRevealChain() {
         // After reveal we either received a new guess or a settle
         if (queue.isEmpty()) {

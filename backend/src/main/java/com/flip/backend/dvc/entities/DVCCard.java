@@ -50,6 +50,13 @@ public class DVCCard extends Card {
     @Override
     public String getDisplay() { return faceUp ? frontDisplay() : backDisplay(); }
 
+    /** Stable card identifier for client ordering: B/W + (number or '_' for joker) + '≤'. */
+    public String cardId() {
+        char prefix = color == Color.BLACK ? 'B' : 'W';
+        String val = joker ? "_" : String.valueOf(number);
+        return prefix + val + "≤"; // always ends with ≤ per spec
+    }
+
     /** Comparator semantics for automatic insertion (Jokers excluded). */
     public static int compareForOrder(DVCCard a, DVCCard b) {
         if (a == b) return 0;
