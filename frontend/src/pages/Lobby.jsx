@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useContext, useEffect, useState, useCallback } from 'react';
+import { useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import PageContainer from '../components/PageContainer';
 import CardContainer from '../components/CardContainer';
@@ -10,6 +10,16 @@ export default function Lobby() {
   const { sessionid } = useParams();
   const nav = useNavigate();
   const { token } = useContext(AuthContext);
+  // derive userId from JWT (uid claim)
+  const myUserId = useMemo(() => {
+    if (!token) return null;
+    try {
+      const base = token.split('.')[1];
+      const json = atob(base.replace(/-/g, '+').replace(/_/g, '/'));
+      const payload = JSON.parse(json);
+      return payload?.uid ?? null;
+    } catch { return null; }
+  }, [token]);
   const [players, setPlayers] = useState([]); // server-fetched members
   const [sessionInfo, setSessionInfo] = useState(null); // { id, ownerId, gameType, maxPlayers }
   const [loadingSession, setLoadingSession] = useState(true);
@@ -24,6 +34,7 @@ export default function Lobby() {
   const readyPlayers = activePlayers.filter(p => p.bot || p.ready);
   const allReady = readyPlayers.length === activePlayers.length && playerCount > 0;
   const canStart = gameType ? (playerCount >= 2 && playerCount <= maxPlayers && allReady) : false;
+  const isOwner = !!myUserId && sessionInfo?.ownerId === myUserId;
 
   useEffect(() => {
     if (!token) nav('/login');
@@ -206,7 +217,7 @@ export default function Lobby() {
               </button>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => nav(-1)}>Back</button>
             </div>
-            <SubmitButton type="button" disabled={!canStart || starting} onClick={startGame}>
+            <SubmitButton type="button" disabled={!canStart || starting || !isOwner} onClick={startGame}>
               {starting ? 'Starting...' : 'Start Game'}
             </SubmitButton>
           </div>

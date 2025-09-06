@@ -49,6 +49,28 @@ export default function DVCPlayScreen({ initial }) {
 
 	useEffect(()=>{ if (!base?.view) refreshView(); }, [base?.view, refreshView]);
 
+	// WebSocket subscription for live DVC views (per perspective)
+	useEffect(() => {
+		if (!gameId || !myPlayerId) return;
+		let client; let active = true; let connected = false;
+		(async () => {
+			const { Client } = await import('@stomp/stompjs');
+			client = new Client({
+				brokerURL: `${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`,
+				reconnectDelay: 3000,
+				onConnect: () => {
+					connected = true;
+					client.subscribe(`/topic/dvc/${gameId}/${myPlayerId}`,(msg)=>{
+						if (!active) return;
+						try { const payload = JSON.parse(msg.body); setView(payload); } catch {/* ignore */}
+					});
+				}
+			});
+			client.activate();
+		})();
+		return () => { active = false; try { if (connected) client?.deactivate(); } catch {} };
+	}, [gameId, myPlayerId]);
+
 	const game = useDVCGame({ view, myPlayerId });
 	const { board, awaiting, parsedHand: myCards, isMyTurn, reorderHand, canDragInitial, canDragPending } = game;
 	const arrangementValid = awaiting==='SETTLE_POSITION' ? isArrangementValid(myCards) : true;
