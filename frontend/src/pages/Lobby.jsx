@@ -95,6 +95,7 @@ export default function Lobby() {
   useEffect(() => {
     let client;
     let subscribed = false;
+    const userTopic = myUserId ? `/topic/lobby/${sessionid}/${myUserId}` : null;
     async function connect() {
       // lazy import to avoid bundling if not used elsewhere
       const { Client } = await import('@stomp/stompjs');
@@ -111,13 +112,22 @@ export default function Lobby() {
               setPlayers((payload.players||[]).map(p=>({ name: p.nickname, bot:false, ready:true })));
             } catch {}
           });
+          if (userTopic) {
+            client.subscribe(userTopic, (msg) => {
+              try {
+                const payload = JSON.parse(msg.body); // StartGameResponse
+                const route = (payload?.view?.board?.gameType || sessionInfo?.gameType || '').toUpperCase()==='UNO' ? `/unoplayscreen/${sessionid}` : `/dvcplayscreen/${sessionid}`;
+                nav(route, { state: { gameId: payload.gameId, roundIndex: payload.roundIndex, playerId: payload.myPlayerId, players: payload.players, totalRounds: 1, results: [], view: payload.view } });
+              } catch {}
+            });
+          }
         }
       });
       client.activate();
     }
     connect();
     return () => { try { if (subscribed) client.deactivate(); } catch {} };
-  }, [sessionid]);
+  }, [sessionid, myUserId, nav, sessionInfo?.gameType]);
 
   return (
     <PageContainer>

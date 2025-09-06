@@ -3,14 +3,25 @@ import { CardStrip } from './CardStrip';
 
 // validity rule: all revealed numbers (non-hidden) must be non-decreasing left->right (simple example placeholder)
 export function isArrangementValid(cards) {
-  // Accept all during initial unless player wants rule: numbers ascending ignoring jokers; implement basic.
-  let last = -1;
+  // Rules:
+  // 1) Numbers must be non-decreasing left -> right (ignoring jokers)
+  // 2) When numbers are equal, BLACK must be to the left of WHITE
+  //    (i.e., for equal v, sequence ... B(v) ... W(v) is valid; W(v) left of B(v) is invalid)
+  let prevVal = -1;
+  let prevColor = null; // 'BLACK' | 'WHITE' for the last non-joker card
   for (const c of cards) {
-    if (!c.revealed && c.value === null) continue;
-    if (c.isJoker) continue;
-    const v = typeof c.value === 'number'? c.value : parseInt(c.value,10);
-    if (!Number.isNaN(v) && v < last) return false;
-    if (!Number.isNaN(v)) last = v;
+    if (c?.isJoker) continue; // joker can be anywhere
+    const v = typeof c?.value === 'number' ? c.value : parseInt(c?.value, 10);
+    if (Number.isNaN(v)) continue; // skip unknown
+    const color = c?.color; // 'BLACK' | 'WHITE'
+    // Non-decreasing check
+    if (v < prevVal) return false;
+    // Equal number tie-breaker: black must be before white
+    if (v === prevVal && prevColor && color) {
+      if (prevColor === 'WHITE' && color === 'BLACK') return false;
+    }
+    prevVal = v;
+    prevColor = color;
   }
   return true;
 }
