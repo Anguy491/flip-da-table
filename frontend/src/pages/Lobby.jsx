@@ -83,7 +83,7 @@ export default function Lobby() {
     try {
       const resp = await startFirstGame(sessionid, { rounds, players }, token);
       const route = (sessionInfo.gameType || '').toUpperCase()==='UNO' ? `/unoplayscreen/${sessionid}` : `/dvcplayscreen/${sessionid}`;
-      nav(route, { state: { gameId: resp.gameId, roundIndex: resp.roundIndex, playerId: resp.myPlayerId, players: resp.players, totalRounds: rounds, results: [] } });
+  nav(route, { state: { gameId: resp.gameId, roundIndex: resp.roundIndex, myPlayerId: resp.myPlayerId, players: resp.players, totalRounds: rounds, results: [] } });
     } catch (e) {
         setError(e.message || 'Failed to start');
       } finally {
@@ -112,12 +112,12 @@ export default function Lobby() {
               setPlayers((payload.players||[]).map(p=>({ name: p.nickname, bot:false, ready:true })));
             } catch {}
           });
-          if (userTopic) {
+      if (userTopic) {
             client.subscribe(userTopic, (msg) => {
               try {
-                const payload = JSON.parse(msg.body); // StartGameResponse
-                const route = (payload?.view?.board?.gameType || sessionInfo?.gameType || '').toUpperCase()==='UNO' ? `/unoplayscreen/${sessionid}` : `/dvcplayscreen/${sessionid}`;
-                nav(route, { state: { gameId: payload.gameId, roundIndex: payload.roundIndex, playerId: payload.myPlayerId, players: payload.players, totalRounds: 1, results: [], view: payload.view } });
+        const payload = JSON.parse(msg.body); // StartGameResponse
+        const route = ((sessionInfo?.gameType)||'').toUpperCase()==='UNO' ? `/unoplayscreen/${sessionid}` : `/dvcplayscreen/${sessionid}`;
+        nav(route, { state: { gameId: payload.gameId, roundIndex: payload.roundIndex, myPlayerId: payload.myPlayerId, players: payload.players, totalRounds: 1, results: [] } });
               } catch {}
             });
           }

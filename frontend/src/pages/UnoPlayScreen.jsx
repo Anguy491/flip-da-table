@@ -35,7 +35,7 @@ export default function UnoPlayScreen(presentationalProps) {
 	const playersMeta = state?.players || [];
 	const pastResults = state?.results || [];
 	// For MVP we don't persist playerId separately; use first non-bot? Provide via state later.
-	const playerId = state?.playerId || state?.players?.find(p => !p.bot)?.playerId; // fallback (should be provided)
+	const playerId = state?.playerId || state?.myPlayerId || state?.players?.find(p => !p.bot)?.playerId; // fallback (should be provided)
 
 	useEffect(() => {
 		if (!gameId) return; // fine

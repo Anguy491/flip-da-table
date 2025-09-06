@@ -24,11 +24,11 @@ export default function DVCPlayScreen({ initial }) {
 	const base = initial || state; // allow prop override
 	const gameId = base?.gameId;
 	const roundIndex = base?.roundIndex || 1;
-	const myPlayerId = base?.myPlayerId || base?.playerId;
+	const myPlayerId = base?.myPlayerId;
 	const lobbyPlayers = base?.players || [];
 
-	const [view, setView] = useState(base?.view || null);
-	const [loading] = useState(!base?.view);
+	const [view, setView] = useState(null);
+	const [loading] = useState(true);
 	const [error, setError] = useState('');
 	const [loadingAction, setLoadingAction] = useState(false);
 	const [showGuess, setShowGuess] = useState(false);
@@ -39,7 +39,7 @@ export default function DVCPlayScreen({ initial }) {
 
 	useEffect(()=>{ if(!token) nav('/login'); },[token, nav]);
 
-	// Initial single fetch (polling removed for upcoming websocket integration)
+	// Initial single fetch (ensure correct per-player perspective regardless of any passed view)
 	const refreshView = useCallback(async () => {
 		if (!gameId || !myPlayerId) return;
 		try {
@@ -47,7 +47,8 @@ export default function DVCPlayScreen({ initial }) {
 		} catch {/* swallow for now */}
 	}, [gameId, myPlayerId, token]);
 
-	useEffect(()=>{ if (!base?.view) refreshView(); }, [base?.view, refreshView]);
+	// Always refresh once on mount/change to guarantee correct perspective
+	useEffect(()=>{ refreshView(); }, [refreshView]);
 
 	// WebSocket subscription for live DVC views (per perspective)
 	useEffect(() => {
