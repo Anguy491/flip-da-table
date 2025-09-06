@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { parseCard } from '../components/dvc/parseCard';
 
 /**
@@ -15,14 +15,19 @@ export function useDVCGame({ view, myPlayerId }) {
   const meView = playerViews.find(p => p.playerId === myPlayerId);
   const rawCards = meView?.cards || [];
   const parsedHand = useMemo(()=> rawCards.map(parseCard), [rawCards]);
+  // When server-provided hand strings change, drop any local reordering to adopt server order
+  const handKey = useMemo(() => JSON.stringify(rawCards), [rawCards]);
 
   // Local ordering (indices) while arranging before initial settle (does not persist to server yet)
   const [localOrder, setLocalOrder] = useState(null); // null means not modified
+  useEffect(() => { setLocalOrder(null); }, [handKey]);
 
   const effectiveHand = localOrder ? localOrder.map(i => parsedHand[i]) : parsedHand;
 
   const isMyTurn = useMemo(()=> {
     if (!board) return false;
+    // In start phase, there's no strict turn order; detect by turnId === 0
+    if (board.awaiting === 'SETTLE_POSITION' && (!board.turnId || board.turnId === 0)) return true;
     const currentId = playerViews[board.currentPlayerIndex]?.playerId;
     return currentId === myPlayerId;
   }, [board, playerViews, myPlayerId]);

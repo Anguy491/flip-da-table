@@ -1,10 +1,14 @@
 import React from 'react';
 
-export function ControlPanel({ awaiting, disabled, myCards, doDrawColor, continueReveal, doSelfReveal, doSettle, openGuess, guessSucceeded, canSettle }) {
+export function ControlPanel({ awaiting, disabled, myCards, doDrawColor, continueReveal, doSelfReveal, doSettle, openGuess, guessSucceeded, canSettle, settledSubmitted }) {
   return (
     <div className="dvc-controls flex flex-col gap-2 text-xs">
       {awaiting==='SETTLE_POSITION' && (
-        <button className="btn btn-sm btn-primary" disabled={disabled || !canSettle} onClick={()=>doSettle(null)} data-testid="settle-finish">Settle</button>
+        settledSubmitted ? (
+          <div className="italic opacity-80">Waiting for other players to settle...</div>
+        ) : (
+          <button className="btn btn-sm btn-primary" disabled={disabled || !canSettle} onClick={()=>doSettle(null)} data-testid="settle-finish">Settle</button>
+        )
       )}
       {awaiting==='DRAW_COLOR' && (
         <div className="flex gap-2">

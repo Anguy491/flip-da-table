@@ -65,7 +65,11 @@ public class DVCController {
 		// If still in start phase interpret as initial arrange + settle
 		var sp = startPhase(gameId);
 		if (sp != null) {
-			if (req.hand()!=null) sp.reorderHand(req.playerId(), req.hand());
+			// Apply player's arranged hand first; if provided but invalid, reject without marking settled
+			if (req.hand()!=null) {
+				boolean ok = sp.reorderHand(req.playerId(), req.hand());
+				if (!ok) return false;
+			}
 			if (Boolean.TRUE.equals(req.isSettled())) sp.settled(req.playerId());
 			// Auto transit when all settled
 			if (sp.allSettled()) {

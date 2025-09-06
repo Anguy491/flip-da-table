@@ -34,6 +34,7 @@ export default function DVCPlayScreen({ initial }) {
 	const [showGuess, setShowGuess] = useState(false);
 	const [showDrawModal, setShowDrawModal] = useState(false);
 	const [lastGuessCorrect, setLastGuessCorrect] = useState(false);
+	const [settledSubmitted, setSettledSubmitted] = useState(false);
 	const [guessForm, setGuessForm] = useState({ targetPlayerId: '', targetIndex: 0, guessColor: 'BLACK', guessValue: '0', joker: false });
 	const [pendingCard, setPendingCard] = useState(null); // simple string for now
 
@@ -78,7 +79,8 @@ export default function DVCPlayScreen({ initial }) {
 	const playerViews = view?.players || [];
 	const currentPlayerId = board && playerViews[board.currentPlayerIndex]?.playerId;
 	const opponents = playerViews.filter(p => p.playerId !== myPlayerId);
-	const disabled = !isMyTurn || !!board?.winnerId || loadingAction;
+	// During SETTLE_POSITION, there's no turn ownership; allow actions if not loading and no winner
+	const disabled = awaiting==='SETTLE_POSITION' ? (!!board?.winnerId || loadingAction) : (!isMyTurn || !!board?.winnerId || loadingAction);
 
 	useEffect(()=>{ if (game.showDrawColorModal) setShowDrawModal(true); else setShowDrawModal(false); }, [game.showDrawColorModal]);
 
@@ -134,9 +136,13 @@ export default function DVCPlayScreen({ initial }) {
 				return prefix + val + '≤';
 			}).join('');
 			await settle(gameId, myPlayerId, handStr, true, token);
+			setSettledSubmitted(true);
 			const v = await fetchDvcView(gameId, myPlayerId, token); setView(v); setPendingCard(null);
 		} catch(e){ setError(e.message||'Settle failed'); } finally { setLoadingAction(false); }
 	};
+
+	// When phase changes away from SETTLE_POSITION, reset waiting flag (next time will show button again if needed)
+	useEffect(()=>{ if (awaiting !== 'SETTLE_POSITION') setSettledSubmitted(false); }, [awaiting]);
 
 // Components extracted to /components/dvc
 
@@ -177,7 +183,7 @@ export default function DVCPlayScreen({ initial }) {
 					</div>
 					<div className="col-span-3 md:col-span-3 flex flex-col gap-2">
 						<InfoPanel deckRemaining={board?.deckRemaining} currentPlayerId={currentPlayerId} roundIndex={roundIndex} awaiting={awaiting} />
-						<ControlPanel awaiting={awaiting} disabled={disabled} myCards={myCards} doDrawColor={(c)=>{doDrawColor(c); setShowDrawModal(false);}} continueReveal={continueReveal} doSelfReveal={doSelfReveal} doSettle={doSettle} openGuess={()=>setShowGuess(true)} guessSucceeded={lastGuessCorrect} canSettle={arrangementValid} />
+						<ControlPanel awaiting={awaiting} disabled={disabled} myCards={myCards} doDrawColor={(c)=>{doDrawColor(c); setShowDrawModal(false);}} continueReveal={continueReveal} doSelfReveal={doSelfReveal} doSettle={doSettle} openGuess={()=>setShowGuess(true)} guessSucceeded={lastGuessCorrect} canSettle={arrangementValid} settledSubmitted={settledSubmitted} />
 					</div>
 				</div>
 			</CardContainer>
