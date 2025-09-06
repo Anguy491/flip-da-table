@@ -10,9 +10,7 @@ export default function Lobby() {
   const { sessionid } = useParams();
   const nav = useNavigate();
   const { token } = useContext(AuthContext);
-  const [players, setPlayers] = useState(() => [
-    { name: 'Host', bot: false, ready: false },
-  ]); // TODO: replace with server-fetched player roster
+  const [players, setPlayers] = useState([]); // server-fetched members
   const [sessionInfo, setSessionInfo] = useState(null); // { id, ownerId, gameType, maxPlayers }
   const [loadingSession, setLoadingSession] = useState(true);
   const [rounds, setRounds] = useState(1);
@@ -38,7 +36,10 @@ export default function Lobby() {
       setLoadingSession(true);
       try {
         const info = await getSession(sessionid, token);
-        if (alive) setSessionInfo(info);
+        if (alive) {
+          setSessionInfo(info);
+          setPlayers((info.players||[]).map(p=>({ name: p.nickname, bot: false, ready: true })));
+        }
       } catch (e) {
         setError(e.message || 'Failed to load session');
       } finally {
@@ -50,7 +51,7 @@ export default function Lobby() {
 
   const addBot = () => {
     if (playerCount >= maxPlayers) return;
-    setPlayers(prev => [...prev, { name: `Bot${prev.length}`, bot: true, ready: true }]);
+  setPlayers(prev => [...prev, { name: `Bot${prev.length}`, bot: true, ready: true }]);
   };
 
   const updatePlayer = (idx, patch) => {
@@ -78,6 +79,34 @@ export default function Lobby() {
         setStarting(false);
     }
   };
+
+  // WebSocket subscription for lobby updates
+  useEffect(() => {
+    let client;
+    let subscribed = false;
+    async function connect() {
+      // lazy import to avoid bundling if not used elsewhere
+      const { Client } = await import('@stomp/stompjs');
+      client = new Client({
+        brokerURL: `${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`,
+        reconnectDelay: 3000,
+        onConnect: () => {
+          subscribed = true;
+          client.subscribe(`/topic/lobby/${sessionid}`, (msg) => {
+            try {
+              const payload = JSON.parse(msg.body);
+              // Expect payload structure of SessionView
+              setSessionInfo(payload);
+              setPlayers((payload.players||[]).map(p=>({ name: p.nickname, bot:false, ready:true })));
+            } catch {}
+          });
+        }
+      });
+      client.activate();
+    }
+    connect();
+    return () => { try { if (subscribed) client.deactivate(); } catch {} };
+  }, [sessionid]);
 
   return (
     <PageContainer>

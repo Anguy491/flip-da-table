@@ -41,3 +41,7 @@ export function startFirstGame(sessionId, payload, token) {
 export function startNextGame(sessionId, payload, token) {
   return post(`/sessions/${sessionId}/start/next`, payload, token);
 }
+
+export function joinSession(sessionId, token) {
+  return post(`/sessions/${sessionId}/join`, {}, token);
+}

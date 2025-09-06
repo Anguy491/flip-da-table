@@ -5,7 +5,7 @@ import PageContainer from '../components/PageContainer';
 import CardContainer from '../components/CardContainer';
 import SubmitButton from '../components/SubmitButton';
 import ErrorPopup from '../components/ErrorPopup';
-import { createSession } from '../api/sessions';
+import { createSession, joinSession } from '../api/sessions';
 import ImgDaVinci from '../assets/Davinci.png';
 import ImgUno from '../assets/Uno.png';
 import ImgBounty from '../assets/Bounty.png';
@@ -67,10 +67,16 @@ function Dashboard() {
 		setShowJoin(true);
 	};
 
-	const handleJoin = () => {
-		if (!joinSessionId.trim()) return;
-		setShowJoin(false);
-		navigate(`/lobby/${joinSessionId.trim()}`);
+	const handleJoin = async () => {
+		const id = joinSessionId.trim();
+		if (!id) return;
+		try {
+			await joinSession(id, token);
+			setShowJoin(false);
+			navigate(`/lobby/${id}`);
+		} catch (e) {
+			setError(e.message || 'Failed to join session');
+		}
 	};
 
 	const handleConfirm = async () => {
@@ -79,10 +85,11 @@ function Dashboard() {
 		setError('');
 		try {
 			const { sessionId } = await createSession({ gameType: selected.gameType, maxPlayers: selected.maxPlayers }, token);
+			await joinSession(sessionId, token);
 			setShowModal(false);
 			navigate(`/lobby/${sessionId}`);
 		} catch (e) {
-			setError(e.message || 'Failed to create session');
+			setError(e.message || 'Failed to create or join session');
 		} finally {
 			setSubmitting(false);
 		}

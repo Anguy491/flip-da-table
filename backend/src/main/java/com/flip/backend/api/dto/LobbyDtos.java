@@ -34,6 +34,9 @@ public class LobbyDtos {
     ) {}
 
     public record SessionView(
-        String id, Long ownerId, String gameType, int maxPlayers
+        String id, Long ownerId, String gameType, int maxPlayers,
+        List<LobbyPlayer> players
     ) {}
+
+    public record LobbyPlayer(Long userId, String nickname) {}
 }

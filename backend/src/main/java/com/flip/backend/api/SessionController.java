@@ -16,4 +16,10 @@ public class SessionController {
         var resp = svc.create(req);
         return ResponseEntity.ok(resp);
     }
+
+    @PostMapping("/{sessionId}/join")
+    public ResponseEntity<com.flip.backend.api.dto.LobbyDtos.SessionView> join(@PathVariable String sessionId) {
+        var view = svc.join(sessionId);
+        return ResponseEntity.ok(view);
+    }
 }
