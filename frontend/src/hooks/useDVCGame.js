@@ -13,6 +13,7 @@ export function useDVCGame({ view, myPlayerId }) {
   const awaiting = board?.awaiting;
   const playerViews = view?.players || [];
   const meView = playerViews.find(p => p.playerId === myPlayerId);
+  const myPending = meView?.pending || null;
   const rawCards = meView?.cards || [];
   const parsedHand = useMemo(()=> rawCards.map(parseCard), [rawCards]);
   // When server-provided hand strings change, drop any local reordering to adopt server order
@@ -26,15 +27,17 @@ export function useDVCGame({ view, myPlayerId }) {
 
   const isMyTurn = useMemo(()=> {
     if (!board) return false;
-    // In start phase, there's no strict turn order; detect by turnId === 0
-    if (board.awaiting === 'SETTLE_POSITION' && (!board.turnId || board.turnId === 0)) return true;
+    // During settle: start-phase (no pending) everyone can act; runtime settle (has pending) only self can act
+    if (board.awaiting === 'SETTLE_POSITION') {
+      return myPending ? true : true; // start-phase also true
+    }
     const currentId = playerViews[board.currentPlayerIndex]?.playerId;
     return currentId === myPlayerId;
-  }, [board, playerViews, myPlayerId]);
+  }, [board, playerViews, myPlayerId, myPending]);
 
   // Interaction permissions
-  const canDragInitial = awaiting === 'SETTLE_POSITION' && !board?.turnId; // pre-game settle
-  const canDragPending = awaiting === 'SETTLE_POSITION' && board?.turnId > 0; // settling a pending draw
+  const canDragInitial = awaiting === 'SETTLE_POSITION' && !myPending; // pre-game settle (no pending)
+  const canDragPending = awaiting === 'SETTLE_POSITION' && !!myPending; // runtime settle (has pending)
   const canSelectOpponentCard = awaiting === 'GUESS_SELECTION' && isMyTurn;
   const showGuessPrompt = awaiting === 'GUESS_SELECTION' && isMyTurn;
   const showDrawColorModal = awaiting === 'DRAW_COLOR' && isMyTurn;
@@ -63,6 +66,6 @@ export function useDVCGame({ view, myPlayerId }) {
     showDrawColorModal,
     reorderHand,
     resetLocalOrder,
-    localOrder
+  localOrder
   };
 }

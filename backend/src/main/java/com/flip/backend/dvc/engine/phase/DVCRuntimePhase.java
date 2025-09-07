@@ -147,6 +147,8 @@ public class DVCRuntimePhase extends RuntimePhase {
             var survivor = board.snapshotOrder().stream().filter(p -> p.hiddenCount() > 0).findFirst().orElse(null);
             winnerId = survivor != null ? survivor.getId() : null;
             finished = true;
+            awaiting = Awaiting.NONE; // no further input expected
+            queue.clear(); // flush any pending events
             endingPhase = new DVCEndingPhase(winnerId);
             endingPhase.enter();
         }
@@ -246,38 +248,35 @@ public class DVCRuntimePhase extends RuntimePhase {
     public boolean provideSettleHand(String playerId, String handString) {
         if (awaiting != Awaiting.SETTLE_POSITION || pendingSettle == null) return false;
         if (!current().getId().equals(playerId)) return false;
-        // If no pending card simply allow settle (used for initial phase not handled here)
-    // When pending card exists we still need to execute settle event to move it into hand first (ordered add or joker logic)
-        // We'll perform original settle first (auto ordering) then reorder according to provided sequence of cardIds.
-        pendingSettle.setInsertIndex(null); // auto placement
-        if (!pendingSettle.isValid()) return false;
-        pendingSettle.execute();
-        pendingSettle = null;
+    // When pending card exists we still need to execute settle event (auto ordering or joker) before reordering.
+    pendingSettle.setInsertIndex(null); // request auto placement
+    if (!pendingSettle.isValid()) return false;
+    pendingSettle.execute();
+    pendingSettle = null;
         // Now reorder if handString provided
         if (handString != null && !handString.isBlank()) {
             var me = current();
             var snapshot = new java.util.ArrayList<>(me.hand().snapshot());
-            // Build map id->card list (handle potential duplicate numbers)
-            java.util.Map<String, java.util.Queue<DVCCard>> multimap = new java.util.HashMap<>();
+            // Build map from cardId token -> queue of cards to support duplicates
+            java.util.Map<String, java.util.ArrayDeque<DVCCard>> tokenToCards = new java.util.HashMap<>();
             for (DVCCard c : snapshot) {
-                multimap.computeIfAbsent(c.cardId(), k->new java.util.ArrayDeque<>()).add(c);
+                tokenToCards.computeIfAbsent(c.cardId(), k -> new java.util.ArrayDeque<>()).add(c);
             }
             java.util.List<DVCCard> ordered = new java.util.ArrayList<>();
             int idx = 0; String s = handString.trim();
             while (idx < s.length()) {
                 char colorChar = s.charAt(idx++);
                 if (colorChar!='B' && colorChar!='W') return false;
-                // consume digits or '_' until '≤'
                 StringBuilder val = new StringBuilder();
                 while (idx < s.length() && s.charAt(idx) != '≤') { val.append(s.charAt(idx++)); }
-                if (idx >= s.length() || s.charAt(idx)!='≤') return false; // missing terminator
-                idx++; // consume ≤
+                if (idx >= s.length() || s.charAt(idx)!='≤') return false;
+                idx++; // skip terminator
                 String token = colorChar + val.toString() + "≤";
-                var q = multimap.get(token);
-                if (q==null || q.isEmpty()) return false; // unknown token
+                var q = tokenToCards.get(token);
+                if (q == null || q.isEmpty()) return false;
                 ordered.add(q.poll());
             }
-            if (ordered.size() != snapshot.size()) return false; // mismatch
+            if (ordered.size() != snapshot.size()) return false;
             me.hand().setExactOrder(ordered);
         }
         awaiting = Awaiting.NONE;
@@ -287,6 +286,20 @@ public class DVCRuntimePhase extends RuntimePhase {
 
     private void handlePostRevealChain() {
         // After reveal we either received a new guess or a settle
+        // Immediate victory check: if only one player still has any hidden cards, end the game now
+        if (!finished) {
+            long active = board.activePlayerCount();
+            if (active <= 1) {
+                var survivor = board.snapshotOrder().stream().filter(p -> p.hiddenCount() > 0).findFirst().orElse(null);
+                winnerId = survivor != null ? survivor.getId() : null;
+                finished = true;
+                awaiting = Awaiting.NONE;
+                queue.clear();
+                endingPhase = new DVCEndingPhase(winnerId);
+                endingPhase.enter();
+                return;
+            }
+        }
         if (queue.isEmpty()) {
             // Should not happen: reveal enqueues either guess or settle
             awaiting = Awaiting.NONE; endTurnAndAdvance(); return;
@@ -297,21 +310,16 @@ public class DVCRuntimePhase extends RuntimePhase {
         }
         if (next instanceof DVCSettleCardEvent se) {
             pendingSettle = se;
-            // Need placement if pending card exists and is joker
+            // New rule: if there is a pending card, always await manual settle from player
             DVCCard pending = board.getPending(current().getId());
-            if (pending != null && pending.isJoker()) {
-                awaiting = Awaiting.SETTLE_POSITION; // wait for player to choose
-            } else {
-                // can auto settle with ordering
-                if (pending != null) {
-                    pendingSettle.setInsertIndex(null); // auto
-                }
-                if (!pendingSettle.isValid()) {
-                    // for non-joker with insertIndex null validity is true because pending may be null or auto
-                }
-                pendingSettle.execute();
-                pendingSettle = null; awaiting = Awaiting.NONE; endTurnAndAdvance();
+            if (pending != null) {
+                awaiting = Awaiting.SETTLE_POSITION;
+                return;
             }
+            // No pending card: execute (no-op) and end turn immediately
+            pendingSettle.setInsertIndex(null);
+            pendingSettle.execute();
+            pendingSettle = null; awaiting = Awaiting.NONE; endTurnAndAdvance();
         }
     }
 }

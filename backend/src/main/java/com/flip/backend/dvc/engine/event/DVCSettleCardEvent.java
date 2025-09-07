@@ -23,8 +23,9 @@ public class DVCSettleCardEvent extends GameEvent {
     @Override public boolean isValid() {
         if (executed) return false;
         DVCCard pending = board.getPending(player.getId());
-        if (pending == null) return true; // nothing to place
-        if (insertIndex == null) return false; // need placement choice
+    if (pending == null) return true; // nothing to place
+    // Allow null index for auto placement (used by provideSettleHand flow)
+    if (insertIndex == null) return true;
         if (insertIndex < 0 || insertIndex > player.hand().snapshot().size()) return false;
         return true;
     }

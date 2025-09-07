@@ -12,6 +12,8 @@ import { ControlPanel } from '../components/dvc/ControlPanel';
 import { useDVCGame } from '../hooks/useDVCGame';
 import { InfoPanel } from '../components/dvc/InfoPanel';
 import { GuessModal } from '../components/dvc/GuessModal';
+import { InsertPreviewModal } from '../components/dvc/InsertPreviewModal';
+import DvcGameOverModal from '../components/dvc/GameOverModal';
 
 // parseCard moved to components/dvc/parseCard.js
 
@@ -37,6 +39,7 @@ export default function DVCPlayScreen({ initial }) {
 	const [settledSubmitted, setSettledSubmitted] = useState(false);
 	const [guessForm, setGuessForm] = useState({ targetPlayerId: '', targetIndex: 0, guessColor: 'BLACK', guessValue: '0', joker: false });
 	const [pendingCard, setPendingCard] = useState(null); // server-provided string like "BLACK 5" or "WHITE -"
+	const [showInsert, setShowInsert] = useState(false);
 
 	useEffect(()=>{ if(!token) nav('/login'); },[token, nav]);
 
@@ -83,12 +86,13 @@ export default function DVCPlayScreen({ initial }) {
 	}, [gameId, myPlayerId]);
 
 	const game = useDVCGame({ view, myPlayerId });
-	const { board, awaiting, parsedHand: myCards, isMyTurn, reorderHand, canDragInitial, canDragPending } = game;
+	const { board, awaiting, parsedHand: myCards, isMyTurn, reorderHand, canDragInitial } = game;
 	const arrangementValid = awaiting==='SETTLE_POSITION' ? isArrangementValid(myCards) : true;
 	const playerViews = view?.players || [];
 	const currentPlayerId = board && playerViews[board.currentPlayerIndex]?.playerId;
 	const opponents = playerViews.filter(p => p.playerId !== myPlayerId);
 	// During SETTLE_POSITION, there's no turn ownership; allow actions if not loading and no winner
+	const isStartPhaseSettle = awaiting==='SETTLE_POSITION' && !pendingCard;
 	const disabled = awaiting==='SETTLE_POSITION' ? (!!board?.winnerId || loadingAction) : (!isMyTurn || !!board?.winnerId || loadingAction);
 
 	useEffect(()=>{ if (game.showDrawColorModal) setShowDrawModal(true); else setShowDrawModal(false); }, [game.showDrawColorModal]);
@@ -136,12 +140,12 @@ export default function DVCPlayScreen({ initial }) {
 		} catch(e){ setError(e.message||'Self reveal failed'); } finally { setLoadingAction(false); }
 	};
 
-	const doSettle = async () => {
+	const doSettle = async (handOverride) => {
 		if (disabled || awaiting !== 'SETTLE_POSITION') return;
 		setLoadingAction(true); setError('');
 		try {
-			// Build hand string from myCards (each token: B/W + value or '_' + ≤)
-			const handStr = (myCards||[]).map(c=>{
+			// Build hand string (override for runtime insert modal)
+			const handStr = handOverride ?? (myCards||[]).map(c=>{
 				const prefix = c.color === 'BLACK' ? 'B' : 'W';
 				const val = c.isJoker || c.value==='-' ? '_' : c.value;
 				return prefix + val + '≤';
@@ -201,18 +205,46 @@ export default function DVCPlayScreen({ initial }) {
 				</div>
 				<div className="dvc-bottom grid grid-cols-12 gap-2 mt-2">
 					<div className="col-span-6 md:col-span-6 dvc-myhand p-2 bg-base-200/40 rounded">
-						<MyHandPanel cards={myCards} draggable={canDragInitial||canDragPending} onReorder={reorderHand} showValidity={awaiting==='SETTLE_POSITION'} />
+						<MyHandPanel cards={myCards} draggable={canDragInitial} onReorder={reorderHand} showValidity={awaiting==='SETTLE_POSITION'} />
 					</div>
 					<div className="col-span-3 md:col-span-3 flex flex-col gap-2">
 						<PendingCardBox pending={pendingCard} />
 					</div>
 					<div className="col-span-3 md:col-span-3 flex flex-col gap-2">
 						<InfoPanel deckRemaining={board?.deckRemaining} currentPlayerId={currentPlayerId} roundIndex={roundIndex} awaiting={awaiting} />
-						<ControlPanel awaiting={awaiting} disabled={disabled} myCards={myCards} doDrawColor={(c)=>{doDrawColor(c); setShowDrawModal(false);}} continueReveal={continueReveal} doSelfReveal={doSelfReveal} doSettle={doSettle} openGuess={()=>setShowGuess(true)} guessSucceeded={lastGuessCorrect} canSettle={arrangementValid} settledSubmitted={settledSubmitted} />
+						<ControlPanel
+							awaiting={awaiting}
+							disabled={disabled}
+							myCards={myCards}
+							doDrawColor={(c)=>{doDrawColor(c); setShowDrawModal(false);}}
+							continueReveal={continueReveal}
+							doSelfReveal={doSelfReveal}
+							doSettle={()=>{ if (isStartPhaseSettle) { doSettle(); } else { setShowInsert(true); } }}
+							openGuess={()=>setShowGuess(true)}
+							guessSucceeded={lastGuessCorrect}
+							canSettle={isStartPhaseSettle ? arrangementValid : true}
+							settledSubmitted={settledSubmitted}
+							isStartPhaseSettle={isStartPhaseSettle}
+							hasPending={!!pendingCard}
+						/>
 					</div>
 				</div>
 			</CardContainer>
+					<DvcGameOverModal
+						open={!!board?.winnerId}
+						winnerName={playerViews.find(p=>p.playerId===board?.winnerId)?.playerId}
+						winnerId={board?.winnerId}
+						turns={board?.turnId}
+						onClose={()=>nav('/dashboard')}
+					/>
 			<GuessModal open={showGuess} opponents={opponents} guessForm={guessForm} setGuessForm={setGuessForm} onSubmit={submitGuess} onClose={()=>setShowGuess(false)} />
+			<InsertPreviewModal
+				open={showInsert}
+				myCards={myCards}
+				pending={pendingCard}
+				onClose={()=>setShowInsert(false)}
+				onConfirm={async (handString)=>{ setShowInsert(false); await doSettle(handString); }}
+			/>
 			{showDrawModal && (
 				<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
 					<div className="bg-base-100 p-4 rounded shadow flex flex-col gap-3 w-full max-w-xs text-xs">
