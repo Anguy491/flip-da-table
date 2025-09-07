@@ -8,5 +8,6 @@ public record DVCPlayerView(
     boolean bot,
     int handSize,
     int hiddenCount,
-    List<String> cards
+    List<String> cards,
+    String pending
 ) {}

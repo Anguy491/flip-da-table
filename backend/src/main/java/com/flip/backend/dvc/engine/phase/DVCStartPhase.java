@@ -108,7 +108,7 @@ public class DVCStartPhase extends StartPhase {
             List<String> cards = self
                 ? snapshot.stream().map(DVCCard::frontDisplay).toList()
                 : snapshot.stream().map(DVCCard::backDisplay).toList();
-            pviews.add(new DVCPlayerView(p.getId(), p.isBot(), snapshot.size(), hidden, cards));
+            pviews.add(new DVCPlayerView(p.getId(), p.isBot(), snapshot.size(), hidden, cards, null));
         }
         return new DVCView(boardView, List.copyOf(pviews), perspectivePlayerId);
     }

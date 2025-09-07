@@ -36,7 +36,7 @@ export default function DVCPlayScreen({ initial }) {
 	const [lastGuessCorrect, setLastGuessCorrect] = useState(false);
 	const [settledSubmitted, setSettledSubmitted] = useState(false);
 	const [guessForm, setGuessForm] = useState({ targetPlayerId: '', targetIndex: 0, guessColor: 'BLACK', guessValue: '0', joker: false });
-	const [pendingCard, setPendingCard] = useState(null); // simple string for now
+	const [pendingCard, setPendingCard] = useState(null); // server-provided string like "BLACK 5" or "WHITE -"
 
 	useEffect(()=>{ if(!token) nav('/login'); },[token, nav]);
 
@@ -44,7 +44,11 @@ export default function DVCPlayScreen({ initial }) {
 	const refreshView = useCallback(async () => {
 		if (!gameId || !myPlayerId) return;
 		try {
-			const v = await fetchDvcView(gameId, myPlayerId, token); setView(v);
+			const v = await fetchDvcView(gameId, myPlayerId, token);
+			setView(v);
+			// derive my pending from view
+			const mine = v?.players?.find(p=>p.playerId===myPlayerId);
+			setPendingCard(mine?.pending || null);
 		} catch {/* swallow for now */}
 	}, [gameId, myPlayerId, token]);
 
@@ -64,7 +68,12 @@ export default function DVCPlayScreen({ initial }) {
 					connected = true;
 					client.subscribe(`/topic/dvc/${gameId}/${myPlayerId}`,(msg)=>{
 						if (!active) return;
-						try { const payload = JSON.parse(msg.body); setView(payload); } catch {/* ignore */}
+						try {
+							const payload = JSON.parse(msg.body);
+							setView(payload);
+							const mine = payload?.players?.find(p=>p.playerId===myPlayerId);
+							setPendingCard(mine?.pending || null);
+						} catch {/* ignore */}
 					});
 				}
 			});
@@ -89,8 +98,10 @@ export default function DVCPlayScreen({ initial }) {
 		setLoadingAction(true); setError('');
 		try {
 			await drawColor(gameId, myPlayerId, color, token);
-			const v = await fetchDvcView(gameId, myPlayerId, token); setView(v);
-			// server put pending card hidden until settle; to show we diff last card? Skip for now.
+			const v = await fetchDvcView(gameId, myPlayerId, token);
+			setView(v);
+			const mine = v?.players?.find(p=>p.playerId===myPlayerId);
+			setPendingCard(mine?.pending || null);
 		} catch(e){ setError(e.message||'Draw failed'); } finally { setLoadingAction(false); }
 	};
 
@@ -137,7 +148,10 @@ export default function DVCPlayScreen({ initial }) {
 			}).join('');
 			await settle(gameId, myPlayerId, handStr, true, token);
 			setSettledSubmitted(true);
-			const v = await fetchDvcView(gameId, myPlayerId, token); setView(v); setPendingCard(null);
+			const v = await fetchDvcView(gameId, myPlayerId, token);
+			setView(v);
+			const mine = v?.players?.find(p=>p.playerId===myPlayerId);
+			setPendingCard(mine?.pending || null);
 		} catch(e){ setError(e.message||'Settle failed'); } finally { setLoadingAction(false); }
 	};
 
@@ -172,7 +186,18 @@ export default function DVCPlayScreen({ initial }) {
 				{error && <div className="alert alert-error py-1 px-2 text-xs">{error}</div>}
 				{board?.winnerId && <div className="alert alert-success py-1 px-2 text-xs">Winner: {board.winnerId}</div>}
 				<div className="dvc-players bg-base-200/40 rounded p-2 flex flex-col gap-2 overflow-y-auto">
-					<PlayerList playerViews={playerViews} currentPlayerId={currentPlayerId} myPlayerId={myPlayerId} />
+					<PlayerList
+						playerViews={playerViews}
+						currentPlayerId={currentPlayerId}
+						myPlayerId={myPlayerId}
+						clickable={awaiting==='GUESS_SELECTION' && isMyTurn}
+						onOpponentCardClick={(pid, idx)=>{
+							if (awaiting==='GUESS_SELECTION' && isMyTurn) {
+								setGuessForm(f=>({...f, targetPlayerId: pid, targetIndex: idx }));
+								setShowGuess(true);
+							}
+						}}
+					/>
 				</div>
 				<div className="dvc-bottom grid grid-cols-12 gap-2 mt-2">
 					<div className="col-span-6 md:col-span-6 dvc-myhand p-2 bg-base-200/40 rounded">

@@ -90,7 +90,12 @@ public class DVCRuntimePhase extends RuntimePhase {
                 // Opponent: show only color for each card; if face down still backDisplay (color ≤), if face up show front
                 cards = snapshot.stream().map(c -> c.isFaceUp() ? c.frontDisplay() : c.backDisplay()).toList();
             }
-            pviews.add(new DVCPlayerView(p.getId(), p.isBot(), snapshot.size(), hidden, cards));
+            String pending = null;
+            if (self) {
+                DVCCard pc = board.getPending(p.getId());
+                if (pc != null) pending = pc.frontDisplay(); // show full pending to self
+            }
+            pviews.add(new DVCPlayerView(p.getId(), p.isBot(), snapshot.size(), hidden, cards, pending));
         }
         return new DVCView(boardView, List.copyOf(pviews), perspectivePlayerId);
     }
@@ -105,7 +110,7 @@ public class DVCRuntimePhase extends RuntimePhase {
         if (finished) return;
         if (deck.remaining() > 0) {
             pendingDraw = new DVCDrawCardEvent(deck, board, current(), queue);
-            queue.enqueue(pendingDraw);
+            // Do NOT enqueue draw event into queue; it will enqueue the next event upon execute()
             awaiting = Awaiting.DRAW_COLOR;
         } else {
             // Directly enqueue a guess event
@@ -157,10 +162,17 @@ public class DVCRuntimePhase extends RuntimePhase {
         if (!pendingDraw.isValid()) return false;
         pendingDraw.execute();
         pendingDraw = null;
-        // queue now has guess event
-        pendingGuess = (DVCGuessCardEvent) queue.poll(); // draw enqueued guess
-        awaiting = Awaiting.GUESS_SELECTION;
-        return true;
+        // queue now has guess event (enqueued by draw.execute). Drain until we find it.
+        var next = queue.poll();
+        while (next != null && !(next instanceof DVCGuessCardEvent)) {
+            // ignore any stale or unexpected events (e.g., residual draw)
+            next = queue.poll();
+        }
+        if (next instanceof DVCGuessCardEvent ge) {
+            pendingGuess = ge; awaiting = Awaiting.GUESS_SELECTION; return true;
+        }
+        // Fallback: if nothing found, keep awaiting draw selection invalid state
+        return false;
     }
 
     public boolean provideGuess(String playerId, String targetPlayerId, int targetIndex, boolean joker, Integer number) {
