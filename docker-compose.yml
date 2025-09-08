@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: anguy491/flip-backend:v1
+    image: anguy491/flip-backend:v2
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: anguy491/flip-frontend:v1
+    image: anguy491/flip-frontend:v2
     depends_on:
       - backend
     ports:
