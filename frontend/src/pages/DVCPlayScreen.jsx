@@ -41,6 +41,7 @@ export default function DVCPlayScreen({ initial }) {
 	const [pendingCard, setPendingCard] = useState(null); // server-provided string like "BLACK 5" or "WHITE -"
 	const [showInsert, setShowInsert] = useState(false);
 	const [publicTokens, setPublicTokens] = useState(new Set()); // Set<string token>
+	const [selfRevealIndex, setSelfRevealIndex] = useState(null);
 
 	useEffect(()=>{ if(!token) nav('/login'); },[token, nav]);
 
@@ -120,6 +121,9 @@ export default function DVCPlayScreen({ initial }) {
 	// During SETTLE_POSITION, there's no turn ownership; allow actions if not loading and no winner
 	const isStartPhaseSettle = awaiting==='SETTLE_POSITION' && !pendingCard;
 	const disabled = awaiting==='SETTLE_POSITION' ? (!!board?.winnerId || loadingAction) : (!isMyTurn || !!board?.winnerId || loadingAction);
+
+	// reset selection when awaiting changes away from self reveal
+	useEffect(()=>{ if (awaiting !== 'SELF_REVEAL_CHOICE') setSelfRevealIndex(null); }, [awaiting]);
 
 	useEffect(()=>{ if (game.showDrawColorModal) setShowDrawModal(true); else setShowDrawModal(false); }, [game.showDrawColorModal]);
 
@@ -237,6 +241,9 @@ export default function DVCPlayScreen({ initial }) {
 							onReorder={reorderHand}
 							showValidity={awaiting==='SETTLE_POSITION'}
 							publicTokens={publicTokens}
+							selectable={awaiting==='SELF_REVEAL_CHOICE' && isMyTurn}
+							selectedIndex={selfRevealIndex}
+							onSelect={(i)=>setSelfRevealIndex(i)}
 						/>
 					</div>
 					<div className="col-span-3 md:col-span-3 flex flex-col gap-2">
@@ -250,7 +257,7 @@ export default function DVCPlayScreen({ initial }) {
 							myCards={myCards}
 							doDrawColor={(c)=>{doDrawColor(c); setShowDrawModal(false);}}
 							continueReveal={continueReveal}
-							doSelfReveal={doSelfReveal}
+							doSelfReveal={()=>{ if (selfRevealIndex!=null) doSelfReveal(selfRevealIndex); }}
 							doSettle={()=>{ if (isStartPhaseSettle) { doSettle(); } else { setShowInsert(true); } }}
 							openGuess={()=>setShowGuess(true)}
 							guessSucceeded={lastGuessCorrect}
@@ -259,6 +266,7 @@ export default function DVCPlayScreen({ initial }) {
 							isStartPhaseSettle={isStartPhaseSettle}
 							hasPending={!!pendingCard}
 							isMyTurn={isMyTurn}
+							selfRevealIndex={selfRevealIndex}
 						/>
 					</div>
 				</div>

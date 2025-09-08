@@ -173,9 +173,8 @@ public class DVCRuntimePhase extends RuntimePhase {
             // Do NOT enqueue draw event into queue; it will enqueue the next event upon execute()
             awaiting = Awaiting.DRAW_COLOR;
         } else {
-            // Directly enqueue a guess event
+            // Deck empty: prepare a guess event but do NOT enqueue (mirror draw path semantics)
             pendingGuess = new DVCGuessCardEvent(board, current(), queue);
-            queue.enqueue(pendingGuess);
             awaiting = Awaiting.GUESS_SELECTION;
         }
     }
@@ -244,8 +243,16 @@ public class DVCRuntimePhase extends RuntimePhase {
         pendingGuess.setSelection(targetPlayerId, targetIndex, guess);
         if (!pendingGuess.isValid()) return false;
         pendingGuess.execute();
-        // reveal event enqueued
-        pendingReveal = (DVCRevealCardEvent) queue.poll();
+        // Reveal event enqueued; drain queue until we find it (defensive against any stale events)
+        var nextEv = queue.poll();
+        while (nextEv != null && !(nextEv instanceof DVCRevealCardEvent)) {
+            nextEv = queue.poll();
+        }
+        if (nextEv instanceof DVCRevealCardEvent re) {
+            pendingReveal = re;
+        } else {
+            return false; // unexpected: no reveal enqueued
+        }
         if (pendingReveal.correct()) {
             // Immediately reveal the guessed card for game state consistency (decision affects only continue/stop)
             var tgtId = pendingReveal.targetPlayerId();

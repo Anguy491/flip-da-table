@@ -26,7 +26,7 @@ export function isArrangementValid(cards) {
   return true;
 }
 
-export function MyHandPanel({ cards, draggable, onReorder, showValidity=false, publicTokens=new Set() }) {
+export function MyHandPanel({ cards, draggable, onReorder, showValidity=false, publicTokens=new Set(), selectable=false, selectedIndex=null, onSelect }) {
   const valid = isArrangementValid(cards);
   const scrollerRef = useRef(null);
   const [fadeLeft, setFadeLeft] = useState(false);
@@ -63,6 +63,21 @@ export function MyHandPanel({ cards, draggable, onReorder, showValidity=false, p
               cards={cards}
               draggable={draggable}
               onReorder={onReorder}
+              clickable={selectable}
+              canClick={(i, card)=>{
+                // Only allow selecting cards that are not publicly revealed for me
+                const prefix = card?.color === 'BLACK' ? 'B' : 'W';
+                const val = (card?.isJoker || card?.value==='-') ? '_' : String(card?.value ?? '');
+                const token = `${prefix}${val}≤`;
+                const isPublic = card?.revealed && publicTokens.has(token);
+                return !isPublic; // private (hidden to opponents) cards can be selected
+              }}
+              onCardClick={(i)=>{
+                if (!selectable) return;
+                if (typeof onSelect === 'function') {
+                  if (selectedIndex === i) onSelect(null); else onSelect(i);
+                }
+              }}
               itemClassName={(i, card)=>{
                 // If this card is publicly revealed, show it as "laid down" with trapezoid perspective
                 // We derive its stable token like backend: B/W + value or '_' + '≤'
@@ -76,7 +91,8 @@ export function MyHandPanel({ cards, draggable, onReorder, showValidity=false, p
                   ? 'after:content-["public"] after:bg-success/80 after:text-white'
                   : 'after:content-["private"] after:bg-neutral/60 after:text-white';
                 const shape = isPublic ? 'dvc-public-trapezoid' : '';
-                return [baseHover, labelStyles, shape].filter(Boolean).join(' ');
+                const selectedRing = (selectable && selectedIndex===i && !isPublic) ? 'ring ring-primary ring-offset-1' : '';
+                return [baseHover, labelStyles, shape, selectedRing].filter(Boolean).join(' ');
               }}
             />
           </div>

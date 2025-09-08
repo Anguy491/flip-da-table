@@ -1,6 +1,6 @@
 import React from 'react';
 
-export function ControlPanel({ awaiting, disabled, myCards, doDrawColor, continueReveal, doSelfReveal, doSettle, openGuess, guessSucceeded, canSettle, settledSubmitted, isStartPhaseSettle=false, hasPending=false, isMyTurn=false }) {
+export function ControlPanel({ awaiting, disabled, myCards, doDrawColor, continueReveal, doSelfReveal, doSettle, openGuess, guessSucceeded, canSettle, settledSubmitted, isStartPhaseSettle=false, hasPending=false, isMyTurn=false, selfRevealIndex=null }) {
   return (
     <div className="dvc-controls flex flex-col gap-2 text-xs">
       {awaiting==='SETTLE_POSITION' && (
@@ -38,8 +38,9 @@ export function ControlPanel({ awaiting, disabled, myCards, doDrawColor, continu
       {awaiting==='SELF_REVEAL_CHOICE' && (
         <div className="flex flex-col gap-1">
           <div>Select one of your hidden cards:</div>
-          <div className="flex gap-1 flex-wrap">
-            {myCards.map((c,i)=>!c.revealed && <button key={i} className="btn btn-xs" onClick={()=>doSelfReveal(i)} disabled={disabled} data-testid={`self-reveal-${i}`}>{i+1}</button>)}
+          <div className="flex items-center gap-2">
+            <button className="btn btn-sm btn-primary" disabled={disabled || selfRevealIndex==null} onClick={()=>doSelfReveal()} data-testid="self-reveal-confirm">Confirm</button>
+            {selfRevealIndex==null && <span className="opacity-70">Select a hidden card to enable</span>}
           </div>
         </div>
       )}
