@@ -99,7 +99,15 @@ public class DVCStartPhase extends StartPhase {
     /** Build a view for start phase with awaiting=SETTLE_POSITION. */
     public DVCView buildView(String perspectivePlayerId) {
         if (board == null) return null;
-        DVCBoardView boardView = new DVCBoardView("DVC", 0L, 1, 0, deck.remaining(), DVCRuntimePhase.Awaiting.SETTLE_POSITION.name(), null);
+        // During start phase, each color starts with 13 in deck minus dealt cards
+        int totalPerColor = 13;
+        int blackSeen = 0, whiteSeen = 0;
+        for (var p : players) {
+            for (var c : p.hand().snapshot()) { if (c.getColor() == DVCCard.Color.BLACK) blackSeen++; else whiteSeen++; }
+        }
+        int blackRem = Math.max(0, totalPerColor - blackSeen);
+        int whiteRem = Math.max(0, totalPerColor - whiteSeen);
+        DVCBoardView boardView = new DVCBoardView("DVC", 0L, 1, 0, deck.remaining(), DVCRuntimePhase.Awaiting.SETTLE_POSITION.name(), null, blackRem, whiteRem);
         List<DVCPlayerView> pviews = new ArrayList<>();
         for (var p : players) {
             boolean self = p.getId().equals(perspectivePlayerId);

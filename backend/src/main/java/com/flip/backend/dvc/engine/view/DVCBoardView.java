@@ -8,6 +8,8 @@ public record DVCBoardView(
     int currentPlayerIndex,
     int deckRemaining,
     String awaiting,          // current awaited input type (for current player only meaningful)
-    String winnerId
+    String winnerId,
+    int deckBlackRemaining,
+    int deckWhiteRemaining
 ) {}
 

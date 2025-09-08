@@ -115,6 +115,8 @@ export default function DVCPlayScreen({ initial }) {
 	const playerViews = view?.players || [];
 	const currentPlayerId = board && playerViews[board.currentPlayerIndex]?.playerId;
 	const opponents = playerViews.filter(p => p.playerId !== myPlayerId);
+	const blackRem = board?.deckBlackRemaining ?? 0;
+	const whiteRem = board?.deckWhiteRemaining ?? 0;
 	// During SETTLE_POSITION, there's no turn ownership; allow actions if not loading and no winner
 	const isStartPhaseSettle = awaiting==='SETTLE_POSITION' && !pendingCard;
 	const disabled = awaiting==='SETTLE_POSITION' ? (!!board?.winnerId || loadingAction) : (!isMyTurn || !!board?.winnerId || loadingAction);
@@ -241,7 +243,7 @@ export default function DVCPlayScreen({ initial }) {
 						<PendingCardBox pending={pendingCard} />
 					</div>
 					<div className="col-span-3 md:col-span-3 flex flex-col gap-2">
-						<InfoPanel deckRemaining={board?.deckRemaining} currentPlayerId={currentPlayerId} roundIndex={roundIndex} awaiting={awaiting} />
+						<InfoPanel deckRemaining={board?.deckRemaining} deckBlackRemaining={blackRem} deckWhiteRemaining={whiteRem} currentPlayerId={currentPlayerId} roundIndex={roundIndex} awaiting={awaiting} />
 						<ControlPanel
 							awaiting={awaiting}
 							disabled={disabled}
@@ -281,8 +283,8 @@ export default function DVCPlayScreen({ initial }) {
 					<div className="bg-base-100 p-4 rounded shadow flex flex-col gap-3 w-full max-w-xs text-xs">
 						<h3 className="font-semibold">Choose draw color</h3>
 						<div className="flex gap-2">
-							<button className="btn btn-sm btn-primary flex-1" disabled={disabled} onClick={()=>{doDrawColor('BLACK'); setShowDrawModal(false);}}>Black</button>
-							<button className="btn btn-sm btn-secondary flex-1" disabled={disabled} onClick={()=>{doDrawColor('WHITE'); setShowDrawModal(false);}}>White</button>
+							<button className="btn btn-sm btn-primary flex-1" disabled={disabled || blackRem<=0} onClick={()=>{doDrawColor('BLACK'); setShowDrawModal(false);}}>Black ({blackRem})</button>
+							<button className="btn btn-sm btn-secondary flex-1" disabled={disabled || whiteRem<=0} onClick={()=>{doDrawColor('WHITE'); setShowDrawModal(false);}}>White ({whiteRem})</button>
 						</div>
 					</div>
 				</div>) }

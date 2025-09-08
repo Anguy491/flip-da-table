@@ -97,6 +97,17 @@ public class DVCRuntimePhase extends RuntimePhase {
         var order = board.snapshotOrder();
         int currentIndex = 0;
         for (int i=0;i<order.size();i++) if (order.get(i).getId().equals(current().getId())) { currentIndex = i; break; }
+        // Estimate remaining per color by scanning deck (draw pile only). Deck API doesn’t expose drawPile, so approximate via rebuilding snapshot is not trivial.
+        // We’ll count from players' hands + pending and subtract from total 13 per color (0-11 + joker).
+        int totalPerColor = 13;
+        int blackSeen = 0, whiteSeen = 0;
+        for (var p : board.snapshotOrder()) {
+            for (var c : p.hand().snapshot()) { if (c.getColor() == DVCCard.Color.BLACK) blackSeen++; else whiteSeen++; }
+            var pend = board.getPending(p.getId()); if (pend != null) { if (pend.getColor() == DVCCard.Color.BLACK) blackSeen++; else whiteSeen++; }
+        }
+        int blackRem = Math.max(0, totalPerColor - blackSeen);
+        int whiteRem = Math.max(0, totalPerColor - whiteSeen);
+
         DVCBoardView boardView = new DVCBoardView(
             "DVC",
             turnId,
@@ -104,7 +115,9 @@ public class DVCRuntimePhase extends RuntimePhase {
             currentIndex,
             deck.remaining(),
             awaiting.name(),
-            winnerId
+            winnerId,
+            blackRem,
+            whiteRem
         );
         List<DVCPlayerView> pviews = new ArrayList<>();
         for (var p : order) {
