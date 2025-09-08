@@ -7,7 +7,7 @@ import { parseCard } from './parseCard';
  *  - Black cards: dark background, light text
  *  - White cards: light background, dark text with subtle outline
  *  - Hidden state: shows ≤ symbol, muted tone
- *  - Joker: underscore glyph, accent border
+ *  - Joker: underscore glyph (no extra border)
  */
 export function CardTile({ card: raw, className='' }) {
   const card = typeof raw === 'string' ? parseCard(raw) : raw;
@@ -19,7 +19,7 @@ export function CardTile({ card: raw, className='' }) {
     ? 'bg-neutral-900 text-neutral-100 shadow-[0_0_0_1px_rgba(255,255,255,0.15)]'
     : 'bg-neutral-50 text-neutral-900 shadow-[0_0_0_1px_rgba(0,0,0,0.15)]';
   const hiddenClasses = card.revealed ? '' : (isBlack ? 'opacity-80' : 'text-neutral-500');
-  const jokerClasses = card.isJoker ? 'ring-2 ring-accent ring-offset-[1px] ring-offset-base-100' : '';
+  const jokerClasses = '';
 
   return (
     <div

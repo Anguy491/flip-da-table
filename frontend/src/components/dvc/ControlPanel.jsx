@@ -1,6 +1,18 @@
 import React from 'react';
 
 export function ControlPanel({ awaiting, disabled, myCards, doDrawColor, continueReveal, doSelfReveal, doSettle, openGuess, guessSucceeded, canSettle, settledSubmitted, isStartPhaseSettle=false, hasPending=false, isMyTurn=false, selfRevealIndex=null }) {
+  // Unified rule: if it's not my turn, always show "opponent turn",
+  // except during start-phase settle where everyone can press Settle.
+  const notMyTurn = !isMyTurn && awaiting !== 'SETTLE_POSITION';
+
+  if (notMyTurn) {
+    return (
+      <div className="dvc-controls flex flex-col gap-2 text-xs">
+        <div className="italic opacity-80" data-testid="opponent-turn">opponent turn</div>
+      </div>
+    );
+  }
+
   return (
     <div className="dvc-controls flex flex-col gap-2 text-xs">
       {awaiting==='SETTLE_POSITION' && (
@@ -14,7 +26,7 @@ export function ControlPanel({ awaiting, disabled, myCards, doDrawColor, continu
           hasPending ? (
             <button className="btn btn-sm btn-primary" disabled={disabled} onClick={()=>doSettle(null)} data-testid="settle-runtime">Settle</button>
           ) : (
-            <div className="italic opacity-80">Waiting for current player to settle...</div>
+            <div className="italic opacity-80" data-testid="opponent-turn">opponent turn</div>
           )
         )
       )}
@@ -25,9 +37,7 @@ export function ControlPanel({ awaiting, disabled, myCards, doDrawColor, continu
         </div>
       )}
       {awaiting==='GUESS_SELECTION' && (
-        isMyTurn
-          ? <div className="italic opacity-80" data-testid="guess-instruction">select a opponent card to guess</div>
-          : <div className="italic opacity-80" data-testid="opponent-turn">opponent turn</div>
+        <div className="italic opacity-80" data-testid="guess-instruction">select a opponent card to guess</div>
       )}
       {awaiting==='REVEAL_DECISION' && guessSucceeded && (
         <div className="flex gap-2">
