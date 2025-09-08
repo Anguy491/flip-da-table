@@ -88,7 +88,23 @@ public class DVCRuntimePhase extends RuntimePhase {
                 cards = snapshot.stream().map(DVCCard::frontDisplay).toList();
             } else {
                 // Opponent: show only color for each card; if face down still backDisplay (color ≤), if face up show front
-                cards = snapshot.stream().map(c -> c.isFaceUp() ? c.frontDisplay() : c.backDisplay()).toList();
+                // Special case (legacy fallback): during REVEAL_DECISION for a correct guess,
+                // render the guessed card as revealed even if internal state hasn't flipped yet.
+                if (awaiting == Awaiting.REVEAL_DECISION && pendingReveal != null && pendingReveal.isCorrect() && p.getId().equals(pendingReveal.targetPlayerId())) {
+                    int idx = pendingReveal.getTargetIndex();
+                    cards = new ArrayList<>();
+                    for (int i=0;i<snapshot.size();i++) {
+                        DVCCard c = snapshot.get(i);
+                        if (i == idx) {
+                            // render as revealed front regardless of internal faceUp flag (UI freshness)
+                            cards.add(c.frontDisplay());
+                        } else {
+                            cards.add(c.isFaceUp() ? c.frontDisplay() : c.backDisplay());
+                        }
+                    }
+                } else {
+                    cards = snapshot.stream().map(c -> c.isFaceUp() ? c.frontDisplay() : c.backDisplay()).toList();
+                }
             }
             String pending = null;
             if (self) {
@@ -99,6 +115,8 @@ public class DVCRuntimePhase extends RuntimePhase {
         }
         return new DVCView(boardView, List.copyOf(pviews), perspectivePlayerId);
     }
+
+    // no extra helpers needed; using DVCRevealCardEvent accessors
 
     /* ===================== Turn Lifecycle ===================== */
     private void startTurn() {
@@ -186,7 +204,16 @@ public class DVCRuntimePhase extends RuntimePhase {
         pendingGuess.execute();
         // reveal event enqueued
         pendingReveal = (DVCRevealCardEvent) queue.poll();
-    if (pendingReveal.correct()) {
+        if (pendingReveal.correct()) {
+            // Immediately reveal the guessed card for game state consistency (decision affects only continue/stop)
+            var tgtId = pendingReveal.targetPlayerId();
+            int idx = pendingReveal.getTargetIndex();
+            var tgt = board.snapshotOrder().stream().filter(p -> p.getId().equals(tgtId)).findFirst().orElse(null);
+            if (tgt == null) return false;
+            try { tgt.revealAt(idx); } catch (Exception e) { return false; }
+            // Check victory immediately after reveal
+            checkVictory();
+            if (finished) { pendingReveal = null; awaiting = Awaiting.NONE; return true; }
             awaiting = Awaiting.REVEAL_DECISION; // need continue or stop from player
         } else {
             // incorrect: if deck empty and no pending card we must self reveal one chosen by player later
@@ -208,9 +235,9 @@ public class DVCRuntimePhase extends RuntimePhase {
     public boolean provideRevealDecision(String playerId, boolean continueGuess) {
         if (awaiting != Awaiting.REVEAL_DECISION || pendingReveal == null) return false;
         if (!current().getId().equals(playerId)) return false;
-        pendingReveal.setContinueGuess(continueGuess);
-        if (!pendingReveal.isValid()) return false;
-        pendingReveal.execute();
+    pendingReveal.setContinueGuess(continueGuess);
+    if (!pendingReveal.isValid()) return false;
+    pendingReveal.execute();
         pendingReveal = null;
         handlePostRevealChain();
         return true;

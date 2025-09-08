@@ -30,6 +30,8 @@ public class DVCRevealCardEvent extends GameEvent {
     public boolean needsDecision() { return correct && !decisionSet; }
     public boolean isCorrect() { return correct; }
     public boolean correct() { return correct; }
+    public String targetPlayerId() { return target != null ? target.getId() : null; }
+    public int getTargetIndex() { return targetIndex; }
 
     @Override public boolean isValid() {
         if (executed) return false;
@@ -38,7 +40,7 @@ public class DVCRevealCardEvent extends GameEvent {
             if (target == null) return false;
             var list = target.hand().snapshot();
             if (targetIndex < 0 || targetIndex >= list.size()) return false;
-            if (list.get(targetIndex).isFaceUp()) return false;
+            // Allow already-revealed (we may reveal immediately after a correct guess for UI freshness)
             // need decision before execution
             return decisionSet;
         } else {
