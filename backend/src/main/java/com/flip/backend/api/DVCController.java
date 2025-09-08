@@ -35,6 +35,14 @@ public class DVCController {
 		return ResponseEntity.ok(v);
 	}
 
+	/** Public snapshot of currently revealed tokens per player (no private info). */
+	@GetMapping("/{gameId}/public-tokens")
+	public ResponseEntity<java.util.Map<String, java.util.List<String>>> publicTokens(@PathVariable String gameId) {
+		var rt = runtime(gameId);
+		if (rt == null) return ResponseEntity.notFound().build();
+		return ResponseEntity.ok(rt.publicTokensSnapshot());
+	}
+
 	public record DrawColorRequest(String playerId, String color) {}
 	@PostMapping("/{gameId}/drawColor")
 	public boolean drawColor(@PathVariable String gameId, @RequestBody DrawColorRequest req) {
@@ -44,19 +52,19 @@ public class DVCController {
 	public record GuessRequest(String playerId, String targetPlayerId, int targetIndex, boolean joker, Integer number) {}
 	@PostMapping("/{gameId}/guess")
 	public boolean guess(@PathVariable String gameId, @RequestBody GuessRequest req) {
-		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideGuess(req.playerId(), req.targetPlayerId(), req.targetIndex(), req.joker(), req.number()); if (ok) ws.broadcastRuntime(gameId, rt); return ok;
+		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideGuess(req.playerId(), req.targetPlayerId(), req.targetIndex(), req.joker(), req.number()); if (ok) { ws.broadcastRuntime(gameId, rt); ws.broadcastDvcPublicReveals(gameId, (java.util.Collection<?>) rt.drainRecentReveals()); } return ok;
 	}
 
 	public record RevealDecisionRequest(String playerId, boolean cont) {}
 	@PostMapping("/{gameId}/revealDecision")
 	public boolean revealDecision(@PathVariable String gameId, @RequestBody RevealDecisionRequest req) {
-		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideRevealDecision(req.playerId(), req.cont()); if (ok) ws.broadcastRuntime(gameId, rt); return ok;
+		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideRevealDecision(req.playerId(), req.cont()); if (ok) { ws.broadcastRuntime(gameId, rt); ws.broadcastDvcPublicReveals(gameId, (java.util.Collection<?>) rt.drainRecentReveals()); } return ok;
 	}
 
 	public record SelfRevealRequest(String playerId, int ownIndex) {}
 	@PostMapping("/{gameId}/selfReveal")
 	public boolean selfReveal(@PathVariable String gameId, @RequestBody SelfRevealRequest req) {
-		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideSelfReveal(req.playerId(), req.ownIndex()); if (ok) ws.broadcastRuntime(gameId, rt); return ok;
+		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideSelfReveal(req.playerId(), req.ownIndex()); if (ok) { ws.broadcastRuntime(gameId, rt); ws.broadcastDvcPublicReveals(gameId, (java.util.Collection<?>) rt.drainRecentReveals()); } return ok;
 	}
 
 	public record SettleRequest(String playerId, Boolean isSettled, String hand) {}
@@ -83,6 +91,6 @@ public class DVCController {
 			}
 			return true;
 		}
-		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideSettleHand(req.playerId(), req.hand()); if (ok) ws.broadcastRuntime(gameId, rt); return ok;
+		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideSettleHand(req.playerId(), req.hand()); if (ok) { ws.broadcastRuntime(gameId, rt); ws.broadcastDvcPublicReveals(gameId, (java.util.Collection<?>) rt.drainRecentReveals()); } return ok;
 	}
 }

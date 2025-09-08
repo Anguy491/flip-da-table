@@ -26,7 +26,7 @@ export function CardTile({ card: raw, className='' }) {
       className={[
         'dvc-card relative select-none font-mono rounded-sm flex items-center justify-center h-24 w-18 text-3xl font-semibold tracking-tight',
         'border border-neutral-700/40 dark:border-neutral-300/20',
-        'transition-colors duration-150',
+        'transition-all duration-200',
         baseColorClasses,
         hiddenClasses,
         jokerClasses,

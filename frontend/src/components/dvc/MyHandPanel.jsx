@@ -26,7 +26,7 @@ export function isArrangementValid(cards) {
   return true;
 }
 
-export function MyHandPanel({ cards, draggable, onReorder, showValidity=false }) {
+export function MyHandPanel({ cards, draggable, onReorder, showValidity=false, publicTokens=new Set() }) {
   const valid = isArrangementValid(cards);
   const scrollerRef = useRef(null);
   const [fadeLeft, setFadeLeft] = useState(false);
@@ -59,7 +59,26 @@ export function MyHandPanel({ cards, draggable, onReorder, showValidity=false })
       <div className="relative">
         <div ref={scrollerRef} className="overflow-x-auto pb-1">
           <div className="w-max">
-            <CardStrip cards={cards} draggable={draggable} onReorder={onReorder} />
+            <CardStrip
+              cards={cards}
+              draggable={draggable}
+              onReorder={onReorder}
+              itemClassName={(i, card)=>{
+                // If this card is publicly revealed, show it as "laid down" with trapezoid perspective
+                // We derive its stable token like backend: B/W + value or '_' + '≤'
+                const prefix = card?.color === 'BLACK' ? 'B' : 'W';
+                const val = (card?.isJoker || card?.value==='-') ? '_' : String(card?.value ?? '');
+                const token = `${prefix}${val}≤`;
+                const isPublic = card?.revealed && publicTokens.has(token);
+                const baseHover = "group/card relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:text-[10px] after:px-1 after:py-[1px] after:rounded after:opacity-0 hover:after:opacity-100 after:transition-opacity";
+                const label = isPublic ? 'public' : 'private';
+                const labelStyles = isPublic
+                  ? 'after:content-["public"] after:bg-success/80 after:text-white'
+                  : 'after:content-["private"] after:bg-neutral/60 after:text-white';
+                const shape = isPublic ? 'dvc-public-trapezoid' : '';
+                return [baseHover, labelStyles, shape].filter(Boolean).join(' ');
+              }}
+            />
           </div>
         </div>
         {fadeLeft && (

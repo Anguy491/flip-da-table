@@ -42,6 +42,14 @@ public class DVCRuntimePhase extends RuntimePhase {
     private DVCRevealCardEvent pendingReveal;
     private DVCSettleCardEvent pendingSettle;
 
+    // Recently revealed public cards since last drain, for WS broadcasting without changing view schema
+    public static final class PublicReveal {
+        public final String playerId;
+        public final String token; // DVCCard.cardId()
+        public PublicReveal(String playerId, String token) { this.playerId = playerId; this.token = token; }
+    }
+    private final List<PublicReveal> recentReveals = new ArrayList<>();
+
     public DVCRuntimePhase(DVCDeck deck, DVCBoard board, List<DVCPlayer> players) {
         this.deck = deck; this.board = board; this.players = players;
     }
@@ -61,6 +69,27 @@ public class DVCRuntimePhase extends RuntimePhase {
     public Awaiting awaiting() { return awaiting; }
     public long turnId() { return turnId; }
     public DVCEndingPhase endingPhase() { return endingPhase; }
+
+    /** Drain and clear accumulated public reveal events. */
+    public List<PublicReveal> drainRecentReveals() {
+        if (recentReveals.isEmpty()) return List.of();
+        var copy = new ArrayList<>(recentReveals);
+        recentReveals.clear();
+        return copy;
+    }
+
+    /** Snapshot of currently public tokens by playerId (includes revealed pending card if any). */
+    public Map<String, List<String>> publicTokensSnapshot() {
+        Map<String, List<String>> map = new HashMap<>();
+        for (var p : board.snapshotOrder()) {
+            List<String> tokens = new ArrayList<>();
+            for (var c : p.hand().snapshot()) if (c.isFaceUp()) tokens.add(c.cardId());
+            var pend = board.getPending(p.getId());
+            if (pend != null && pend.isFaceUp()) tokens.add(pend.cardId());
+            map.put(p.getId(), tokens);
+        }
+        return map;
+    }
 
     /* ===================== View Construction ===================== */
     public DVCView buildView(String perspectivePlayerId) {
@@ -210,7 +239,10 @@ public class DVCRuntimePhase extends RuntimePhase {
             int idx = pendingReveal.getTargetIndex();
             var tgt = board.snapshotOrder().stream().filter(p -> p.getId().equals(tgtId)).findFirst().orElse(null);
             if (tgt == null) return false;
-            try { tgt.revealAt(idx); } catch (Exception e) { return false; }
+            try {
+                var revealed = tgt.revealAt(idx);
+                if (revealed != null) recentReveals.add(new PublicReveal(tgt.getId(), revealed.cardId()));
+            } catch (Exception e) { return false; }
             // Check victory immediately after reveal
             checkVictory();
             if (finished) { pendingReveal = null; awaiting = Awaiting.NONE; return true; }
@@ -223,7 +255,14 @@ public class DVCRuntimePhase extends RuntimePhase {
                 // immediate execute (no decision) -> will queue settle
                 pendingReveal.setContinueGuess(false); // ensure decision
                 if (!pendingReveal.isValid()) return false; // should be valid
+                // Before executing, capture pending card token if it will be revealed
+                DVCCard pending = board.getPending(playerId);
+                String token = (pending != null && !pending.isFaceUp()) ? pending.cardId() : null;
                 pendingReveal.execute();
+                if (token != null) {
+                    // After execute, pending is now faceUp; record as public reveal
+                    recentReveals.add(new PublicReveal(playerId, token));
+                }
                 pendingReveal = null;
                 handlePostRevealChain();
             }
@@ -248,7 +287,10 @@ public class DVCRuntimePhase extends RuntimePhase {
         if (!current().getId().equals(playerId)) return false;
         // Simulate revealing self card due to wrong guess with empty deck
         DVCPlayer self = current();
-        try { self.revealAt(ownIndex); } catch (Exception e) { return false; }
+        try {
+            var revealed = self.revealAt(ownIndex);
+            if (revealed != null) recentReveals.add(new PublicReveal(self.getId(), revealed.cardId()));
+        } catch (Exception e) { return false; }
         // now treat like incorrect path finalize reveal -> settle (no pending card)
         pendingReveal.setContinueGuess(false); // unify path
         if (!pendingReveal.isValid()) { // still requires decisionSet for correct only; incorrect path valid

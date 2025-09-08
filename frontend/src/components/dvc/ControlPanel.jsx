@@ -1,6 +1,6 @@
 import React from 'react';
 
-export function ControlPanel({ awaiting, disabled, myCards, doDrawColor, continueReveal, doSelfReveal, doSettle, openGuess, guessSucceeded, canSettle, settledSubmitted, isStartPhaseSettle=false, hasPending=false }) {
+export function ControlPanel({ awaiting, disabled, myCards, doDrawColor, continueReveal, doSelfReveal, doSettle, openGuess, guessSucceeded, canSettle, settledSubmitted, isStartPhaseSettle=false, hasPending=false, isMyTurn=false }) {
   return (
     <div className="dvc-controls flex flex-col gap-2 text-xs">
       {awaiting==='SETTLE_POSITION' && (
@@ -25,7 +25,9 @@ export function ControlPanel({ awaiting, disabled, myCards, doDrawColor, continu
         </div>
       )}
       {awaiting==='GUESS_SELECTION' && (
-        <div className="italic opacity-80" data-testid="guess-instruction">select a opponent card to guess</div>
+        isMyTurn
+          ? <div className="italic opacity-80" data-testid="guess-instruction">select a opponent card to guess</div>
+          : <div className="italic opacity-80" data-testid="opponent-turn">opponent turn</div>
       )}
       {awaiting==='REVEAL_DECISION' && guessSucceeded && (
         <div className="flex gap-2">

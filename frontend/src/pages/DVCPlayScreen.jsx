@@ -40,6 +40,7 @@ export default function DVCPlayScreen({ initial }) {
 	const [guessForm, setGuessForm] = useState({ targetPlayerId: '', targetIndex: 0, guessColor: 'BLACK', guessValue: '0', joker: false });
 	const [pendingCard, setPendingCard] = useState(null); // server-provided string like "BLACK 5" or "WHITE -"
 	const [showInsert, setShowInsert] = useState(false);
+	const [publicTokens, setPublicTokens] = useState(new Set()); // Set<string token>
 
 	useEffect(()=>{ if(!token) nav('/login'); },[token, nav]);
 
@@ -52,13 +53,23 @@ export default function DVCPlayScreen({ initial }) {
 			// derive my pending from view
 			const mine = v?.players?.find(p=>p.playerId===myPlayerId);
 			setPendingCard(mine?.pending || null);
+			// also hydrate public tokens snapshot
+			try {
+				const res = await fetch(`/api/dvc/${gameId}/public-tokens`, { headers: token? { Authorization: `Bearer ${token}` }: {}, credentials: 'include' });
+				if (res.ok) {
+					const data = await res.json();
+					// We only need my own public tokens for MyHandPanel highlighting
+					const mineTokens = new Set(data?.[myPlayerId] || []);
+					setPublicTokens(mineTokens);
+				}
+			} catch {}
 		} catch {/* swallow for now */}
 	}, [gameId, myPlayerId, token]);
 
 	// Always refresh once on mount/change to guarantee correct perspective
 	useEffect(()=>{ refreshView(); }, [refreshView]);
 
-	// WebSocket subscription for live DVC views (per perspective)
+	// WebSocket subscriptions: per-perspective view and public reveal events
 	useEffect(() => {
 		if (!gameId || !myPlayerId) return;
 		let client; let active = true; let connected = false;
@@ -77,6 +88,19 @@ export default function DVCPlayScreen({ initial }) {
 							const mine = payload?.players?.find(p=>p.playerId===myPlayerId);
 							setPendingCard(mine?.pending || null);
 						} catch {/* ignore */}
+					});
+					// Public reveals stream
+					client.subscribe(`/topic/dvc/${gameId}/public-reveals`, (msg) => {
+						if (!active) return; let events = [];
+						try { events = JSON.parse(msg.body) || []; } catch { events = []; }
+						if (!Array.isArray(events)) return;
+						setPublicTokens(prev => {
+							const next = new Set(prev);
+							for (const e of events) {
+								if (e?.playerId === myPlayerId && e?.token) next.add(e.token);
+							}
+							return next;
+						});
 					});
 				}
 			});
@@ -205,7 +229,13 @@ export default function DVCPlayScreen({ initial }) {
 				</div>
 				<div className="dvc-bottom grid grid-cols-12 gap-2 mt-2">
 					<div className="col-span-6 md:col-span-6 dvc-myhand p-2 bg-base-200/40 rounded">
-						<MyHandPanel cards={myCards} draggable={canDragInitial} onReorder={reorderHand} showValidity={awaiting==='SETTLE_POSITION'} />
+						<MyHandPanel
+							cards={myCards}
+							draggable={canDragInitial}
+							onReorder={reorderHand}
+							showValidity={awaiting==='SETTLE_POSITION'}
+							publicTokens={publicTokens}
+						/>
 					</div>
 					<div className="col-span-3 md:col-span-3 flex flex-col gap-2">
 						<PendingCardBox pending={pendingCard} />
@@ -226,6 +256,7 @@ export default function DVCPlayScreen({ initial }) {
 							settledSubmitted={settledSubmitted}
 							isStartPhaseSettle={isStartPhaseSettle}
 							hasPending={!!pendingCard}
+							isMyTurn={isMyTurn}
 						/>
 					</div>
 				</div>

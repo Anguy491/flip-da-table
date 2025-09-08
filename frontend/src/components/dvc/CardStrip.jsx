@@ -5,7 +5,7 @@ import { parseCard } from './parseCard';
 /**
  * Draggable card strip (optional): if onReorder provided enable drag interactions.
  */
-export function CardStrip({ cards, draggable=false, onReorder, clickable=false, onCardClick }) {
+export function CardStrip({ cards, draggable=false, onReorder, clickable=false, onCardClick, itemClassName }) {
   const handleDragStart = (e, index) => {
     if (!draggable) return;
     e.dataTransfer.effectAllowed = 'move';
@@ -25,7 +25,7 @@ export function CardStrip({ cards, draggable=false, onReorder, clickable=false, 
         const card = typeof c==='string'?parseCard(c):c;
         const isHidden = !card.revealed;
         return (
-          <div key={i}
+      <div key={i}
             draggable={draggable}
             onDragStart={(e)=>handleDragStart(e,i)}
             onDragOver={handleDragOver}
@@ -35,6 +35,7 @@ export function CardStrip({ cards, draggable=false, onReorder, clickable=false, 
               'transition-transform',
               draggable? 'hover:-translate-y-1 cursor-grab active:cursor-grabbing':'' ,
               (!draggable && clickable && isHidden)? 'hover:-translate-y-1 cursor-pointer':'',
+        typeof itemClassName === 'function' ? itemClassName(i, card) : itemClassName
             ].join(' ')}
           >
             <CardTile card={card} />
