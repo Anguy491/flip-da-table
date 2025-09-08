@@ -6,6 +6,7 @@ import CardContainer from '../components/CardContainer';
 import SubmitButton from '../components/SubmitButton';
 import ErrorPopup from '../components/ErrorPopup';
 import { createSession, joinSession } from '../api/sessions';
+import { getUserInfo, updateUserInfo } from '../api/user';
 import ImgDaVinci from '../assets/Davinci.png';
 import ImgUno from '../assets/Uno.png';
 import ImgBounty from '../assets/Bounty.png';
@@ -39,15 +40,26 @@ function Dashboard() {
 	const navigate = useNavigate();
 	const [showModal, setShowModal] = useState(false);
 	const [showJoin, setShowJoin] = useState(false);
+	const [showEdit, setShowEdit] = useState(false);
 	const [joinSessionId, setJoinSessionId] = useState('');
 	const [selected, setSelected] = useState(null);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState('');
+	const [me, setMe] = useState(null);
+	const [form, setForm] = useState({ nickname: '', password: '' });
 
 	useEffect(() => {
 		if (!token) {
 			navigate('/login');
+			return;
 		}
+		(async ()=>{
+			try {
+				const info = await getUserInfo(token);
+				setMe(info);
+				setForm(f=>({ ...f, nickname: info?.nickname || '' }));
+			} catch (e) { /* ignore for now */ }
+		})();
 	}, [token, navigate]);
 
 	const handleLogout = () => {
@@ -65,6 +77,12 @@ function Dashboard() {
 		setError('');
 		setJoinSessionId('');
 		setShowJoin(true);
+	};
+
+	const openEdit = () => {
+		setError('');
+		setForm({ nickname: me?.nickname || '', password: '' });
+		setShowEdit(true);
 	};
 
 	const handleJoin = async () => {
@@ -98,10 +116,12 @@ function Dashboard() {
 	return (
 		<PageContainer>
 			<CardContainer className="max-w-xl">
-				<h2 className="text-2xl font-bold text-center mb-4">Dashboard</h2>
+				<h2 className="text-2xl font-bold text-center mb-1">Dashboard</h2>
+				<div className="text-center text-sm mb-3">{me ? `Welcome, ${me.nickname}` : ''}</div>
 				<div className="flex flex-col gap-3 justify-center">
 					<SubmitButton type="button" className="btn-secondary" onClick={openModal}>Create Session</SubmitButton>
 					<SubmitButton type="button" className="btn-secondary" onClick={openJoin}>Join Session</SubmitButton>
+					<SubmitButton type="button" className="btn-outline" onClick={openEdit}>Edit Profile</SubmitButton>
 					<SubmitButton type="button" className="btn-ghost" onClick={handleLogout}>Logout</SubmitButton>
 				</div>
 				<ErrorPopup message={error} />
@@ -153,6 +173,50 @@ function Dashboard() {
 								<div className="flex justify-end gap-3 pt-2">
 									<button type="button" className="btn btn-ghost" onClick={()=>setShowJoin(false)}>Cancel</button>
 									<button type="button" className="btn btn-primary" disabled={!joinSessionId.trim()} onClick={handleJoin}>Join</button>
+								</div>
+							</div>
+						</div>
+					)}
+
+					{showEdit && (
+						<div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-50">
+							<div className="bg-base-100 rounded-lg shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
+								<h3 className="text-xl font-semibold">Edit Profile</h3>
+								<label className="text-xs">Nickname</label>
+								<input
+									className="input input-bordered w-full"
+									placeholder="Enter nickname"
+									value={form.nickname}
+									onChange={e=>setForm(f=>({...f, nickname: e.target.value}))}
+								/>
+								<label className="text-xs">Password</label>
+								<input
+									type="password"
+									className="input input-bordered w-full"
+									placeholder="Enter new password (optional)"
+									value={form.password}
+									onChange={e=>setForm(f=>({...f, password: e.target.value}))}
+								/>
+								<div className="flex justify-end gap-3 pt-2">
+									<button type="button" className="btn btn-ghost" onClick={()=>setShowEdit(false)}>Cancel</button>
+									<button
+										type="button"
+										className="btn btn-primary"
+										disabled={!form.nickname.trim()}
+										onClick={async ()=>{
+											try {
+												const payload = { nickname: form.nickname.trim() };
+												if (form.password.trim()) payload.password = form.password.trim();
+												const info = await updateUserInfo(payload, token);
+												setMe(info);
+												setShowEdit(false);
+											} catch (e) {
+												setError(e.message||'Update failed');
+											}
+										}}
+									>
+										Confirm
+									</button>
 								</div>
 							</div>
 						</div>
