@@ -2,13 +2,15 @@
 
 简体中文 | [English](README.md)
 
-一个基于 Spring Boot + React 的在线 UNO（及可扩展更多桌游/会话）的示例项目。后端提供认证、会话管理与 UNO 规则运行时；前端提供登录/注册、创建加入对局、实时观战与操作界面。通过 Docker 及 `docker-compose` 可一键部署（PostgreSQL + 后端 + 前端 Nginx）。
+一个基于 Spring Boot + React 的在线 UNO、DVC（达芬奇密码，Da Vinci Code）等回合制桌游示例项目。后端提供认证、会话管理与 UNO / DVC 规则运行时；前端提供登录/注册、创建加入对局、实时观战与操作界面。通过 Docker 及 `docker-compose` 可一键部署（PostgreSQL + 后端 + 前端 Nginx）。
 
 ## 技术栈概览
 - 后端：Spring Boot 3 (Web, Security, Data JPA, Validation, Actuator, WebSocket/SSE 用 Web 模块)、Flyway、JWT (jjwt)、Lombok
 - 数据库：PostgreSQL + Flyway 版本化迁移 (`backend/src/main/resources/db/migration`)
 - 前端：React 19, React Router v7, Vite, Tailwind CSS (v4) + DaisyUI
-- 实时更新：服务器端事件 (Server-Sent Events, SSE) `/api/games/uno/{gameId}/stream`
+- 实时更新：
+  - UNO：服务器端事件 (Server-Sent Events, SSE) `/api/games/uno/{gameId}/stream`
+  - DVC：WebSocket (STOMP) 主题 `/topic/dvc/{gameId}/{playerId}` + 公共翻牌频道 `/public-reveals`
 - 构建与运行：Gradle (Java 17 toolchain), Vite；Docker 镜像 `anguy491/flip-backend` & `anguy491/flip-frontend`
 
 ## 项目目录结构（精简展示）
@@ -58,6 +60,15 @@ docker-compose.yml        # 一键编排 Postgres + Backend + Frontend
   - `GET /api/games/uno/{gameId}/view?viewerId=...` 获取针对特定玩家视角的状态（自己的手牌包含在内，其他玩家只含数量）。
   - `POST /api/games/uno/{gameId}/commands` 发送指令，Body: `{ type, playerId, color?, value? }`，返回是否应用及新的视图。
   - `GET /api/games/uno/{gameId}/stream` SSE 推送通用视图（无私有手牌）。
+- DVC（达芬奇密码）在 `/api/dvc` 下：
+  - `GET /api/dvc/{gameId}/view/{playerId}`：返回对应视角的全局快照（私有信息仅对自己展示）。
+  - `POST /api/dvc/{gameId}/drawColor`：抽牌时告知是黑/白色（需先选择颜色）。
+  - `POST /api/dvc/{gameId}/guess`：选择目标玩家、位置与猜测值；正确会翻开该牌并可决定是否继续。
+  - `POST /api/dvc/{gameId}/revealDecision`：在猜中后选择继续或停止。
+  - `POST /api/dvc/{gameId}/selfReveal`：当牌库耗尽且猜错时，选择自翻一张未公开手牌。
+  - `POST /api/dvc/{gameId}/settle`：起始阶段用于调整并确认手牌顺序；游戏中用于放置待插入的牌（如 Joker）。
+  - WebSocket 推送：`/topic/dvc/{gameId}/{playerId}` 发送针对视角的最新视图；公共翻牌流 `/topic/dvc/{gameId}/public-reveals`
+    仅包含已翻开的牌 token，便于观战同步。
 - 迁移：`V001__init.sql` 起始到后续表（用户角色、sessions、games、state_json 等）。
 - 配置：`application.yml` 支持通过环境变量覆盖数据源与 JWT 密钥 (`APP_JWT_SECRET`)。
 
@@ -67,12 +78,23 @@ docker-compose.yml        # 一键编排 Postgres + Backend + Frontend
 - API 封装：`src/api/*.js` 对应 `auth`, `sessions`, `uno`；统一 `fetch` 基础路径 `/api`。
 - UNO 逻辑 Hook：`hooks/useUnoGame.js` 管理轮询/流事件与本地状态（含动画 hook）。
 - 组件：`components/uno/*` 提供卡牌、事件日志、手牌区等 UI。
+- DVC 视角：`hooks/useDVCGame.js` 处理 WebSocket 订阅与本地状态；`components/dvc/*` 负责“达芬奇密码”牌面展示、猜牌弹窗、手牌重排与
+  插入、公共翻牌列表等 UI。
 
 ## UNO 实时交互流程
 1. 前端进入对局页面：先 `GET /view` 拉取首次视图。
 2. 并行建立 SSE：`EventSource('/api/games/uno/{gameId}/stream')` 接收通用广播（用于更新公共局面 / 事件日志）。
 3. 玩家操作：通过 `POST /commands` 发送，例如出牌、抽牌、选择颜色（WILD）。
 4. 后端执行规则引擎，广播最新公共视图，客户端合并更新，并在需要时提示选择颜色。
+
+## DVC（达芬奇密码）核心规则/流程概述
+1. 起始阶段：按照人数分配黑白牌并要求每位玩家自行重排手牌（`settle`），全部确认后进入正式对局。
+2. 每回合：
+   - 若牌库有牌，当前玩家先声明颜色抽一张，并可选择插入位置；若牌库为空则直接进行猜牌。
+   - 猜牌：选择目标玩家与位置，声明颜色与数字（或 Joker）；猜中则翻开该牌并可决定是否继续猜。
+   - 猜错：正常情况下轮到下一位；若牌库耗尽则需自翻一张未公开手牌。
+3. 消息推送：每位玩家通过 `/topic/dvc/{gameId}/{playerId}` 获得私有视角；公共翻牌通过 `/public-reveals` 供所有人/观战者累加。
+4. 胜利：若某玩家所有手牌保持未被猜中且其他玩家全部揭示，则该玩家获胜；或游戏结束阶段依据剩余隐藏牌判定胜者。
 
 ## Docker 部署
 `docker-compose.yml` 中包含：
