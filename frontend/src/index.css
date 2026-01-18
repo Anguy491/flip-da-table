@@ -1,7 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap');
 @import "tailwindcss";
-@plugin "daisyui" {
-  themes: light --default, dark --prefersdark, caramellatte;
-}
 
 /* DVC: public-revealed card visual (trapezoid, laid-down) */
 .dvc-public-card {
@@ -17,4 +15,286 @@
   transform-origin: bottom center;
   clip-path: polygon(8% 0%, 100% 0%, 92% 100%, 0% 100%);
   box-shadow: 0 10px 18px rgba(0,0,0,0.35);
+}
+
+:root {
+  --pixel-bg: #33ca7f!important;
+  --pixel-border-dark: #1c2a43;
+  --pixel-border-light: #d7edf4;
+  --pixel-panel: #f6fbff;
+  --pixel-shadow: #1a2a44;
+  --pixel-accent: #f4e55a;
+  --pixel-accent-2: #7fe07a;
+  --pixel-error: #f08b7c;
+  --pixel-text: #23324a;
+  --pixel-title: #14213d;
+}
+
+.pixel-arcade {
+  font-family: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: var(--pixel-text);
+}
+
+.pixel-arcade .pixel-heading,
+.pixel-arcade .pixel-button,
+.pixel-arcade .pixel-slice-tag {
+  font-family: 'Press Start 2P', 'Space Mono', ui-monospace, monospace;
+}
+
+.pixel-frame {
+  position: relative;
+  border: 2px solid var(--pixel-border-dark);
+  box-shadow: 8px 8px 0 var(--pixel-shadow);
+}
+
+.pixel-frame::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px solid var(--pixel-border-light);
+  pointer-events: none;
+}
+
+.pixel-banner {
+  padding: 18px 20px 16px;
+}
+
+.pixel-slice-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--pixel-title);
+  background: var(--pixel-accent);
+  border: 2px solid var(--pixel-border-dark);
+  box-shadow: 3px 3px 0 var(--pixel-shadow);
+}
+
+
+.pixel-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid var(--pixel-border-dark);
+  box-shadow: 1px 1px 0 var(--pixel-shadow);
+}
+
+.pixel-status-dot-ok {
+  background: var(--pixel-accent-2);
+}
+
+.pixel-status-dot-warn {
+  background: var(--pixel-accent);
+}
+
+.pixel-status-dot-error {
+  background: var(--pixel-error);
+}
+
+.pixel-status-dot-idle {
+  background: #cbd8e6;
+}
+
+.pixel-input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pixel-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pixel-title);
+}
+
+.pixel-input-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #eef6fb;
+  border: 2px solid var(--pixel-border-dark);
+  box-shadow: inset 2px 2px 0 rgba(26, 42, 68, 0.12);
+  padding: 10px 12px 10px 24px;
+}
+
+.pixel-input-prefix {
+  position: absolute;
+  left: 8px;
+  font-size: 12px;
+  color: var(--pixel-title);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.pixel-input-shell:focus-within .pixel-input-prefix {
+  opacity: 1;
+}
+
+.pixel-input {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--pixel-text);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.pixel-input::placeholder {
+  color: rgba(35, 50, 74, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 12px;
+}
+
+.pixel-input-toggle {
+  border: 2px solid var(--pixel-border-dark);
+  background: #fff5b1;
+  padding: 4px 6px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  box-shadow: 2px 2px 0 var(--pixel-shadow);
+}
+
+.pixel-checkbox {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--pixel-border-dark);
+  background: #eef6fb;
+  display: grid;
+  place-items: center;
+  box-shadow: 2px 2px 0 var(--pixel-shadow);
+}
+
+.pixel-checkbox::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+
+.pixel-checkbox:checked::after {
+  background: var(--pixel-accent-2);
+  box-shadow: 1px 1px 0 var(--pixel-shadow);
+}
+
+.pixel-button {
+  border: 2px solid var(--pixel-border-dark);
+  box-shadow: 4px 4px 0 var(--pixel-shadow);
+  padding: 12px 16px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.pixel-button-primary {
+  background: var(--pixel-accent);
+  color: var(--pixel-title);
+}
+
+.pixel-button-secondary {
+  background: #d8f7f2;
+  color: var(--pixel-title);
+}
+
+.pixel-button:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 3px 3px 0 var(--pixel-shadow);
+}
+
+.pixel-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--pixel-shadow);
+}
+
+.pixel-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 4px 4px 0 var(--pixel-shadow);
+}
+
+.pixel-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 2px solid #c85c52;
+  background: #fde2df;
+  color: #7f2f28;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pixel-alert-icon {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #c85c52;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.pixel-alert-action {
+  margin-left: auto;
+  border: 2px solid #c85c52;
+  padding: 4px 8px;
+  font-size: 10px;
+  background: #fff3f2;
+  box-shadow: 2px 2px 0 #c85c52;
+}
+
+
+.pixel-crt {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  opacity: 0.2;
+  animation: pixel-flicker 8s infinite;
+}
+
+.pixel-crt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(20, 40, 70, 0.18),
+    rgba(20, 40, 70, 0.18) 1px,
+    rgba(255, 255, 255, 0) 3px,
+    rgba(255, 255, 255, 0) 6px
+  );
+}
+
+.pixel-crt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(rgba(30, 50, 80, 0.16) 1px, transparent 1px),
+    radial-gradient(rgba(30, 50, 80, 0.12) 1px, transparent 1px);
+  background-size: 3px 3px, 4px 4px;
+  opacity: 0.4;
+}
+
+@keyframes pixel-flicker {
+  0% {
+    opacity: 0.18;
+  }
+  50% {
+    opacity: 0.24;
+  }
+  100% {
+    opacity: 0.18;
+  }
 }
