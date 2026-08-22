@@ -96,6 +96,8 @@ npm run check       # lint + UI audit + 单测 + 构建
 
 所有 UI Lab 页面状态的桌面与手机/横屏 Chromium 视觉基准位于 `frontend/tests/ui-lab.spec.js-snapshots/`；原登录页截图与 bundle 数据保留在 `frontend/tests/ui-before/`，用于前后对照。GitHub Actions 会对前端与设计 skill 的修改执行相同门槛。自托管字体许可证随 `frontend/public/licenses/` 一并发布。
 
+本地验证 Google 登录、Mailpit 密码重置邮件和 PostgreSQL 时，使用 [`docs/AUTH_LOCAL_DEVELOPMENT.md`](docs/AUTH_LOCAL_DEVELOPMENT.md) 与 `docker-compose.dev.yml`；Droplet 生产发布继续使用独立的 HTTPS/Resend 配置。
+
 ## UNO 实时交互流程
 1. 前端进入对局页面：先 `GET /view` 拉取首次视图。
 2. 并行建立 SSE：`EventSource('/api/games/uno/{gameId}/stream')` 接收通用广播（用于更新公共局面 / 事件日志）。

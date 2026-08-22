@@ -131,6 +131,8 @@ Design aligns with SRP, OCP, and clear separation of concerns for testability.
 
 Authentication should first be deployed with both feature flags disabled. Complete the provider setup and production preflight in [`docs/AUTH_DEPLOYMENT.md`](docs/AUTH_DEPLOYMENT.md), then enable password recovery and Google sign-in separately.
 
+For local Google sign-in, Mailpit password-reset email, and PostgreSQL setup, follow [`docs/AUTH_LOCAL_DEVELOPMENT.md`](docs/AUTH_LOCAL_DEVELOPMENT.md) with `docker-compose.dev.yml`.
+
 ```
 # PowerShell example
 $env:APP_JWT_SECRET = 'your-strong-secret'
