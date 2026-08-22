@@ -1,108 +1,56 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ArcadeBadge } from '../arcade/ArcadeUI';
 import { CardStrip } from './CardStrip';
+import { isArrangementValid } from './arrangement';
 
-// validity rule: all revealed numbers (non-hidden) must be non-decreasing left->right (simple example placeholder)
-export function isArrangementValid(cards) {
-  // Rules:
-  // 1) Numbers must be non-decreasing left -> right (ignoring jokers)
-  // 2) When numbers are equal, BLACK must be to the left of WHITE
-  //    (i.e., for equal v, sequence ... B(v) ... W(v) is valid; W(v) left of B(v) is invalid)
-  let prevVal = -1;
-  let prevColor = null; // 'BLACK' | 'WHITE' for the last non-joker card
-  for (const c of cards) {
-    if (c?.isJoker) continue; // joker can be anywhere
-    const v = typeof c?.value === 'number' ? c.value : parseInt(c?.value, 10);
-    if (Number.isNaN(v)) continue; // skip unknown
-    const color = c?.color; // 'BLACK' | 'WHITE'
-    // Non-decreasing check
-    if (v < prevVal) return false;
-    // Equal number tie-breaker: black must be before white
-    if (v === prevVal && prevColor && color) {
-      if (prevColor === 'WHITE' && color === 'BLACK') return false;
-    }
-    prevVal = v;
-    prevColor = color;
-  }
-  return true;
+function tokenFor(card) {
+  const prefix = card?.color === 'BLACK' ? 'B' : 'W';
+  const value = card?.isJoker || card?.value === '-' ? '_' : String(card?.value ?? '');
+  return `${prefix}${value}≤`;
 }
 
-export function MyHandPanel({ cards, draggable, onReorder, showValidity=false, publicTokens=new Set(), selectable=false, selectedIndex=null, onSelect }) {
+export function MyHandPanel({ cards = [], draggable, onReorder, showValidity = false, publicTokens = new Set(), selectable = false, selectedIndex = null, onSelect }) {
   const valid = isArrangementValid(cards);
   const scrollerRef = useRef(null);
-  const [fadeLeft, setFadeLeft] = useState(false);
-  const [fadeRight, setFadeRight] = useState(false);
-
-  const updateFades = () => {
-    const el = scrollerRef.current; if (!el) return;
-    const { scrollLeft, scrollWidth, clientWidth } = el;
-    const maxScroll = Math.max(0, scrollWidth - clientWidth);
-    setFadeLeft(scrollLeft > 0);
-    setFadeRight(scrollLeft < maxScroll - 1);
-  };
+  const [overflowing, setOverflowing] = useState(false);
 
   useEffect(() => {
-    updateFades();
-    const el = scrollerRef.current;
-    if (!el) return;
-    const onScroll = () => updateFades();
-    el.addEventListener('scroll', onScroll, { passive: true });
-    const onResize = () => updateFades();
-    window.addEventListener('resize', onResize);
-    return () => { el.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onResize); };
-  }, []);
+    const update = () => {
+      const element = scrollerRef.current;
+      setOverflowing(Boolean(element && element.scrollWidth > element.clientWidth));
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [cards]);
+
   return (
-    <div className="dvc-myhand">
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="text-xs font-semibold">My Hand</h3>
-        {showValidity && <span className={`text-[10px] ${valid?'text-success':'text-error'}`}>{valid?'OK':'Invalid'}</span>}
-      </div>
-      <div className="relative">
-        <div ref={scrollerRef} className="overflow-x-auto pb-1">
-          <div className="w-max">
-            <CardStrip
-              cards={cards}
-              draggable={draggable}
-              onReorder={onReorder}
-              clickable={selectable}
-              canClick={(i, card)=>{
-                // Only allow selecting cards that are not publicly revealed for me
-                const prefix = card?.color === 'BLACK' ? 'B' : 'W';
-                const val = (card?.isJoker || card?.value==='-') ? '_' : String(card?.value ?? '');
-                const token = `${prefix}${val}≤`;
-                const isPublic = card?.revealed && publicTokens.has(token);
-                return !isPublic; // private (hidden to opponents) cards can be selected
-              }}
-              onCardClick={(i)=>{
-                if (!selectable) return;
-                if (typeof onSelect === 'function') {
-                  if (selectedIndex === i) onSelect(null); else onSelect(i);
-                }
-              }}
-              itemClassName={(i, card)=>{
-                // If this card is publicly revealed, show it as "laid down" with trapezoid perspective
-                // We derive its stable token like backend: B/W + value or '_' + '≤'
-                const prefix = card?.color === 'BLACK' ? 'B' : 'W';
-                const val = (card?.isJoker || card?.value==='-') ? '_' : String(card?.value ?? '');
-                const token = `${prefix}${val}≤`;
-                const isPublic = card?.revealed && publicTokens.has(token);
-                const baseHover = "group/card relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:text-[10px] after:px-1 after:py-[1px] after:rounded after:opacity-0 hover:after:opacity-100 after:transition-opacity";
-                const label = isPublic ? 'public' : 'private';
-                const labelStyles = isPublic
-                  ? 'after:content-["public"] after:bg-success/80 after:text-white'
-                  : 'after:content-["private"] after:bg-neutral/60 after:text-white';
-                const shape = isPublic ? 'dvc-public-trapezoid' : '';
-                const selectedRing = (selectable && selectedIndex===i && !isPublic) ? 'ring ring-primary ring-offset-1' : '';
-                return [baseHover, labelStyles, shape, selectedRing].filter(Boolean).join(' ');
-              }}
-            />
-          </div>
+    <div>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <h3 className="arcade-game-zone__title mb-0">Your code rack</h3>
+        <div className="flex gap-2">
+          {overflowing && <ArcadeBadge tone="muted">Scroll rack</ArcadeBadge>}
+          {showValidity && <ArcadeBadge tone={valid ? 'success' : 'error'}>{valid ? 'Order valid' : 'Fix order'}</ArcadeBadge>}
         </div>
-        {fadeLeft && (
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-base-200/80 to-transparent" />
-        )}
-        {fadeRight && (
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-base-200/80 to-transparent" />
-        )}
+      </div>
+      <div ref={scrollerRef} className="overflow-x-auto pb-2">
+        <CardStrip
+          cards={cards}
+          draggable={draggable}
+          onReorder={onReorder}
+          clickable={selectable}
+          canClick={(_, card) => !(card?.revealed && publicTokens.has(tokenFor(card)))}
+          onCardClick={(index) => {
+            if (selectable) onSelect?.(selectedIndex === index ? null : index);
+          }}
+          itemClassName={(index, card) => {
+            const isPublic = card?.revealed && publicTokens.has(tokenFor(card));
+            return [
+              isPublic ? 'dvc-public-trapezoid' : '',
+              selectable && selectedIndex === index && !isPublic ? 'dvc-card-hit--selected' : '',
+            ].filter(Boolean).join(' ');
+          }}
+        />
       </div>
     </div>
   );

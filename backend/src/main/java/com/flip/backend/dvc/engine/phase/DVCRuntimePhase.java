@@ -5,11 +5,15 @@ import com.flip.backend.dvc.entities.*;
 import com.flip.backend.game.engine.event.EventQueue;
 import com.flip.backend.dvc.engine.event.*;
 import com.flip.backend.dvc.engine.view.DVCBoardView;
+import com.flip.backend.dvc.engine.view.DVCActionLogEntry;
 import com.flip.backend.dvc.engine.view.DVCPlayerView;
 import com.flip.backend.dvc.engine.view.DVCView;
 import java.util.*;
 
 public class DVCRuntimePhase extends RuntimePhase {
+    private static final int MAX_AUTOMATED_ACTIONS = 256;
+    private static final int ACTION_LOG_CAPACITY = 50;
+
     // Core references
     private final DVCDeck deck;
     private final DVCBoard board;
@@ -41,6 +45,10 @@ public class DVCRuntimePhase extends RuntimePhase {
     private DVCGuessCardEvent pendingGuess;
     private DVCRevealCardEvent pendingReveal;
     private DVCSettleCardEvent pendingSettle;
+    private boolean drivingBots;
+
+    private final Deque<DVCActionLogEntry> actionLog = new ArrayDeque<>();
+    private long nextActionSeq = 1L;
 
     // Recently revealed public cards since last drain, for WS broadcasting without changing view schema
     public static final class PublicReveal {
@@ -57,6 +65,7 @@ public class DVCRuntimePhase extends RuntimePhase {
     @Override public void enter() {
         // First action: enqueue an implicit draw (or guess if deck empty)
         startTurn();
+        driveBotsUntilHumanTurn();
     }
 
     @Override public String run() { return winnerId; }
@@ -69,6 +78,31 @@ public class DVCRuntimePhase extends RuntimePhase {
     public Awaiting awaiting() { return awaiting; }
     public long turnId() { return turnId; }
     public DVCEndingPhase endingPhase() { return endingPhase; }
+    public List<DVCActionLogEntry> actionLogSnapshot() { return List.copyOf(actionLog); }
+
+    private void addLog(
+        String type,
+        String actorId,
+        String targetPlayerId,
+        Integer targetPosition,
+        String guessValue,
+        Boolean correct,
+        String text
+    ) {
+        actionLog.addLast(new DVCActionLogEntry(
+            nextActionSeq++,
+            turnId,
+            type,
+            actorId,
+            targetPlayerId,
+            targetPosition,
+            guessValue,
+            correct,
+            text,
+            System.currentTimeMillis()
+        ));
+        while (actionLog.size() > ACTION_LOG_CAPACITY) actionLog.removeFirst();
+    }
 
     /** Drain and clear accumulated public reveal events. */
     public List<PublicReveal> drainRecentReveals() {
@@ -155,7 +189,7 @@ public class DVCRuntimePhase extends RuntimePhase {
             }
             pviews.add(new DVCPlayerView(p.getId(), p.isBot(), snapshot.size(), hidden, cards, pending));
         }
-        return new DVCView(boardView, List.copyOf(pviews), perspectivePlayerId);
+        return new DVCView(boardView, List.copyOf(pviews), perspectivePlayerId, actionLogSnapshot());
     }
 
     // no extra helpers needed; using DVCRevealCardEvent accessors
@@ -193,6 +227,69 @@ public class DVCRuntimePhase extends RuntimePhase {
             advanceSeatOnly();
             if (!finished) startTurn();
         }
+        driveBotsUntilHumanTurn();
+    }
+
+    /**
+     * DVC uses an input-driven state machine for human players. Bots have no client, so every
+     * interactive state must be resolved here until control returns to a human or the game ends.
+     */
+    private void driveBotsUntilHumanTurn() {
+        if (drivingBots) return;
+        drivingBots = true;
+        try {
+            int actions = 0;
+            while (!finished && current().isBot()) {
+                if (++actions > MAX_AUTOMATED_ACTIONS) {
+                    throw new IllegalStateException("DVC bot exceeded the automated action limit");
+                }
+                DVCPlayer bot = current();
+                boolean acted = switch (awaiting) {
+                    case DRAW_COLOR -> provideDrawColor(bot.getId(), chooseBotDrawColor(bot));
+                    case GUESS_SELECTION -> provideBotGuess(bot);
+                    case REVEAL_DECISION -> provideRevealDecision(bot.getId(), false);
+                    case SETTLE_POSITION -> provideSettlePosition(bot.getId(), null);
+                    case SELF_REVEAL_CHOICE -> provideBotSelfReveal(bot);
+                    case NONE -> false;
+                };
+                if (!acted && !finished) {
+                    throw new IllegalStateException(
+                        "DVC bot " + bot.getId() + " could not resolve state " + awaiting
+                    );
+                }
+            }
+        } finally {
+            drivingBots = false;
+        }
+    }
+
+    private String chooseBotDrawColor(DVCPlayer bot) {
+        return Math.floorMod(Objects.hash(bot.getId(), turnId), 2) == 0 ? "BLACK" : "WHITE";
+    }
+
+    private boolean provideBotGuess(DVCPlayer bot) {
+        for (DVCPlayer target : board.snapshotOrder()) {
+            if (target.getId().equals(bot.getId()) || board.isEliminated(target)) continue;
+            List<DVCCard> cards = target.hand().snapshot();
+            for (int index = 0; index < cards.size(); index++) {
+                if (cards.get(index).isFaceUp()) continue;
+                int guessSlot = Math.floorMod(Objects.hash(bot.getId(), turnId, target.getId(), index), 13);
+                boolean joker = guessSlot == 12;
+                Integer number = joker ? null : guessSlot;
+                return provideGuess(bot.getId(), target.getId(), index, joker, number);
+            }
+        }
+        checkVictory();
+        return finished;
+    }
+
+    private boolean provideBotSelfReveal(DVCPlayer bot) {
+        List<DVCCard> cards = bot.hand().snapshot();
+        for (int index = 0; index < cards.size(); index++) {
+            if (!cards.get(index).isFaceUp()) return provideSelfReveal(bot.getId(), index);
+        }
+        checkVictory();
+        return finished;
     }
 
     private void checkEliminations() {
@@ -210,6 +307,7 @@ public class DVCRuntimePhase extends RuntimePhase {
             queue.clear(); // flush any pending events
             endingPhase = new DVCEndingPhase(winnerId);
             endingPhase.enter();
+            addLog("WIN", winnerId, null, null, null, null, winnerId + " cracked the final code and won.");
         }
     }
 
@@ -221,7 +319,17 @@ public class DVCRuntimePhase extends RuntimePhase {
             pendingDraw.chooseColor(DVCCard.Color.valueOf(colorName.toUpperCase()));
         } catch (Exception e) { return false; }
         if (!pendingDraw.isValid()) return false;
+        String selectedColor = pendingDraw.chosenColor().name();
         pendingDraw.execute();
+        addLog(
+            "DRAW",
+            playerId,
+            null,
+            null,
+            null,
+            null,
+            playerId + " chose the " + selectedColor + " pile and drew a tile."
+        );
         pendingDraw = null;
         // queue now has guess event (enqueued by draw.execute). Drain until we find it.
         var next = queue.poll();
@@ -242,6 +350,11 @@ public class DVCRuntimePhase extends RuntimePhase {
         DVCPlayer.Guess guess = joker ? DVCPlayer.Guess.jokerGuess() : DVCPlayer.Guess.number(number);
         pendingGuess.setSelection(targetPlayerId, targetIndex, guess);
         if (!pendingGuess.isValid()) return false;
+        DVCPlayer target = board.snapshotOrder().stream()
+            .filter(candidate -> candidate.getId().equals(targetPlayerId))
+            .findFirst()
+            .orElseThrow();
+        DVCCard targetCard = target.hand().snapshot().get(targetIndex);
         pendingGuess.execute();
         // Reveal event enqueued; drain queue until we find it (defensive against any stale events)
         var nextEv = queue.poll();
@@ -253,6 +366,19 @@ public class DVCRuntimePhase extends RuntimePhase {
         } else {
             return false; // unexpected: no reveal enqueued
         }
+        String guessValue = joker ? "JOKER" : String.valueOf(number);
+        boolean guessCorrect = pendingReveal.correct();
+        addLog(
+            "GUESS",
+            playerId,
+            targetPlayerId,
+            targetIndex + 1,
+            guessValue,
+            guessCorrect,
+            playerId + " guessed " + targetPlayerId + "'s #" + (targetIndex + 1)
+                + " " + targetCard.getColor().name() + " tile as " + guessValue
+                + " — " + (guessCorrect ? "CORRECT" : "WRONG") + "."
+        );
         if (pendingReveal.correct()) {
             // Immediately reveal the guessed card for game state consistency (decision affects only continue/stop)
             var tgtId = pendingReveal.targetPlayerId();
@@ -297,6 +423,15 @@ public class DVCRuntimePhase extends RuntimePhase {
     pendingReveal.setContinueGuess(continueGuess);
     if (!pendingReveal.isValid()) return false;
     pendingReveal.execute();
+        addLog(
+            "DECISION",
+            playerId,
+            null,
+            null,
+            null,
+            null,
+            playerId + (continueGuess ? " continued the guess run." : " ended the guess run.")
+        );
         pendingReveal = null;
         handlePostRevealChain();
         return true;
@@ -309,7 +444,19 @@ public class DVCRuntimePhase extends RuntimePhase {
         DVCPlayer self = current();
         try {
             var revealed = self.revealAt(ownIndex);
-            if (revealed != null) recentReveals.add(new PublicReveal(self.getId(), revealed.cardId()));
+            if (revealed != null) {
+                recentReveals.add(new PublicReveal(self.getId(), revealed.cardId()));
+                addLog(
+                    "SELF_REVEAL",
+                    playerId,
+                    playerId,
+                    ownIndex + 1,
+                    null,
+                    false,
+                    playerId + " revealed own #" + (ownIndex + 1) + " tile as "
+                        + revealed.frontDisplay() + " after a wrong guess."
+                );
+            }
         } catch (Exception e) { return false; }
         // now treat like incorrect path finalize reveal -> settle (no pending card)
         pendingReveal.setContinueGuess(false); // unify path
@@ -386,6 +533,7 @@ public class DVCRuntimePhase extends RuntimePhase {
                 queue.clear();
                 endingPhase = new DVCEndingPhase(winnerId);
                 endingPhase.enter();
+                addLog("WIN", winnerId, null, null, null, null, winnerId + " cracked the final code and won.");
                 return;
             }
         }

@@ -1,41 +1,37 @@
-import React from 'react';
+import { ArcadeButton, ArcadeDialog, ArcadeSelect } from '../arcade/ArcadeUI';
 
-// Redesigned to only include two selections: Color (BLACK/WHITE) and Number (0-11 or Joker)
-export function GuessModal({ open, opponents, guessForm, setGuessForm, onSubmit, onClose }) {
-  if (!open) return null;
+export function GuessModal({ open, guessForm, setGuessForm, onSubmit, onClose }) {
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-base-100 rounded p-4 w-full max-w-sm flex flex-col gap-3 text-xs">
-        <h3 className="font-semibold">Make a Guess</h3>
-        <label className="flex flex-col gap-1">Color
-          <select
-            className="select select-bordered select-xs"
-            value={guessForm.guessColor}
-            onChange={e=>setGuessForm(f=>({...f, guessColor: e.target.value}))}
-          >
-            <option value="BLACK">BLACK</option>
-            <option value="WHITE">WHITE</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">Number
-          <select
-            className="select select-bordered select-xs"
-            value={guessForm.joker ? '_' : String(guessForm.guessValue)}
-            onChange={e=>{
-              const v = e.target.value;
-              if (v === '_') setGuessForm(f=>({...f, joker:true, guessValue:'_'}));
-              else setGuessForm(f=>({...f, joker:false, guessValue:v}));
-            }}
-          >
-            <option value="_">JOKER</option>
-            {Array.from({length:12},(_,i)=> <option key={i} value={i}>{i}</option>)}
-          </select>
-        </label>
-        <div className="flex justify-end gap-2 mt-2">
-          <button className="btn btn-ghost btn-xs" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary btn-xs" disabled={!guessForm.targetPlayerId} onClick={onSubmit}>Submit</button>
-        </div>
+    <ArcadeDialog
+      open={open}
+      title="Decode the tile"
+      eyebrow="Make a guess"
+      onClose={onClose}
+      actions={(
+        <>
+          <ArcadeButton variant="ghost" onClick={onClose}>Cancel</ArcadeButton>
+          <ArcadeButton disabled={!guessForm.targetPlayerId} onClick={onSubmit}>Submit guess</ArcadeButton>
+        </>
+      )}
+    >
+      <div className="arcade-form-stack">
+        <p className="arcade-copy text-sm">Target: <span className="arcade-code arcade-accent">{guessForm.targetPlayerId || 'No tile selected'}</span></p>
+        <ArcadeSelect label="Color" value={guessForm.guessColor} onChange={(event) => setGuessForm((current) => ({ ...current, guessColor: event.target.value }))}>
+          <option value="BLACK">Black</option>
+          <option value="WHITE">White</option>
+        </ArcadeSelect>
+        <ArcadeSelect
+          label="Number"
+          value={guessForm.joker ? '_' : String(guessForm.guessValue)}
+          onChange={(event) => {
+            const value = event.target.value;
+            setGuessForm((current) => ({ ...current, joker: value === '_', guessValue: value }));
+          }}
+        >
+          <option value="_">Joker</option>
+          {Array.from({ length: 12 }, (_, index) => <option key={index} value={index}>{index}</option>)}
+        </ArcadeSelect>
       </div>
-    </div>
+    </ArcadeDialog>
   );
 }

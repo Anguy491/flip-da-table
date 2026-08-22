@@ -1,217 +1,175 @@
 import { useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageContainer from '../components/PageContainer';
-import CardContainer from '../components/CardContainer';
-import SubmitButton from '../components/SubmitButton';
-import { AuthContext } from '../context/AuthContext';
 import useUnoGame from '../hooks/useUnoGame';
-import DiscardPile from '../components/uno/DiscardPile';
+import { AuthContext } from '../context/auth-context';
 import ChooseColorModal from '../components/uno/ChooseColorModal';
-import ResultOverlay from '../components/uno/ResultOverlay';
 import GameOverModal from '../components/uno/GameOverModal';
+import UnoGameView from '../components/uno/UnoGameView';
+import { ArcadeButton, ArcadeDialog, ArcadePanel } from '../components/arcade/ArcadeUI';
 import { startNextGame } from '../api/sessions';
-// New layout components
-import PlayerArea from '../components/uno/layout/PlayerArea';
-import InfoPanel from '../components/uno/layout/InfoPanel';
-import EventLog from '../components/uno/layout/EventLog';
-import HandArea from '../components/uno/layout/HandArea';
-import usePlayAnimations from '../hooks/usePlayAnimations';
+import { recordSessionResult } from '../utils/sessionResults';
 
-/**
- * Refactored PlayScreen implementing specified flex layout.
- * Backwards compatibility: if props not provided (router usage), falls back to internal hook logic.
- * Props (presentation mode): players, currentPlayerId, direction, gameCount, activeColor, pendingDraw, lastCard, events, hand, onPlay, onDraw
- */
-export default function UnoPlayScreen(presentationalProps) {
-	const { state } = useLocation();
-	const { sessionid } = useParams();
-	const nav = useNavigate();
-	const { token } = useContext(AuthContext);
+export default function UnoPlayScreen() {
+  const { state } = useLocation();
+  const { sessionid } = useParams();
+  const navigate = useNavigate();
+  const { token } = useContext(AuthContext);
+  const gameId = state?.gameId;
+  const roundIndex = state?.roundIndex ?? 1;
+  const totalRounds = state?.totalRounds ?? 1;
+  const playersMeta = useMemo(() => state?.players || [], [state?.players]);
+  const pastResults = useMemo(() => state?.results || [], [state?.results]);
+  const playerId = state?.playerId || state?.myPlayerId || playersMeta.find((player) => !player.bot)?.playerId;
+  const uno = useUnoGame({ gameId, playerId, token });
+  const [gameOverOpen, setGameOverOpen] = useState(false);
+  const [showRotateHint, setShowRotateHint] = useState(false);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
 
-	// state from lobby navigation: { gameId, roundIndex, players, totalRounds, results }
-	const gameId = state?.gameId;
-	const roundIndex = state?.roundIndex ?? 1;
-	const totalRounds = state?.totalRounds ?? 1;
-	const playersMeta = state?.players || [];
-	const pastResults = state?.results || [];
-	// For MVP we don't persist playerId separately; use first non-bot? Provide via state later.
-	const playerId = state?.playerId || state?.myPlayerId || state?.players?.find(p => !p.bot)?.playerId; // fallback (should be provided)
+  useEffect(() => {
+    if (gameId && !token) navigate('/login');
+  }, [gameId, navigate, token]);
 
-	useEffect(() => {
-		if (!gameId) return; // fine
-		if (!token) nav('/login');
-	}, [token, gameId, nav]);
+  const winner = useMemo(() => {
+    if (uno.view?.winnerId) return uno.view.players?.find((player) => player.playerId === uno.view.winnerId) || { playerId: uno.view.winnerId };
+    return uno.view?.players?.find((player) => player.handSize === 0);
+  }, [uno.view]);
 
-		// If presentationalProps has players assume external control; otherwise derive from hook
-		const inPresentationalMode = !!presentationalProps?.players;
+  useEffect(() => {
+    if (winner) setGameOverOpen(true);
+  }, [winner]);
 
-		const uno = useUnoGame({ gameId: inPresentationalMode ? undefined : gameId, playerId: inPresentationalMode ? undefined : playerId, token });
-		const { view, loading, error, myTurn, hand, playableCards, mustChooseColor, pendingDraw, isFinished, sending, events: hookEvents } = inPresentationalMode ? {
-			view: null,
-			loading: false,
-			error: null,
-			myTurn: true,
-			hand: presentationalProps.hand || [],
-			playableCards: presentationalProps.hand || [],
-			mustChooseColor: false,
-			pendingDraw: presentationalProps.pendingDraw || 0,
-			isFinished: false,
-			sending: false,
-			events: presentationalProps.events || []
-		} : uno;
-		const { playCard, drawCard, chooseColor } = inPresentationalMode ? {
-			playCard: (c) => presentationalProps.onPlay?.(c.id || c),
-			drawCard: () => presentationalProps.onDraw?.(),
-			chooseColor: () => {}
-		} : uno.actions;
+  useEffect(() => {
+    setColorPickerOpen(uno.mustChooseColor && uno.myTurn);
+  }, [uno.mustChooseColor, uno.myTurn]);
 
-		const currentPlayerId = useMemo(() => inPresentationalMode ? presentationalProps.currentPlayerId : view?.players?.find(p => p.isCurrent)?.playerId, [inPresentationalMode, presentationalProps, view]);
+  const winnerName = useMemo(() => {
+    if (!winner) return '';
+    return playersMeta.find((player) => player.playerId === winner.playerId)?.name || winner.playerId;
+  }, [playersMeta, winner]);
 
-	// Winner detection: prefer backend winnerId (FINISHED phase) else fallback to empty-hand heuristic
-	const winner = useMemo(() => {
-		if (view?.winnerId) return view.players?.find(p => p.playerId === view.winnerId) || { playerId: view.winnerId };
-		return view?.players?.find(p => p.handSize === 0);
-	}, [view]);
-	const [modalOpen, setModalOpen] = useState(false);
-	useEffect(() => { if (winner && !modalOpen) setModalOpen(true); }, [winner, modalOpen]);
+  useEffect(() => {
+    if (!winner?.playerId) return;
+    recordSessionResult({
+      sessionId: sessionid,
+      gameType: 'UNO',
+      totalRounds,
+      playersMeta,
+      result: { round: roundIndex, winnerId: winner.playerId, winnerName, turns: uno.view?.turnCount || 0 },
+    });
+  }, [playersMeta, roundIndex, sessionid, totalRounds, uno.view?.turnCount, winner, winnerName]);
 
-	const winnerName = useMemo(() => {
-		if (!winner) return '';
-		const meta = playersMeta.find(pm => pm.playerId === winner.playerId);
-		return meta?.name || winner.playerId;
-	}, [winner, playersMeta]);
+  useEffect(() => {
+    const evaluate = () => {
+      const dismissed = sessionStorage.getItem('dismissRotateHint') === '1';
+      setShowRotateHint(!dismissed && window.innerWidth < 780 && window.innerHeight > window.innerWidth);
+    };
+    evaluate();
+    window.addEventListener('resize', evaluate);
+    window.addEventListener('orientationchange', evaluate);
+    return () => {
+      window.removeEventListener('resize', evaluate);
+      window.removeEventListener('orientationchange', evaluate);
+    };
+  }, []);
 
-	// Persist result to sessionStorage for summary (idempotent per round)
-	useEffect(() => {
-		if (!winner || !winner.playerId) return;
-		const key = `uno-results-${sessionid}`;
-		let stored = { totalRounds, results: [], playersMeta };
-		try { const raw = sessionStorage.getItem(key); if (raw) stored = JSON.parse(raw); } catch { /* ignore */ }
-		stored.playersMeta = playersMeta;
-		const existing = stored.results.find(r => r.round === roundIndex);
-		if (!existing) {
-			stored.totalRounds = totalRounds;
-			stored.results.push({ round: roundIndex, winnerId: winner.playerId, winnerName, turns: view?.turnCount || 0 });
-			// keep results sorted by round to avoid later mismatch
-			stored.results.sort((a,b)=>a.round-b.round);
-			sessionStorage.setItem(key, JSON.stringify(stored));
-		} else if (existing.winnerId !== winner.playerId) {
-			// Correct any earlier heuristic mis-write
-			existing.winnerId = winner.playerId;
-			existing.winnerName = winnerName;
-			existing.turns = view?.turnCount || existing.turns;
-			sessionStorage.setItem(key, JSON.stringify(stored));
-		}
-	}, [winner, winnerName, roundIndex, sessionid, totalRounds, playersMeta, view]);
+  const dismissRotateHint = useCallback(() => {
+    sessionStorage.setItem('dismissRotateHint', '1');
+    setShowRotateHint(false);
+  }, []);
 
-	const startNext = useCallback(async () => {
-		if (roundIndex >= totalRounds) return;
-		try {
-			const payloadPlayers = playersMeta.map(p => ({ name: p.name, bot: p.bot, ready: true }));
-			const resp = await startNextGame(sessionid, { rounds: totalRounds, players: payloadPlayers }, token);
-			nav(`/playscreen/${sessionid}` , { state: { gameId: resp.gameId, roundIndex: resp.roundIndex, playerId: resp.myPlayerId, players: resp.players, totalRounds, results: [...pastResults, { round: roundIndex, winnerId: winner.playerId, winnerName, turns: view?.turnCount || 0 }] } });
-		} catch (e) { console.error(e); }
-	}, [roundIndex, totalRounds, playersMeta, sessionid, token, nav, pastResults, winner, winnerName, view]);
+  const startNext = useCallback(async () => {
+    if (roundIndex >= totalRounds || !winner) return;
+    try {
+      const payloadPlayers = playersMeta.map((player) => ({ name: player.name, bot: player.bot, ready: true }));
+      const response = await startNextGame(sessionid, { rounds: totalRounds, players: payloadPlayers }, token);
+      navigate(`/unoplayscreen/${sessionid}`, {
+        state: {
+          gameId: response.gameId,
+          roundIndex: response.roundIndex,
+          myPlayerId: response.myPlayerId,
+          players: response.players,
+          totalRounds,
+          results: [...pastResults, { round: roundIndex, winnerId: winner.playerId, winnerName, turns: uno.view?.turnCount || 0 }],
+        },
+      });
+      setGameOverOpen(false);
+    } catch (requestError) {
+      console.error('Unable to start next game', requestError);
+    }
+  }, [navigate, pastResults, playersMeta, roundIndex, sessionid, token, totalRounds, uno.view?.turnCount, winner, winnerName]);
 
-	const goSummary = useCallback(() => {
-		nav(`/sessionsum/${sessionid}`);
-	}, [nav, sessionid]);
+  if (!gameId) {
+    return (
+      <PageContainer theme="uno">
+        <ArcadePanel className="max-w-2xl mx-auto text-center">
+          <p className="arcade-eyebrow">Table unavailable</p>
+          <h1 className="arcade-title">No UNO game found</h1>
+          <p className="arcade-copy mt-5">Launch a game from a lobby so the table receives its player perspective.</p>
+          <ArcadeButton className="mt-7" onClick={() => navigate(-1)}>Back to lobby</ArcadeButton>
+        </ArcadePanel>
+      </PageContainer>
+    );
+  }
 
-	const leaveDashboard = useCallback(() => { nav('/dashboard'); }, [nav]);
+  const players = (uno.view?.players || []).map((player) => ({
+    id: player.playerId,
+    name: playersMeta.find((meta) => meta.playerId === player.playerId)?.name || player.playerId.slice(0, 8),
+    handCount: player.handSize,
+  }));
+  const currentPlayerId = uno.view?.players?.find((player) => player.isCurrent)?.playerId;
 
-	// --- Mobile small-screen portrait hint (rotate suggestion) ---
-	const [showRotateHint, setShowRotateHint] = useState(false);
-	useEffect(() => {
-		const evaluate = () => {
-			// Tailwind md breakpoint ~768px; treat below that & portrait as needing hint
-			const w = window.innerWidth; const h = window.innerHeight;
-			const dismissed = sessionStorage.getItem('dismissRotateHint') === '1';
-			if (!dismissed && w < 780 && h > w) setShowRotateHint(true); else setShowRotateHint(false);
-		};
-		evaluate();
-		window.addEventListener('resize', evaluate);
-		window.addEventListener('orientationchange', evaluate);
-		return () => { window.removeEventListener('resize', evaluate); window.removeEventListener('orientationchange', evaluate); };
-	}, []);
+  return (
+    <PageContainer theme="uno" game>
+      <UnoGameView
+        sessionId={sessionid}
+        gameId={gameId}
+        players={players}
+        currentPlayerId={currentPlayerId}
+        round={roundIndex}
+        direction={uno.view?.direction || 'CW'}
+        activeColor={uno.view?.activeColor || uno.view?.top?.color}
+        pendingDraw={uno.pendingDraw}
+        topCard={uno.view?.top}
+        events={uno.events}
+        hand={uno.hand}
+        playableCards={uno.playableCards}
+        myTurn={uno.myTurn}
+        mustChooseColor={uno.mustChooseColor}
+        finished={uno.isFinished}
+        sending={uno.sending}
+        loading={uno.loading}
+        error={uno.error}
+        connectionState={uno.connectionState}
+        onBack={() => navigate(-1)}
+        onPlay={uno.actions.playCard}
+        onDraw={uno.actions.drawCard}
+        onOpenColorPicker={() => setColorPickerOpen(true)}
+      />
 
-	const dismissRotateHint = useCallback(() => { sessionStorage.setItem('dismissRotateHint','1'); setShowRotateHint(false); }, []);
-
-	if (!gameId && !inPresentationalMode) {
-		return (
-			<PageContainer>
-				<CardContainer className="max-w-xl w-full text-center">
-					<h2 className="text-xl font-semibold mb-4">Play Screen</h2>
-					<div className="text-error">No game started data found.</div>
-					<SubmitButton type="button" className="btn-secondary mt-4" onClick={() => nav(-1)}>Back</SubmitButton>
-				</CardContainer>
-			</PageContainer>
-		);
-	}
-
-	// Build presentation data either from props or from internal view
-    const players = inPresentationalMode ? presentationalProps.players : (view?.players || []).map(p => ({ id: p.playerId, name: p.playerId.slice(0,6), handCount: p.handSize }));
-    const direction = inPresentationalMode ? presentationalProps.direction : (view?.direction || 'CW');
-    const gameCount = inPresentationalMode ? presentationalProps.gameCount : roundIndex;
-    const activeColor = inPresentationalMode ? presentationalProps.activeColor : (view?.activeColor || view?.top?.color);
-    const lastCard = inPresentationalMode ? presentationalProps.lastCard : view?.top;
-	const events = inPresentationalMode ? presentationalProps.events : (hookEvents || view?.events || []);
-
-	// Attach play animation hook (only runtime mode). Provide gameId so hook can reset between rounds.
-	usePlayAnimations({ view, gameId });
-    const handCards = inPresentationalMode ? presentationalProps.hand : hand;
-    const playableIds = new Set(playableCards.map(c => c.id || c));
-
-	return (
-		<PageContainer>
-			{showRotateHint && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
-					<div className="bg-base-100 rounded-lg p-4 w-full max-w-xs text-center shadow-xl animate-fade-in">
-						<h3 className="font-semibold mb-2 text-sm">Rotate to Landscape</h3>
-						<p className="text-xs mb-3 leading-snug">For a better game layout and hand display, please rotate your phone to landscape mode.</p>
-						<button type="button" className="btn btn-primary btn-sm w-full" onClick={dismissRotateHint}>Got it</button>
-					</div>
-				</div>
-			)}
-			<div className="w-full max-w-6xl mx-auto flex flex-col gap-2">{/* main vertical container */}
-				{/* Top meta bar */}
-				<div className="flex justify-between items-center text-xs px-2">
-					<div className="opacity-70">Session <span className="font-mono font-semibold">{sessionid}</span></div>
-					<div className="opacity-70">Game <span className="font-mono font-semibold">{gameId}</span></div>
-					<button type="button" className="btn btn-ghost btn-xs" onClick={() => nav(-1)}>Back</button>
-				</div>
-				<CardContainer noMax className="flex-1 flex flex-col p-2 h-full">{/* Outer card hosting the 1:3:2 layout (override default max-w) */}
-					<div className="flex flex-col h-full w-full">
-						{/* PlayerArea */}
-						<div className="flex-[1_1_0] border-b mb-1 pb-1"><PlayerArea players={players} currentPlayerId={currentPlayerId} /></div>
-						{/* GameMain */}
-						<div className="flex-[3_1_0] flex flex-row gap-2 py-1 max-h-32">
-							{/* DiscardPile column */}
-							<div className="flex-[1_1_0] flex items-center justify-center" data-role="discard"><DiscardPile top={lastCard} /></div>
-							{/* InfoPanel column */}
-							<div className="flex-[2_1_0] bg-base-200/40 rounded"><InfoPanel gameCount={gameCount} direction={direction} activeColor={activeColor} currentPlayerName={players.find(p=>p.id===currentPlayerId)?.name} pendingDraw={pendingDraw} /></div>
-							{/* EventLog column */}
-							<div className="flex-[3_1_0]"><EventLog events={events} /></div>
-						</div>
-						{/* HandArea */}
-						<div className="flex-[2_1_0] mt-1 pt-1 border-t">
-							<HandArea hand={handCards} playableIds={playableIds} disabled={!myTurn || mustChooseColor || isFinished} onPlay={playCard} onDraw={drawCard} pendingDraw={pendingDraw} />
-							<div className="text-center text-xs opacity-70 mt-1">{myTurn ? (mustChooseColor ? 'Choose a color.' : playableCards.length ? 'Select a playable card or draw.' : 'No playable card: draw a card.') : 'Waiting for opponent / bot...'}</div>
-						</div>
-					</div>
-				</CardContainer>
-			</div>
-			<ChooseColorModal open={mustChooseColor && myTurn} onPick={chooseColor} />
-			<ResultOverlay open={isFinished} players={view?.players || []} onClose={() => nav(-1)} />
-			<GameOverModal
-				open={modalOpen && !!winner}
-				winnerName={winnerName}
-				winnerId={winner?.playerId}
-				turns={view?.turnCount || 0}
-				onClose={leaveDashboard}
-				onNext={startNext}
-				isLast={roundIndex >= totalRounds}
-				onSummary={goSummary}
-			/>
-		</PageContainer>
-	);
+      <ChooseColorModal
+        open={colorPickerOpen && uno.mustChooseColor && uno.myTurn}
+        disabled={uno.sending}
+        onHide={() => setColorPickerOpen(false)}
+        onPick={(color) => {
+          setColorPickerOpen(false);
+          uno.actions.chooseColor(color);
+        }}
+      />
+      <GameOverModal
+        open={gameOverOpen && Boolean(winner)}
+        winnerName={winnerName}
+        winnerId={winner?.playerId}
+        turns={uno.view?.turnCount || 0}
+        onClose={() => navigate('/dashboard')}
+        onNext={startNext}
+        isLast={roundIndex >= totalRounds}
+        onSummary={() => navigate(`/sessionsum/${sessionid}`)}
+      />
+      <ArcadeDialog open={showRotateHint} title="Rotate to landscape" eyebrow="Better table view" onClose={dismissRotateHint}>
+        <p className="arcade-copy">The full hand and opponent rail fit best when your phone is turned sideways.</p>
+        <ArcadeButton className="mt-5" block onClick={dismissRotateHint}>Continue</ArcadeButton>
+      </ArcadeDialog>
+    </PageContainer>
+  );
 }

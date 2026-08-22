@@ -1,45 +1,52 @@
-import React from 'react';
 import { CardTile } from './CardTile';
 import { parseCard } from './parseCard';
 
-/**
- * Draggable card strip (optional): if onReorder provided enable drag interactions.
- */
-export function CardStrip({ cards, draggable=false, onReorder, clickable=false, onCardClick, itemClassName, canClick }) {
-  const handleDragStart = (e, index) => {
+export function CardStrip({ cards = [], draggable = false, onReorder, clickable = false, onCardClick, itemClassName, canClick }) {
+  const handleDrop = (event, targetIndex) => {
     if (!draggable) return;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', String(index));
+    event.preventDefault();
+    const sourceIndex = Number(event.dataTransfer.getData('text/plain'));
+    if (!Number.isNaN(sourceIndex) && sourceIndex !== targetIndex) onReorder?.(sourceIndex, targetIndex);
   };
-  const handleDragOver = (e) => { if (draggable) { e.preventDefault(); e.dataTransfer.dropEffect='move'; } };
-  const handleDrop = (e, to) => {
-    if (!draggable) return;
-    e.preventDefault();
-    const from = Number(e.dataTransfer.getData('text/plain'));
-    if (Number.isNaN(from) || from === to) return;
-    onReorder && onReorder(from, to);
-  };
+
   return (
-    <div className="dvc-card-strip flex gap-1 select-none">
-      {(cards||[]).map((c,i)=> {
-        const card = typeof c==='string'?parseCard(c):c;
-        const allowed = typeof canClick === 'function' ? !!canClick(i, card) : (!card.revealed);
+    <div className="dvc-card-strip">
+      {cards.map((raw, index) => {
+        const card = typeof raw === 'string' ? parseCard(raw) : raw;
+        const allowed = typeof canClick === 'function' ? Boolean(canClick(index, card)) : !card.revealed;
+        const interactive = clickable && allowed;
         return (
-      <div key={i}
+          <button
+            type="button"
+            key={`${card.color}-${card.value}-${index}`}
             draggable={draggable}
-            onDragStart={(e)=>handleDragStart(e,i)}
-            onDragOver={handleDragOver}
-            onDrop={(e)=>handleDrop(e,i)}
-            onClick={()=>{ if (clickable && allowed) onCardClick && onCardClick(i); }}
-            className={[
-              'transition-transform',
-              draggable? 'hover:-translate-y-1 cursor-grab active:cursor-grabbing':'' ,
-              (!draggable && clickable && allowed)? 'hover:-translate-y-1 cursor-pointer':'',
-        typeof itemClassName === 'function' ? itemClassName(i, card) : itemClassName
-            ].join(' ')}
+            className={`dvc-card-hit ${typeof itemClassName === 'function' ? itemClassName(index, card) : itemClassName || ''}`}
+            data-clickable={interactive ? 'true' : 'false'}
+            disabled={!interactive && !draggable}
+            onClick={() => { if (interactive) onCardClick?.(index); }}
+            onKeyDown={(event) => {
+              if (!draggable) return;
+              if (event.key === 'ArrowLeft' && index > 0) {
+                event.preventDefault();
+                onReorder?.(index, index - 1);
+              }
+              if (event.key === 'ArrowRight' && index < cards.length - 1) {
+                event.preventDefault();
+                onReorder?.(index, index + 1);
+              }
+            }}
+            onDragStart={(event) => {
+              if (!draggable) return;
+              event.dataTransfer.effectAllowed = 'move';
+              event.dataTransfer.setData('text/plain', String(index));
+            }}
+            onDragOver={(event) => { if (draggable) event.preventDefault(); }}
+            onDrop={(event) => handleDrop(event, index)}
+            aria-label={interactive ? `Select tile ${index + 1}` : draggable ? `Move tile ${index + 1}; use left and right arrow keys to reorder` : undefined}
+            aria-keyshortcuts={draggable ? 'ArrowLeft ArrowRight' : undefined}
           >
             <CardTile card={card} />
-          </div>
+          </button>
         );
       })}
     </div>

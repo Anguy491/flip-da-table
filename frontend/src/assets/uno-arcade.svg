@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc" shape-rendering="crispEdges">
+  <title id="title">Abstract four-color card fan</title>
+  <desc id="desc">Original pixel artwork representing a colorful shedding card game.</desc>
+  <rect width="640" height="360" fill="#070914"/>
+  <path fill="#171d38" d="M0 0h640v360H0z"/>
+  <path fill="#24f5d6" opacity=".16" d="M0 40h640v8H0zm0 80h640v8H0zm0 80h640v8H0zm0 80h640v8H0zM72 0h8v360h-8zm120 0h8v360h-8zm120 0h8v360h-8zm120 0h8v360h-8zm120 0h8v360h-8z"/>
+  <g stroke="#f7f7e8" stroke-width="8">
+    <path fill="#ed3155" d="M128 104h144v208H128z" transform="rotate(-16 200 208)"/>
+    <path fill="#3079ff" d="M216 72h144v208H216z" transform="rotate(-5 288 176)"/>
+    <path fill="#32d47b" d="M304 72h144v208H304z" transform="rotate(7 376 176)"/>
+    <path fill="#ffd84a" d="M384 104h144v208H384z" transform="rotate(17 456 208)"/>
+  </g>
+  <path fill="#070914" d="M260 140h120v80H260z"/>
+  <path fill="#f7f7e8" d="M280 156h80v16h-80zm0 32h56v16h-56z"/>
+</svg>

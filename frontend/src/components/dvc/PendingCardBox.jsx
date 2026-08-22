@@ -1,12 +1,15 @@
-import React from 'react';
+import { ArcadeBadge } from '../arcade/ArcadeUI';
 import { CardTile } from './CardTile';
 import { parseCard } from './parseCard';
 
 export function PendingCardBox({ pending }) {
   return (
-  <div className="dvc-pending p-2 border rounded min-w-[100px] min-h-[150px] flex flex-col items-center justify-center text-xs mx-auto">
-      <div className="font-semibold mb-1">Pending</div>
-      {pending ? <CardTile card={parseCard(pending)} /> : <div className="opacity-40">None</div>}
-    </div>
+    <section className="dvc-pending" aria-labelledby="pending-card-title">
+      <div className="text-center">
+        <h3 id="pending-card-title" className="arcade-game-zone__title">Pending tile</h3>
+        <ArcadeBadge tone={pending ? 'warning' : 'muted'}>{pending ? 'Unsettled' : 'Empty'}</ArcadeBadge>
+      </div>
+      {pending ? <CardTile card={parseCard(pending)} /> : <span className="arcade-muted text-xs">Draw to reveal a tile.</span>}
+    </section>
   );
 }

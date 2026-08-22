@@ -6,5 +6,6 @@ import java.util.List;
 public record DVCView(
     DVCBoardView board,
     List<DVCPlayerView> players,
-    String perspectivePlayerId
+    String perspectivePlayerId,
+    List<DVCActionLogEntry> actionLog
 ) {}

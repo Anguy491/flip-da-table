@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title" shape-rendering="crispEdges">
+  <title id="title">Flip Da Table arcade mark</title>
+  <rect width="64" height="64" fill="#070914"/>
+  <path fill="#24F5D6" d="M8 8h48v8H8zm0 40h48v8H8zM8 16h8v32H8zm40 0h8v32h-8z"/>
+  <path fill="#FF3EB5" d="M20 24h24v8H20zm8 8h8v16h-8z"/>
+  <path fill="#FFD84A" d="M20 40h8v8h-8zm16 0h8v8h-8z"/>
+</svg>

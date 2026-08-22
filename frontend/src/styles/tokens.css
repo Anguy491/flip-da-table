@@ -1,0 +1,70 @@
+:root {
+  color-scheme: dark;
+  --arcade-ink: #070914;
+  --arcade-surface: #11152b;
+  --arcade-panel: #171d38;
+  --arcade-panel-raised: #20284b;
+  --arcade-text: #f7f7e8;
+  --arcade-muted: #aab2d5;
+  --arcade-cyan: #24f5d6;
+  --arcade-magenta: #ff3eb5;
+  --arcade-yellow: #ffd84a;
+  --arcade-error: #ff4d6d;
+  --arcade-success: #5dff8b;
+  --arcade-warning: #ff9f43;
+  --arcade-blue: #2f7df6;
+  --uno-red: #ed3155;
+  --uno-blue: #3079ff;
+  --uno-green: #32d47b;
+  --uno-yellow: #ffd84a;
+  --uno-wild: #15182b;
+  --tile-white: #fffdf0;
+  --tile-black: #090b12;
+  --overlay: #070914e8;
+  --shadow-ink: #02030a;
+  --scanline: #f7f7e80a;
+  --grid-line: #24f5d60d;
+
+  --surface-page: var(--arcade-ink);
+  --surface-panel: var(--arcade-panel);
+  --surface-raised: var(--arcade-panel-raised);
+  --text-main: var(--arcade-text);
+  --text-muted: var(--arcade-muted);
+  --accent-primary: var(--arcade-cyan);
+  --accent-secondary: var(--arcade-magenta);
+  --accent-focus: var(--arcade-yellow);
+  --status-error: var(--arcade-error);
+  --status-success: var(--arcade-success);
+  --status-warning: var(--arcade-warning);
+
+  --font-display: "Press Start 2P", ui-monospace, monospace;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --border-pixel: 2px;
+  --radius-pixel: 2px;
+  --shadow-pixel: 4px 4px 0 var(--shadow-ink);
+  --shadow-pixel-accent: 4px 4px 0 var(--accent-primary);
+  --motion-fast: 100ms;
+  --motion-panel: 180ms;
+  --layer-overlay: 50;
+}
+
+[data-game="uno"] {
+  --accent-primary: var(--uno-yellow);
+  --accent-secondary: var(--uno-red);
+  --grid-line: #ffd84a0d;
+}
+
+[data-game="dvc"] {
+  --accent-primary: var(--arcade-cyan);
+  --accent-secondary: var(--tile-white);
+  --grid-line: #f7f7e80a;
+}

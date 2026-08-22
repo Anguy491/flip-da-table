@@ -1,26 +1,36 @@
-import React from 'react';
-
-const colorToBg = {
-  RED: 'bg-red-500',
-  GREEN: 'bg-green-500',
-  BLUE: 'bg-blue-500',
-  YELLOW: 'bg-yellow-400 text-black'
+const valueLabels = {
+  DRAW_TWO: '+2',
+  WILD_DRAW_FOUR: '+4',
+  REVERSE: 'REV',
+  SKIP: 'SKIP',
+  WILD: 'WILD',
 };
 
-export default function UnoCard({ card, onClick, disabled }) {
-  const { color, value } = card;
-  const isWild = value === 'WILD' || value === 'WILD_DRAW_FOUR';
-  const bg = isWild ? 'bg-gradient-to-br from-gray-700 via-black to-gray-800 border-yellow-400' : colorToBg[color] || 'bg-gray-500';
+export default function UnoCard({ card, onClick, disabled = false, discard = false }) {
+  const color = card?.color || 'NONE';
+  const value = card?.value || '?';
+  const wild = value === 'WILD' || value === 'WILD_DRAW_FOUR';
+  const label = valueLabels[value] || value;
+
+  if (discard) {
+    return (
+      <div className="uno-card uno-card--discard" data-color={color} data-wild={wild ? 'true' : 'false'} aria-label={`Top card ${color} ${label}`}>
+        <span className="uno-card__value">{label}</span>
+      </div>
+    );
+  }
+
   return (
     <button
       type="button"
-      onClick={() => !disabled && onClick?.(card)}
-      className={`relative w-24 h-40 rounded-lg border-2 text-white font-bold flex items-center justify-center shadow-md transition-transform ${bg} ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
-      aria-disabled={disabled}
+      className="uno-card"
+      data-color={color}
+      data-wild={wild ? 'true' : 'false'}
+      disabled={disabled}
+      onClick={() => onClick?.(card)}
+      aria-label={`${color} ${label}${disabled ? ', not playable' : ', play card'}`}
     >
-      <span className="text-sm text-center px-1 leading-tight">
-        {value === 'DRAW_TWO' ? '+2' : value === 'WILD_DRAW_FOUR' ? '+4' : value === 'REVERSE' ? '↺' : value === 'SKIP' ? '⦸' : value}
-      </span>
+      <span className="uno-card__value">{label}</span>
     </button>
   );
 }

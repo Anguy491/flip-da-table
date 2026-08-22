@@ -1,5 +1,4 @@
 // DVC API client
-const base = '';
 
 async function jsonFetch(url, opts = {}) {
   const baseHeaders = { 'Content-Type': 'application/json' };
@@ -37,5 +36,7 @@ export async function selfReveal(gameId, playerId, ownIndex, token) {
 }
 
 export async function settle(gameId, playerId, hand, isSettled=true, token) {
-  return jsonFetch(`/api/dvc/${gameId}/settle`, { method: 'POST', body: JSON.stringify({ playerId, isSettled, hand }), headers: token? { Authorization: `Bearer ${token}` }: {} });
+  const accepted = await jsonFetch(`/api/dvc/${gameId}/settle`, { method: 'POST', body: JSON.stringify({ playerId, isSettled, hand }), headers: token? { Authorization: `Bearer ${token}` }: {} });
+  if (accepted !== true) throw new Error('The server rejected this rack order. Please arrange the tiles again.');
+  return accepted;
 }

@@ -1,23 +1,20 @@
-import React from 'react';
 import { PlayerRow } from './PlayerRow';
-import { parseCard } from './parseCard';
 
-// Renders only opponents (excludes perspective player's own row)
-export function PlayerList({ playerViews, currentPlayerId, myPlayerId, clickable=false, onOpponentCardClick }) {
-  const opponents = playerViews.filter(p => p.playerId !== myPlayerId);
+export function PlayerList({ playerViews = [], currentPlayerId, myPlayerId, clickable = false, onOpponentCardClick }) {
+  const opponents = playerViews.filter((player) => player.playerId !== myPlayerId);
   return (
-    <div className="dvc-players flex flex-col gap-1">
-      {opponents.map((p,i)=> (
+    <div className="dvc-opponents">
+      {opponents.map((player, index) => (
         <PlayerRow
-          key={p.playerId}
-          pv={p}
-          index={i}
+          key={player.playerId}
+          player={player}
+          index={index}
           currentPlayerId={currentPlayerId}
-          parseCardFn={parseCard}
           clickable={clickable}
-          onCardClick={(cardIndex)=> onOpponentCardClick && onOpponentCardClick(p.playerId, cardIndex)}
+          onCardClick={(cardIndex) => onOpponentCardClick?.(player.playerId, cardIndex)}
         />
       ))}
+      {!opponents.length && <div className="arcade-empty">Waiting for opponent data...</div>}
     </div>
   );
 }

@@ -1,20 +1,24 @@
-import React from 'react';
+import { ArcadeButton, ArcadeDialog } from '../arcade/ArcadeUI';
 
-export default function DvcGameOverModal({ open, winnerName, winnerId, turns, onClose }) {
-  if (!open) return null;
+export default function DvcGameOverModal({ open, winnerName, winnerId, turns, onClose, onSummary }) {
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
-      <div className="bg-base-100 rounded-lg shadow-xl p-6 w-full max-w-sm flex flex-col gap-4">
-        <h3 className="text-lg font-bold text-center">Game Over</h3>
-        <div className="text-center text-sm">
-          <div className="font-semibold">Winner</div>
-          <div className="text-primary font-mono text-base">{winnerName || winnerId}</div>
-          <div className="mt-2 opacity-70">Turns: {turns}</div>
-        </div>
-        <div className="flex justify-center mt-2">
-          <button type="button" className="btn btn-sm btn-primary" onClick={onClose}>Return to Dashboard</button>
-        </div>
+    <ArcadeDialog
+      open={open}
+      title="Code cracked"
+      eyebrow="Game over"
+      dismissible={false}
+      actions={(
+        <>
+          <ArcadeButton variant="ghost" onClick={onClose}>Return to dashboard</ArcadeButton>
+          <ArcadeButton onClick={onSummary}>View summary</ArcadeButton>
+        </>
+      )}
+    >
+      <div className="text-center py-5">
+        <p className="arcade-eyebrow">Winner</p>
+        <p className="arcade-title break-words">{winnerName || winnerId}</p>
+        <p className="arcade-copy mt-4">The final code was solved in <strong className="arcade-accent">{turns}</strong> turns.</p>
       </div>
-    </div>
+    </ArcadeDialog>
   );
 }

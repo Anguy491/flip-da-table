@@ -1,301 +1,330 @@
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { useContext, useEffect, useState, useCallback } from 'react';
 import PageContainer from '../components/PageContainer';
-import CardContainer from '../components/CardContainer';
-import SubmitButton from '../components/SubmitButton';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../context/auth-context';
 import { fetchDvcView, drawColor, guess as apiGuess, revealDecision, selfReveal, settle } from '../api/dvc';
-import { PlayerList } from '../components/dvc/PlayerList';
-import { MyHandPanel, isArrangementValid } from '../components/dvc/MyHandPanel';
-import { PendingCardBox } from '../components/dvc/PendingCardBox';
-import { ControlPanel } from '../components/dvc/ControlPanel';
 import { useDVCGame } from '../hooks/useDVCGame';
-import { InfoPanel } from '../components/dvc/InfoPanel';
+import { isArrangementValid } from '../components/dvc/arrangement';
 import { GuessModal } from '../components/dvc/GuessModal';
 import { InsertPreviewModal } from '../components/dvc/InsertPreviewModal';
 import DvcGameOverModal from '../components/dvc/GameOverModal';
+import DvcGameView from '../components/dvc/DvcGameView';
+import { ArcadeButton, ArcadeDialog, ArcadePanel } from '../components/arcade/ArcadeUI';
+import { recordSessionResult } from '../utils/sessionResults';
 
-// parseCard moved to components/dvc/parseCard.js
+const EMPTY_PLAYERS = [];
 
 export default function DVCPlayScreen({ initial }) {
-	const { state } = useLocation();
-	const { sessionid } = useParams();
-	const nav = useNavigate();
-	const { token } = useContext(AuthContext);
+  const { state } = useLocation();
+  const { sessionid } = useParams();
+  const navigate = useNavigate();
+  const { token } = useContext(AuthContext);
+  const base = initial || state;
+  const gameId = base?.gameId;
+  const roundIndex = base?.roundIndex || 1;
+  const totalRounds = base?.totalRounds || 1;
+  const playersMeta = base?.players || EMPTY_PLAYERS;
+  const myPlayerId = base?.myPlayerId;
 
-	const base = initial || state; // allow prop override
-	const gameId = base?.gameId;
-	const roundIndex = base?.roundIndex || 1;
-	const myPlayerId = base?.myPlayerId;
-	const lobbyPlayers = base?.players || [];
+  const [view, setView] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [loadingAction, setLoadingAction] = useState(false);
+  const [connectionState, setConnectionState] = useState('connecting');
+  const [showGuess, setShowGuess] = useState(false);
+  const [showInsert, setShowInsert] = useState(false);
+  const [showRotateHint, setShowRotateHint] = useState(false);
+  const [lastGuessCorrect, setLastGuessCorrect] = useState(false);
+  const [settledSubmitted, setSettledSubmitted] = useState(false);
+  const [guessForm, setGuessForm] = useState({ targetPlayerId: '', targetIndex: 0, guessColor: 'BLACK', guessValue: '0', joker: false });
+  const [pendingCard, setPendingCard] = useState(null);
+  const [publicTokens, setPublicTokens] = useState(new Set());
+  const [selfRevealIndex, setSelfRevealIndex] = useState(null);
 
-	const [view, setView] = useState(null);
-	const [loading] = useState(true);
-	const [error, setError] = useState('');
-	const [loadingAction, setLoadingAction] = useState(false);
-	const [showGuess, setShowGuess] = useState(false);
-	const [showDrawModal, setShowDrawModal] = useState(false);
-	const [lastGuessCorrect, setLastGuessCorrect] = useState(false);
-	const [settledSubmitted, setSettledSubmitted] = useState(false);
-	const [guessForm, setGuessForm] = useState({ targetPlayerId: '', targetIndex: 0, guessColor: 'BLACK', guessValue: '0', joker: false });
-	const [pendingCard, setPendingCard] = useState(null); // server-provided string like "BLACK 5" or "WHITE -"
-	const [showInsert, setShowInsert] = useState(false);
-	const [publicTokens, setPublicTokens] = useState(new Set()); // Set<string token>
-	const [selfRevealIndex, setSelfRevealIndex] = useState(null);
+  useEffect(() => {
+    if (!token) navigate('/login');
+  }, [navigate, token]);
 
-	useEffect(()=>{ if(!token) nav('/login'); },[token, nav]);
+  const refreshView = useCallback(async () => {
+    if (!gameId || !myPlayerId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const nextView = await fetchDvcView(gameId, myPlayerId, token);
+      setView(nextView);
+      const mine = nextView?.players?.find((player) => player.playerId === myPlayerId);
+      setPendingCard(mine?.pending || null);
+      setError('');
 
-	// Initial single fetch (ensure correct per-player perspective regardless of any passed view)
-	const refreshView = useCallback(async () => {
-		if (!gameId || !myPlayerId) return;
-		try {
-			const v = await fetchDvcView(gameId, myPlayerId, token);
-			setView(v);
-			// derive my pending from view
-			const mine = v?.players?.find(p=>p.playerId===myPlayerId);
-			setPendingCard(mine?.pending || null);
-			// also hydrate public tokens snapshot
-			try {
-				const res = await fetch(`/api/dvc/${gameId}/public-tokens`, { headers: token? { Authorization: `Bearer ${token}` }: {}, credentials: 'include' });
-				if (res.ok) {
-					const data = await res.json();
-					// We only need my own public tokens for MyHandPanel highlighting
-					const mineTokens = new Set(data?.[myPlayerId] || []);
-					setPublicTokens(mineTokens);
-				}
-			} catch {}
-		} catch {/* swallow for now */}
-	}, [gameId, myPlayerId, token]);
+      const response = await fetch(`/api/dvc/${gameId}/public-tokens`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPublicTokens(new Set(data?.[myPlayerId] || []));
+      }
+    } catch (requestError) {
+      setError(requestError.message || 'Failed to sync the code table.');
+    } finally {
+      setLoading(false);
+    }
+  }, [gameId, myPlayerId, token]);
 
-	// Always refresh once on mount/change to guarantee correct perspective
-	useEffect(()=>{ refreshView(); }, [refreshView]);
+  useEffect(() => { void refreshView(); }, [refreshView]);
 
-	// WebSocket subscriptions: per-perspective view and public reveal events
-	useEffect(() => {
-		if (!gameId || !myPlayerId) return;
-		let client; let active = true; let connected = false;
-		(async () => {
-			const { Client } = await import('@stomp/stompjs');
-			client = new Client({
-				brokerURL: `${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`,
-				reconnectDelay: 3000,
-				onConnect: () => {
-					connected = true;
-					client.subscribe(`/topic/dvc/${gameId}/${myPlayerId}`,(msg)=>{
-						if (!active) return;
-						try {
-							const payload = JSON.parse(msg.body);
-							setView(payload);
-							const mine = payload?.players?.find(p=>p.playerId===myPlayerId);
-							setPendingCard(mine?.pending || null);
-						} catch {/* ignore */}
-					});
-					// Public reveals stream
-					client.subscribe(`/topic/dvc/${gameId}/public-reveals`, (msg) => {
-						if (!active) return; let events = [];
-						try { events = JSON.parse(msg.body) || []; } catch { events = []; }
-						if (!Array.isArray(events)) return;
-						setPublicTokens(prev => {
-							const next = new Set(prev);
-							for (const e of events) {
-								if (e?.playerId === myPlayerId && e?.token) next.add(e.token);
-							}
-							return next;
-						});
-					});
-				}
-			});
-			client.activate();
-		})();
-		return () => { active = false; try { if (connected) client?.deactivate(); } catch {} };
-	}, [gameId, myPlayerId]);
+  useEffect(() => {
+    if (!gameId || !myPlayerId) {
+      setConnectionState('offline');
+      return undefined;
+    }
+    let client;
+    let active = true;
+    setConnectionState('connecting');
 
-	const game = useDVCGame({ view, myPlayerId });
-	const { board, awaiting, parsedHand: myCards, isMyTurn, reorderHand, canDragInitial } = game;
-	const arrangementValid = awaiting==='SETTLE_POSITION' ? isArrangementValid(myCards) : true;
-	const playerViews = view?.players || [];
-	const currentPlayerId = board && playerViews[board.currentPlayerIndex]?.playerId;
-	const opponents = playerViews.filter(p => p.playerId !== myPlayerId);
-	const blackRem = board?.deckBlackRemaining ?? 0;
-	const whiteRem = board?.deckWhiteRemaining ?? 0;
-	// During SETTLE_POSITION, there's no turn ownership; allow actions if not loading and no winner
-	const isStartPhaseSettle = awaiting==='SETTLE_POSITION' && !pendingCard;
-	const disabled = awaiting==='SETTLE_POSITION' ? (!!board?.winnerId || loadingAction) : (!isMyTurn || !!board?.winnerId || loadingAction);
+    import('@stomp/stompjs').then(({ Client }) => {
+      if (!active) return;
+      client = new Client({
+        brokerURL: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
+        reconnectDelay: 3000,
+        onConnect: () => {
+          if (!active) return;
+          setConnectionState('connected');
+          client.subscribe(`/topic/dvc/${gameId}/${myPlayerId}`, (message) => {
+            try {
+              const payload = JSON.parse(message.body);
+              setView(payload);
+              setPendingCard(payload?.players?.find((player) => player.playerId === myPlayerId)?.pending || null);
+              setConnectionState('connected');
+            } catch {
+              setError('A private table update could not be read.');
+            }
+          });
+          client.subscribe(`/topic/dvc/${gameId}/public-reveals`, (message) => {
+            try {
+              const events = JSON.parse(message.body);
+              if (!Array.isArray(events)) return;
+              setPublicTokens((current) => {
+                const next = new Set(current);
+                for (const event of events) if (event?.playerId === myPlayerId && event?.token) next.add(event.token);
+                return next;
+              });
+            } catch {
+              setError('A public reveal update could not be read.');
+            }
+          });
+        },
+        onWebSocketClose: () => { if (active) setConnectionState('reconnecting'); },
+        onStompError: () => { if (active) setConnectionState('offline'); },
+      });
+      client.activate();
+    }).catch(() => setConnectionState('offline'));
 
-	// reset selection when awaiting changes away from self reveal
-	useEffect(()=>{ if (awaiting !== 'SELF_REVEAL_CHOICE') setSelfRevealIndex(null); }, [awaiting]);
+    return () => {
+      active = false;
+      if (client) void client.deactivate();
+    };
+  }, [gameId, myPlayerId]);
 
-	useEffect(()=>{ if (game.showDrawColorModal) setShowDrawModal(true); else setShowDrawModal(false); }, [game.showDrawColorModal]);
+  useEffect(() => {
+    const evaluate = () => {
+      const dismissed = sessionStorage.getItem('dismissDvcRotateHint') === '1';
+      setShowRotateHint(!dismissed && window.innerWidth < 780 && window.innerHeight > window.innerWidth);
+    };
+    evaluate();
+    window.addEventListener('resize', evaluate);
+    window.addEventListener('orientationchange', evaluate);
+    return () => {
+      window.removeEventListener('resize', evaluate);
+      window.removeEventListener('orientationchange', evaluate);
+    };
+  }, []);
 
-	const doDrawColor = async (color) => {
-		if (disabled || awaiting !== 'DRAW_COLOR') return;
-		setLoadingAction(true); setError('');
-		try {
-			await drawColor(gameId, myPlayerId, color, token);
-			const v = await fetchDvcView(gameId, myPlayerId, token);
-			setView(v);
-			const mine = v?.players?.find(p=>p.playerId===myPlayerId);
-			setPendingCard(mine?.pending || null);
-		} catch(e){ setError(e.message||'Draw failed'); } finally { setLoadingAction(false); }
-	};
+  const game = useDVCGame({ view, myPlayerId });
+  const { board, awaiting, parsedHand: myCards, isMyTurn, reorderHand, canDragInitial } = game;
+  const playerViews = view?.players || [];
+  const currentPlayerId = board ? playerViews[board.currentPlayerIndex]?.playerId : null;
+  const arrangementValid = awaiting === 'SETTLE_POSITION' ? isArrangementValid(myCards) : true;
+  const isStartPhaseSettle = awaiting === 'SETTLE_POSITION' && !pendingCard;
+  const disabled = awaiting === 'SETTLE_POSITION'
+    ? Boolean(board?.winnerId || loadingAction)
+    : Boolean(!isMyTurn || board?.winnerId || loadingAction);
+  const winnerId = board?.winnerId;
+  const winnerName = playersMeta.find((player) => player.playerId === winnerId)?.name || winnerId;
 
-	const submitGuess = async () => {
-		if (disabled || awaiting !== 'GUESS_SELECTION') return;
-		setLoadingAction(true); setError('');
-		try {
-			const joker = guessForm.joker || guessForm.guessValue === '_';
-			const num = joker ? null : Number(guessForm.guessValue);
-			const ok = await apiGuess(gameId, myPlayerId, guessForm.targetPlayerId, Number(guessForm.targetIndex), joker, num, token);
-			setLastGuessCorrect(!!ok);
-			const v = await fetchDvcView(gameId, myPlayerId, token); setView(v);
-			setShowGuess(false);
-		} catch(e){ setError(e.message||'Guess failed'); } finally { setLoadingAction(false); }
-	};
+  useEffect(() => {
+    if (!winnerId) return;
+    recordSessionResult({
+      sessionId: sessionid,
+      gameType: 'DAVINCI',
+      totalRounds,
+      playersMeta,
+      result: { round: roundIndex, winnerId, winnerName, turns: board?.turnId || 0 },
+    });
+  }, [board?.turnId, playersMeta, roundIndex, sessionid, totalRounds, winnerId, winnerName]);
 
-	const continueReveal = async (cont) => {
-		if (disabled || awaiting !== 'REVEAL_DECISION') return;
-		setLoadingAction(true); setError('');
-		try {
-			await revealDecision(gameId, myPlayerId, cont, token);
-			const v = await fetchDvcView(gameId, myPlayerId, token); setView(v);
-		} catch(e){ setError(e.message||'Decision failed'); } finally { setLoadingAction(false); }
-	};
+  useEffect(() => {
+    if (awaiting !== 'SELF_REVEAL_CHOICE') setSelfRevealIndex(null);
+    if (awaiting !== 'SETTLE_POSITION') setSettledSubmitted(false);
+  }, [awaiting]);
 
-	const doSelfReveal = async (idx) => {
-		if (disabled || awaiting !== 'SELF_REVEAL_CHOICE') return;
-		setLoadingAction(true); setError('');
-		try {
-			await selfReveal(gameId, myPlayerId, idx, token);
-			const v = await fetchDvcView(gameId, myPlayerId, token); setView(v);
-		} catch(e){ setError(e.message||'Self reveal failed'); } finally { setLoadingAction(false); }
-	};
+  const doDrawColor = async (color) => {
+    if (disabled || awaiting !== 'DRAW_COLOR') return;
+    setLoadingAction(true);
+    setError('');
+    try {
+      await drawColor(gameId, myPlayerId, color, token);
+      await refreshView();
+    } catch (requestError) {
+      setError(requestError.message || 'Draw failed.');
+    } finally {
+      setLoadingAction(false);
+    }
+  };
 
-	const doSettle = async (handOverride) => {
-		if (disabled || awaiting !== 'SETTLE_POSITION') return;
-		setLoadingAction(true); setError('');
-		try {
-			// Build hand string (override for runtime insert modal)
-			const handStr = handOverride ?? (myCards||[]).map(c=>{
-				const prefix = c.color === 'BLACK' ? 'B' : 'W';
-				const val = c.isJoker || c.value==='-' ? '_' : c.value;
-				return prefix + val + '≤';
-			}).join('');
-			await settle(gameId, myPlayerId, handStr, true, token);
-			setSettledSubmitted(true);
-			const v = await fetchDvcView(gameId, myPlayerId, token);
-			setView(v);
-			const mine = v?.players?.find(p=>p.playerId===myPlayerId);
-			setPendingCard(mine?.pending || null);
-		} catch(e){ setError(e.message||'Settle failed'); } finally { setLoadingAction(false); }
-	};
+  const submitGuess = async () => {
+    if (disabled || awaiting !== 'GUESS_SELECTION') return;
+    setLoadingAction(true);
+    setError('');
+    try {
+      const joker = guessForm.joker || guessForm.guessValue === '_';
+      const number = joker ? null : Number(guessForm.guessValue);
+      const correct = await apiGuess(gameId, myPlayerId, guessForm.targetPlayerId, Number(guessForm.targetIndex), joker, number, token);
+      setLastGuessCorrect(Boolean(correct));
+      setShowGuess(false);
+      await refreshView();
+    } catch (requestError) {
+      setError(requestError.message || 'Guess failed.');
+    } finally {
+      setLoadingAction(false);
+    }
+  };
 
-	// When phase changes away from SETTLE_POSITION, reset waiting flag (next time will show button again if needed)
-	useEffect(()=>{ if (awaiting !== 'SETTLE_POSITION') setSettledSubmitted(false); }, [awaiting]);
+  const continueReveal = async (continueRun) => {
+    if (disabled || awaiting !== 'REVEAL_DECISION') return;
+    setLoadingAction(true);
+    setError('');
+    try {
+      await revealDecision(gameId, myPlayerId, continueRun, token);
+      await refreshView();
+    } catch (requestError) {
+      setError(requestError.message || 'Decision failed.');
+    } finally {
+      setLoadingAction(false);
+    }
+  };
 
-// Components extracted to /components/dvc
+  const doSelfReveal = async () => {
+    if (disabled || awaiting !== 'SELF_REVEAL_CHOICE' || selfRevealIndex == null) return;
+    setLoadingAction(true);
+    setError('');
+    try {
+      await selfReveal(gameId, myPlayerId, selfRevealIndex, token);
+      await refreshView();
+    } catch (requestError) {
+      setError(requestError.message || 'Reveal failed.');
+    } finally {
+      setLoadingAction(false);
+    }
+  };
 
-	if (!gameId) {
-		return (
-			<PageContainer>
-				<CardContainer className="max-w-xl w-full text-center">
-					<h2 className="text-xl font-semibold mb-4">Da Vinci Code</h2>
-					<div className="text-error">No game started.</div>
-					<SubmitButton type="button" className="btn-secondary mt-4" onClick={()=>nav(-1)}>Back</SubmitButton>
-				</CardContainer>
-			</PageContainer>
-		);
-	}
+  const doSettle = async (handOverride) => {
+    if (disabled || awaiting !== 'SETTLE_POSITION') return;
+    setLoadingAction(true);
+    setError('');
+    try {
+      const hand = handOverride ?? myCards.map((card) => `${card.color === 'BLACK' ? 'B' : 'W'}${card.isJoker || card.value === '-' ? '_' : card.value}≤`).join('');
+      await settle(gameId, myPlayerId, hand, true, token);
+      setSettledSubmitted(true);
+      setShowInsert(false);
+      await refreshView();
+    } catch (requestError) {
+      setError(requestError.message || 'Settle failed.');
+    } finally {
+      setLoadingAction(false);
+    }
+  };
 
-	return (
-		<PageContainer>
-			<CardContainer noMax className="dvc-screen w-auto! h-auto! max-w-6xl mx-auto flex flex-col gap-2 p-2">
-				<div className="flex justify-between items-center text-xs gap-2">
-					<div>Session <span className="font-mono font-semibold">{sessionid}</span></div>
-					<div className="flex items-center gap-2">
-						<div>Game <span className="font-mono font-semibold">{gameId}</span></div>
-						<button type="button" className="btn btn-xs" onClick={refreshView}>Refresh</button>
-						<button type="button" className="btn btn-ghost btn-xs" onClick={()=>nav(-1)}>Back</button>
-					</div>
-				</div>
-				{error && <div className="alert alert-error py-1 px-2 text-xs">{error}</div>}
-				{board?.winnerId && <div className="alert alert-success py-1 px-2 text-xs">Winner: {board.winnerId}</div>}
-				<div className="dvc-players bg-base-200/40 rounded p-2 flex flex-col gap-2 overflow-y-auto">
-					<PlayerList
-						playerViews={playerViews}
-						currentPlayerId={currentPlayerId}
-						myPlayerId={myPlayerId}
-						clickable={awaiting==='GUESS_SELECTION' && isMyTurn}
-						onOpponentCardClick={(pid, idx)=>{
-							if (awaiting==='GUESS_SELECTION' && isMyTurn) {
-								setGuessForm(f=>({...f, targetPlayerId: pid, targetIndex: idx }));
-								setShowGuess(true);
-							}
-						}}
-					/>
-				</div>
-				<div className="dvc-bottom grid grid-cols-12 gap-2 mt-2">
-					<div className="col-span-6 md:col-span-6 dvc-myhand p-2 bg-base-200/40 rounded">
-						<MyHandPanel
-							cards={myCards}
-							draggable={canDragInitial}
-							onReorder={reorderHand}
-							showValidity={awaiting==='SETTLE_POSITION'}
-							publicTokens={publicTokens}
-							selectable={awaiting==='SELF_REVEAL_CHOICE' && isMyTurn}
-							selectedIndex={selfRevealIndex}
-							onSelect={(i)=>setSelfRevealIndex(i)}
-						/>
-					</div>
-					<div className="col-span-3 md:col-span-3 flex flex-col gap-2">
-						<PendingCardBox pending={pendingCard} />
-					</div>
-					<div className="col-span-3 md:col-span-3 flex flex-col gap-2">
-						<InfoPanel deckRemaining={board?.deckRemaining} deckBlackRemaining={blackRem} deckWhiteRemaining={whiteRem} currentPlayerId={currentPlayerId} roundIndex={roundIndex} awaiting={awaiting} />
-						<ControlPanel
-							awaiting={awaiting}
-							disabled={disabled}
-							myCards={myCards}
-							doDrawColor={(c)=>{doDrawColor(c); setShowDrawModal(false);}}
-							continueReveal={continueReveal}
-							doSelfReveal={()=>{ if (selfRevealIndex!=null) doSelfReveal(selfRevealIndex); }}
-							doSettle={()=>{ if (isStartPhaseSettle) { doSettle(); } else { setShowInsert(true); } }}
-							openGuess={()=>setShowGuess(true)}
-							guessSucceeded={lastGuessCorrect}
-							canSettle={isStartPhaseSettle ? arrangementValid : true}
-							settledSubmitted={settledSubmitted}
-							isStartPhaseSettle={isStartPhaseSettle}
-							hasPending={!!pendingCard}
-							isMyTurn={isMyTurn}
-							selfRevealIndex={selfRevealIndex}
-						/>
-					</div>
-				</div>
-			</CardContainer>
-					<DvcGameOverModal
-						open={!!board?.winnerId}
-						winnerName={playerViews.find(p=>p.playerId===board?.winnerId)?.playerId}
-						winnerId={board?.winnerId}
-						turns={board?.turnId}
-						onClose={()=>nav('/dashboard')}
-					/>
-			<GuessModal open={showGuess} opponents={opponents} guessForm={guessForm} setGuessForm={setGuessForm} onSubmit={submitGuess} onClose={()=>setShowGuess(false)} />
-			<InsertPreviewModal
-				open={showInsert}
-				myCards={myCards}
-				pending={pendingCard}
-				onClose={()=>setShowInsert(false)}
-				onConfirm={async (handString)=>{ setShowInsert(false); await doSettle(handString); }}
-			/>
-			{showDrawModal && (
-				<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
-					<div className="bg-base-100 p-4 rounded shadow flex flex-col gap-3 w-full max-w-xs text-xs">
-						<h3 className="font-semibold">Choose draw color</h3>
-						<div className="flex gap-2">
-							<button className="btn btn-sm btn-primary flex-1" disabled={disabled || blackRem<=0} onClick={()=>{doDrawColor('BLACK'); setShowDrawModal(false);}}>Black ({blackRem})</button>
-							<button className="btn btn-sm btn-secondary flex-1" disabled={disabled || whiteRem<=0} onClick={()=>{doDrawColor('WHITE'); setShowDrawModal(false);}}>White ({whiteRem})</button>
-						</div>
-					</div>
-				</div>) }
-		</PageContainer>
-	);
+  if (!gameId) {
+    return (
+      <PageContainer theme="dvc">
+        <ArcadePanel className="max-w-2xl mx-auto text-center">
+          <p className="arcade-eyebrow">Table unavailable</p>
+          <h1 className="arcade-title">No code game found</h1>
+          <p className="arcade-copy mt-5">Launch Da Vinci Code from a lobby to receive your private rack.</p>
+          <ArcadeButton className="mt-7" onClick={() => navigate(-1)}>Back to lobby</ArcadeButton>
+        </ArcadePanel>
+      </PageContainer>
+    );
+  }
+
+  return (
+    <PageContainer theme="dvc" game>
+      <DvcGameView
+        sessionId={sessionid}
+        gameId={gameId}
+        playerViews={playerViews}
+        myPlayerId={myPlayerId}
+        currentPlayerId={currentPlayerId}
+        board={board}
+        awaiting={awaiting}
+        roundIndex={roundIndex}
+        myCards={myCards}
+        pendingCard={pendingCard}
+        publicTokens={publicTokens}
+        canDragInitial={canDragInitial}
+        arrangementValid={arrangementValid}
+        isMyTurn={isMyTurn}
+        disabled={disabled}
+        loading={loading}
+        error={error}
+        connectionState={connectionState}
+        selectedIndex={selfRevealIndex}
+        settledSubmitted={settledSubmitted}
+        lastGuessCorrect={lastGuessCorrect}
+        actionLog={view?.actionLog || []}
+        onSelectSelf={setSelfRevealIndex}
+        onReorder={reorderHand}
+        onOpponentCardClick={(targetPlayerId, targetIndex) => {
+          if (awaiting !== 'GUESS_SELECTION' || !isMyTurn) return;
+          setGuessForm((current) => ({ ...current, targetPlayerId, targetIndex }));
+          setShowGuess(true);
+        }}
+        onBack={() => navigate(-1)}
+        onRefresh={() => void refreshView()}
+        onDrawColor={(color) => void doDrawColor(color)}
+        onContinueReveal={(continueRun) => void continueReveal(continueRun)}
+        onSelfReveal={() => void doSelfReveal()}
+        onSettle={() => { if (isStartPhaseSettle) void doSettle(); else setShowInsert(true); }}
+      />
+
+      <DvcGameOverModal
+        open={Boolean(board?.winnerId)}
+        winnerName={winnerName}
+        winnerId={winnerId}
+        turns={board?.turnId}
+        onClose={() => navigate('/dashboard')}
+        onSummary={() => navigate(`/sessionsum/${sessionid}`)}
+      />
+      <GuessModal open={showGuess} guessForm={guessForm} setGuessForm={setGuessForm} onSubmit={() => void submitGuess()} onClose={() => setShowGuess(false)} />
+      <InsertPreviewModal open={showInsert} myCards={myCards} pending={pendingCard} onClose={() => setShowInsert(false)} onConfirm={(handString) => void doSettle(handString)} />
+      <ArcadeDialog
+        open={showRotateHint}
+        title="Rotate to landscape"
+        eyebrow="Better rack view"
+        onClose={() => {
+          sessionStorage.setItem('dismissDvcRotateHint', '1');
+          setShowRotateHint(false);
+        }}
+      >
+        <p className="arcade-copy">Turn your phone sideways to compare every code rack without hiding the controls.</p>
+        <ArcadeButton className="mt-5" block onClick={() => {
+          sessionStorage.setItem('dismissDvcRotateHint', '1');
+          setShowRotateHint(false);
+        }}>Continue</ArcadeButton>
+      </ArcadeDialog>
+    </PageContainer>
+  );
 }

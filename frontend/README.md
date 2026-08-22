@@ -1,12 +1,21 @@
-# React + Vite
+# Flip Da Table Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + Vite + Tailwind CSS 4 frontend for the Flip Da Table multiplayer arcade.
 
-Currently, two official plugins are available:
+```bash
+npm install
+npm run dev
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Development-only UI Lab: `http://localhost:5173/__ui-lab`
 
-## Expanding the ESLint configuration
+```bash
+npm run lint
+npm run ui:audit
+npm run test
+npm run test:e2e
+npm run build
+npm run check
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Design tokens live in `src/styles/tokens.css`; shared arcade components live in `src/components/arcade/`. Repository design instructions and references are in `../.agents/skills/flip-da-table-arcade-ui/`. Visual baselines live in `tests/ui-lab.spec.js-snapshots/`, with the original login screenshot and bundle data retained in `tests/ui-before/`. See `tests/ACCEPTANCE.md` for the current verification report. Bundled font notices are shipped from `public/licenses/`.

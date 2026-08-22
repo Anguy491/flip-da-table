@@ -1,28 +1,30 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
-/** EventLog with auto-scroll to bottom unless user scrolled up. */
 export default function EventLog({ events = [] }) {
   const ref = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
-
   const handleScroll = useCallback(() => {
-    const el = ref.current; if (!el) return;
-    const atBottom = Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) < 4;
-    setAutoScroll(atBottom);
+    const element = ref.current;
+    if (!element) return;
+    setAutoScroll(Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop) < 4);
   }, []);
 
-  useEffect(() => { const el = ref.current; if (!el) return; el.addEventListener('scroll', handleScroll); return () => el.removeEventListener('scroll', handleScroll); }, [handleScroll]);
   useEffect(() => {
-    const el = ref.current; if (!el) return;
-    if (autoScroll) { el.scrollTop = el.scrollHeight; }
+    const element = ref.current;
+    if (!element) return undefined;
+    element.addEventListener('scroll', handleScroll);
+    return () => element.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (element && autoScroll) element.scrollTop = element.scrollHeight;
   }, [events, autoScroll]);
 
   return (
-    <div ref={ref} className="w-full h-full overflow-auto p-2 text-xs space-y-1 bg-base-200/40 rounded">
-      {events.map(ev => (
-        <div key={ev.id} className="leading-snug">{ev.text}</div>
-      ))}
-      {events.length === 0 && <div className="opacity-50">No events</div>}
+    <div ref={ref} className="arcade-log" aria-label="Game event log" aria-live="polite">
+      {events.map((event, index) => <div key={event.id || `${event.text}-${index}`} className="arcade-log__entry">{event.text}</div>)}
+      {!events.length && <div className="arcade-muted">No events yet.</div>}
     </div>
   );
 }

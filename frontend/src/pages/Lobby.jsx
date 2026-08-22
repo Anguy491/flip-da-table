@@ -1,238 +1,235 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useContext, useEffect, useState, useCallback, useMemo } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../context/auth-context';
 import PageContainer from '../components/PageContainer';
-import CardContainer from '../components/CardContainer';
-import SubmitButton from '../components/SubmitButton';
+import ErrorPopup from '../components/ErrorPopup';
+import {
+  ArcadeBadge,
+  ArcadeButton,
+  ArcadePanel,
+  ArcadeSelect,
+  ConnectionBadge,
+  PlayerSeat,
+} from '../components/arcade/ArcadeUI';
 import { startFirstGame, getSession } from '../api/sessions';
 
-export default function Lobby() {
-  const { sessionid } = useParams();
-  const nav = useNavigate();
+function userIdFromToken(token) {
+  if (!token) return null;
+  try {
+    const encoded = token.split('.')[1];
+    const json = atob(encoded.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(json)?.uid ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export default function Lobby({ preview = null }) {
+  const { sessionid: routeSessionId } = useParams();
+  const sessionid = preview?.sessionId || routeSessionId;
+  const navigate = useNavigate();
   const { token } = useContext(AuthContext);
-  // derive userId from JWT (uid claim)
-  const myUserId = useMemo(() => {
-    if (!token) return null;
-    try {
-      const base = token.split('.')[1];
-      const json = atob(base.replace(/-/g, '+').replace(/_/g, '/'));
-      const payload = JSON.parse(json);
-      return payload?.uid ?? null;
-    } catch { return null; }
-  }, [token]);
-  const [players, setPlayers] = useState([]); // server-fetched members
-  const [sessionInfo, setSessionInfo] = useState(null); // { id, ownerId, gameType, maxPlayers }
-  const [loadingSession, setLoadingSession] = useState(true);
-  const [rounds, setRounds] = useState(1);
+  const tokenUserId = useMemo(() => userIdFromToken(token), [token]);
+  const myUserId = preview?.myUserId || tokenUserId;
+  const [players, setPlayers] = useState(preview?.players || []);
+  const [sessionInfo, setSessionInfo] = useState(preview?.sessionInfo || null);
+  const [loadingSession, setLoadingSession] = useState(!preview);
+  const [rounds, setRounds] = useState(preview?.rounds || 1);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [connectionState, setConnectionState] = useState(preview?.connectionState || 'connecting');
+
   const gameType = sessionInfo?.gameType?.toUpperCase();
   const maxPlayers = sessionInfo?.maxPlayers || 10;
-
-  const activePlayers = players.filter(p => p.name && p.name.trim());
+  const activePlayers = players.filter((player) => player.name?.trim());
   const playerCount = activePlayers.length;
-  const readyPlayers = activePlayers.filter(p => p.bot || p.ready);
+  const readyPlayers = activePlayers.filter((player) => player.bot || player.ready);
   const allReady = readyPlayers.length === activePlayers.length && playerCount > 0;
-  const canStart = gameType ? (playerCount >= 2 && playerCount <= maxPlayers && allReady) : false;
-  const isOwner = !!myUserId && sessionInfo?.ownerId === myUserId;
+  const canStart = Boolean(gameType && playerCount >= 2 && playerCount <= maxPlayers && allReady);
+  const isOwner = Boolean(myUserId && sessionInfo?.ownerId === myUserId);
 
   useEffect(() => {
-    if (!token) nav('/login');
-  }, [token, nav]);
+    if (preview) return;
+    if (!token) navigate('/login');
+  }, [token, navigate, preview]);
 
   useEffect(() => {
-    if (!token) return;
+    if (preview) return undefined;
+    if (!token) return undefined;
     let alive = true;
-    (async () => {
-      setLoadingSession(true);
-      try {
-        const info = await getSession(sessionid, token);
-        if (alive) {
-          setSessionInfo(info);
-          setPlayers((info.players||[]).map(p=>({ name: p.nickname, bot: false, ready: true })));
-        }
-      } catch (e) {
-        setError(e.message || 'Failed to load session');
-      } finally {
-        if (alive) setLoadingSession(false);
-      }
-    })();
+    setLoadingSession(true);
+    getSession(sessionid, token)
+      .then((info) => {
+        if (!alive) return;
+        setSessionInfo(info);
+        setPlayers((info.players || []).map((player) => ({ name: player.nickname, bot: false, ready: true })));
+      })
+      .catch((requestError) => {
+        if (alive) setError(requestError.message || 'Failed to load the room.');
+      })
+      .finally(() => { if (alive) setLoadingSession(false); });
     return () => { alive = false; };
-  }, [sessionid, token]);
+  }, [sessionid, token, preview]);
 
   const addBot = () => {
     if (playerCount >= maxPlayers) return;
-  setPlayers(prev => [...prev, { name: `Bot${prev.length}`, bot: true, ready: true }]);
+    setPlayers((current) => [...current, { name: `Bot ${current.filter((player) => player.bot).length + 1}`, bot: true, ready: true }]);
   };
 
-  const updatePlayer = (idx, patch) => {
-    setPlayers(prev => prev.map((p, i) => i === idx ? { ...p, ...patch } : p));
+  const updatePlayer = (index, patch) => {
+    setPlayers((current) => current.map((player, playerIndex) => playerIndex === index ? { ...player, ...patch } : player));
   };
 
-  const [copied, setCopied] = useState(false);
-  const copyInvite = useCallback(() => {
-    navigator.clipboard.writeText(sessionid).then(()=>{
+  const copyInvite = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(sessionid);
       setCopied(true);
-      setTimeout(()=>setCopied(false), 1800);
-    }).catch(() => {/* ignore */});
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setError('Copy failed. Select the session code and copy it manually.');
+    }
   }, [sessionid]);
 
+  const enterGame = useCallback((payload, totalRounds = rounds) => {
+    const route = gameType === 'UNO' ? `/unoplayscreen/${sessionid}` : `/dvcplayscreen/${sessionid}`;
+    navigate(route, { state: { gameId: payload.gameId, roundIndex: payload.roundIndex, myPlayerId: payload.myPlayerId, players: payload.players, totalRounds, results: [] } });
+  }, [gameType, navigate, rounds, sessionid]);
+
   const startGame = async () => {
-    if (!canStart || starting) return;
-    setStarting(true); setError('');
+    if (!canStart || starting || !isOwner) return;
+    setStarting(true);
+    setError('');
     try {
-      const resp = await startFirstGame(sessionid, { rounds, players }, token);
-      const route = (sessionInfo.gameType || '').toUpperCase()==='UNO' ? `/unoplayscreen/${sessionid}` : `/dvcplayscreen/${sessionid}`;
-  nav(route, { state: { gameId: resp.gameId, roundIndex: resp.roundIndex, myPlayerId: resp.myPlayerId, players: resp.players, totalRounds: rounds, results: [] } });
-    } catch (e) {
-        setError(e.message || 'Failed to start');
-      } finally {
-        setStarting(false);
+      const response = await startFirstGame(sessionid, { rounds, players }, token);
+      enterGame(response, rounds);
+    } catch (requestError) {
+      setError(requestError.message || 'Failed to start the game.');
+    } finally {
+      setStarting(false);
     }
   };
 
-  // WebSocket subscription for lobby updates
   useEffect(() => {
+    if (preview) return undefined;
+    if (!token) return undefined;
     let client;
-    let subscribed = false;
+    let active = true;
     const userTopic = myUserId ? `/topic/lobby/${sessionid}/${myUserId}` : null;
-    async function connect() {
-      // lazy import to avoid bundling if not used elsewhere
-      const { Client } = await import('@stomp/stompjs');
+    setConnectionState('connecting');
+
+    import('@stomp/stompjs').then(({ Client }) => {
+      if (!active) return;
       client = new Client({
-        brokerURL: `${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`,
+        brokerURL: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
         reconnectDelay: 3000,
         onConnect: () => {
-          subscribed = true;
-          client.subscribe(`/topic/lobby/${sessionid}`, (msg) => {
+          if (!active) return;
+          setConnectionState('connected');
+          client.subscribe(`/topic/lobby/${sessionid}`, (message) => {
             try {
-              const payload = JSON.parse(msg.body);
-              // Expect payload structure of SessionView
+              const payload = JSON.parse(message.body);
               setSessionInfo(payload);
-              setPlayers((payload.players||[]).map(p=>({ name: p.nickname, bot:false, ready:true })));
-            } catch {}
+              setPlayers((payload.players || []).map((player) => ({ name: player.nickname, bot: false, ready: true })));
+            } catch {
+              setError('A room update could not be read.');
+            }
           });
-      if (userTopic) {
-            client.subscribe(userTopic, (msg) => {
+          if (userTopic) {
+            client.subscribe(userTopic, (message) => {
               try {
-        const payload = JSON.parse(msg.body); // StartGameResponse
-        const route = ((sessionInfo?.gameType)||'').toUpperCase()==='UNO' ? `/unoplayscreen/${sessionid}` : `/dvcplayscreen/${sessionid}`;
-        nav(route, { state: { gameId: payload.gameId, roundIndex: payload.roundIndex, myPlayerId: payload.myPlayerId, players: payload.players, totalRounds: 1, results: [] } });
-              } catch {}
+                enterGame(JSON.parse(message.body), 1);
+              } catch {
+                setError('The game started, but its launch message was invalid.');
+              }
             });
           }
-        }
+        },
+        onWebSocketClose: () => { if (active) setConnectionState('reconnecting'); },
+        onStompError: () => { if (active) setConnectionState('offline'); },
       });
       client.activate();
-    }
-    connect();
-    return () => { try { if (subscribed) client.deactivate(); } catch {} };
-  }, [sessionid, myUserId, nav, sessionInfo?.gameType]);
+    }).catch(() => setConnectionState('offline'));
+
+    return () => {
+      active = false;
+      if (client) void client.deactivate();
+    };
+  }, [enterGame, myUserId, sessionid, token, preview]);
 
   return (
-    <PageContainer>
-      <CardContainer className="max-w-3xl w-full">
-        <h2 className="text-xl font-semibold">Lobby {gameType ? `- ${gameType}` : ''}</h2>
-        <div className="text-sm">Session: <span className="font-mono font-bold">{sessionid}</span></div>
-        {loadingSession && <div className="text-xs opacity-70">Loading session...</div>}
-        {sessionInfo && (
-          <div className="text-xs opacity-70 flex gap-4 flex-wrap">
-            <span>Game Type: {sessionInfo.gameType}</span>
-            <span>Max Players: {maxPlayers}</span>
+    <PageContainer theme={gameType === 'UNO' ? 'uno' : gameType === 'DAVINCI' ? 'dvc' : 'neutral'}>
+      <div className="arcade-dashboard-layout">
+        <header className="arcade-dashboard-header">
+          <div>
+            <p className="arcade-eyebrow">Waiting room // {gameType || 'Loading cabinet'}</p>
+            <h1 className="arcade-title">Assemble your table</h1>
+            <p className="arcade-copy mt-3">Share the code, check the seats, then let the host launch the match.</p>
           </div>
-        )}
+          <ConnectionBadge state={connectionState} />
+        </header>
 
-        <div className="overflow-x-auto">
-          <table className="table table-zebra w-full mt-4">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Player Name</th>
-                <th>Type</th>
-                <th>Ready</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {players.map((p, i) => (
-                <tr key={i}>
-                  <td>{i + 1}</td>
-                  <td>
-                    {p.bot ? (
-                      <span className="font-mono">{p.name}</span>
-                    ) : (
-                      <input
-                        className="input input-bordered input-sm w-full"
-                        value={p.name}
-                        onChange={e => updatePlayer(i, { name: e.target.value })}
-                      />
-                    )}
-                  </td>
-                  <td>{p.bot ? 'Bot' : 'Human'}</td>
-                  <td>
-                    <input
-                      type="checkbox"
-                      className="toggle toggle-sm"
-                      checked={p.ready}
-                      onChange={e => updatePlayer(i, { ready: e.target.checked })}
-                      disabled={p.bot}
-                    />
-                  </td>
-                  <td>
-                    {p.bot ? (
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-xs text-error"
-                        onClick={() => setPlayers(prev => prev.filter((_, idx) => idx !== i))}
-                        aria-label="Remove bot"
-                      >✕</button>
-                    ) : null}
-                  </td>
-                </tr>
+        <ArcadePanel quiet className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p className="arcade-eyebrow">Invite code</p>
+            <p className="arcade-code text-xl font-bold" title={sessionid}>{sessionid}</p>
+          </div>
+          <div className="arcade-actions">
+            <ArcadeBadge tone={copied ? 'success' : 'muted'}>{copied ? 'Copied' : `${playerCount}/${maxPlayers} seated`}</ArcadeBadge>
+            <ArcadeButton variant="secondary" onClick={copyInvite}>Copy invite</ArcadeButton>
+          </div>
+        </ArcadePanel>
+
+        <div className="arcade-lobby-grid">
+          <ArcadePanel aria-labelledby="players-title">
+            <div className="flex items-center justify-between gap-3 mb-5">
+              <div>
+                <p className="arcade-eyebrow">Player select</p>
+                <h2 id="players-title" className="text-xl font-bold">Seats</h2>
+              </div>
+              <ArcadeBadge tone={allReady ? 'success' : 'warning'}>{readyPlayers.length}/{playerCount} ready</ArcadeBadge>
+            </div>
+            <div className="arcade-player-list">
+              {players.map((player, index) => (
+                <div className="arcade-player-row" key={`${player.name}-${index}`}>
+                  <PlayerSeat className="arcade-lobby-seat" name={player.name || `Player ${index + 1}`} index={index} meta={player.bot ? 'CPU' : 'Human'} />
+                  <label className="arcade-field arcade-lobby-name min-w-0">
+                    <span className="sr-only">Player {index + 1} name</span>
+                    <input className="arcade-field__control" value={player.name} onChange={(event) => updatePlayer(index, { name: event.target.value })} disabled={player.bot} />
+                  </label>
+                  <label className="arcade-lobby-ready flex items-center gap-2 text-xs">
+                    <span className="sr-only">Ready</span>
+                    <input className="arcade-toggle" type="checkbox" checked={player.ready} onChange={(event) => updatePlayer(index, { ready: event.target.checked })} disabled={player.bot} />
+                  </label>
+                  {player.bot && <ArcadeButton className="arcade-lobby-remove" variant="ghost" size="small" onClick={() => setPlayers((current) => current.filter((_, playerIndex) => playerIndex !== index))} aria-label={`Remove ${player.name}`}>Remove</ArcadeButton>}
+                </div>
               ))}
-              <tr>
-                <td colSpan={5}>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm w-full"
-                    onClick={addBot}
-                    disabled={playerCount >= maxPlayers}
-                    title={playerCount >= maxPlayers ? 'Reached max players' : ''}
-                  >+ Add Bot</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              {!players.length && !loadingSession && <div className="arcade-empty">No players have joined yet.</div>}
+              <ArcadeButton variant="ghost" block onClick={addBot} disabled={playerCount >= maxPlayers}>+ Add bot</ArcadeButton>
+            </div>
+          </ArcadePanel>
 
-        <div className="flex flex-col gap-4 mt-4">
-          <div className="flex items-center gap-4 flex-wrap">
-            <label className="flex items-center gap-2">Rounds
-              <select className="select select-bordered select-sm" value={rounds} onChange={e => setRounds(Number(e.target.value))}>
-                {Array.from({ length: 10 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </label>
-            <div className="text-xs opacity-70">
-              {gameType ? (
-                <>Players 2-{maxPlayers}. Current: {playerCount}. Ready: {readyPlayers.length}/{playerCount}{!allReady && playerCount>=2 ? ' (waiting...)' : ''}</>
-              ) : 'Loading rules...'}
+          <ArcadePanel quiet aria-labelledby="room-console-title">
+            <p className="arcade-eyebrow">Room console</p>
+            <h2 id="room-console-title" className="text-xl font-bold">Match setup</h2>
+            <div className="arcade-form-stack mt-6">
+              <ArcadeSelect label="Rounds" value={rounds} onChange={(event) => setRounds(Number(event.target.value))}>
+                {Array.from({ length: 10 }, (_, index) => index + 1).map((round) => <option key={round} value={round}>{round}</option>)}
+              </ArcadeSelect>
+              <div className="arcade-copy text-sm">
+                <p>Game: <strong className="arcade-accent">{gameType || 'Loading'}</strong></p>
+                <p>Capacity: 2-{maxPlayers}</p>
+                <p>Host control: {isOwner ? 'You are the host' : 'Waiting for the host'}</p>
+              </div>
+              {loadingSession && <div className="arcade-status arcade-status--info" role="status">Loading room state...</div>}
+              <ErrorPopup message={error} />
+              <ArcadeButton loading={starting} disabled={!canStart || !isOwner} onClick={startGame}>Start game</ArcadeButton>
+              {!isOwner && <p className="arcade-field__hint">Only the host can start after every seat is ready.</p>}
+              <ArcadeButton variant="ghost" onClick={() => navigate(-1)}>Back to dashboard</ArcadeButton>
             </div>
-          </div>
-          {error && <div className="alert alert-error py-2 px-3 text-sm">{error}</div>}
-          <div className="flex justify-between items-center">
-            <div className="flex gap-2">
-              <button type="button" className="btn btn-secondary btn-sm relative" onClick={copyInvite}>
-                Invite
-                {copied && <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] px-2 py-1 rounded bg-success text-white shadow animate-fade-in">Copied!</span>}
-              </button>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => nav(-1)}>Back</button>
-            </div>
-            <SubmitButton type="button" disabled={!canStart || starting || !isOwner} onClick={startGame}>
-              {starting ? 'Starting...' : 'Start Game'}
-            </SubmitButton>
-          </div>
+          </ArcadePanel>
         </div>
-      </CardContainer>
+      </div>
     </PageContainer>
   );
 }

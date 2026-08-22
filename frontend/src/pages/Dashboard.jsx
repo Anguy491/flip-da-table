@@ -1,228 +1,215 @@
-import { useContext, useState, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../context/auth-context';
 import PageContainer from '../components/PageContainer';
-import CardContainer from '../components/CardContainer';
-import SubmitButton from '../components/SubmitButton';
 import ErrorPopup from '../components/ErrorPopup';
+import {
+  ArcadeBadge,
+  ArcadeButton,
+  ArcadeDialog,
+  ArcadeInput,
+  ArcadePanel,
+} from '../components/arcade/ArcadeUI';
 import { createSession, joinSession } from '../api/sessions';
 import { getUserInfo, updateUserInfo } from '../api/user';
-import ImgDaVinci from '../assets/Davinci.png';
-import ImgUno from '../assets/Uno.png';
-import ImgBounty from '../assets/Bounty.png';
+import unoCover from '../assets/uno-arcade.svg';
+import dvcCover from '../assets/dvc-code.svg';
 
 const GAMES = [
-	{
-		gameType: 'DAVINCI',
-		name: 'Da Vinci Code',
-		players: '2-4',
-		maxPlayers: 4,
-		img: ImgDaVinci,
-	},
-	{
-		gameType: 'UNO',
-		name: 'UNO',
-		players: '2-10',
-		maxPlayers: 10,
-		img: ImgUno,
-	},
-	{
-		gameType: 'BOUNTY',
-		name: "Bounty N' Booty",
-		players: '2-6',
-		maxPlayers: 6,
-		img: ImgBounty,
-	},
+  {
+    gameType: 'UNO',
+    name: 'UNO',
+    tagline: 'Color, chaos, and one last card.',
+    players: '2-10 players',
+    maxPlayers: 10,
+    img: unoCover,
+  },
+  {
+    gameType: 'DAVINCI',
+    name: 'Da Vinci Code',
+    tagline: 'Crack the sequence before they crack yours.',
+    players: '2-4 players',
+    maxPlayers: 4,
+    img: dvcCover,
+  },
 ];
 
-function Dashboard() {
-	const { token, setToken } = useContext(AuthContext);
-	const navigate = useNavigate();
-	const [showModal, setShowModal] = useState(false);
-	const [showJoin, setShowJoin] = useState(false);
-	const [showEdit, setShowEdit] = useState(false);
-	const [joinSessionId, setJoinSessionId] = useState('');
-	const [selected, setSelected] = useState(null);
-	const [submitting, setSubmitting] = useState(false);
-	const [error, setError] = useState('');
-	const [me, setMe] = useState(null);
-	const [form, setForm] = useState({ nickname: '', password: '' });
+export default function Dashboard({ preview = null }) {
+  const { token, setToken } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [selected, setSelected] = useState(GAMES[0]);
+  const [showJoin, setShowJoin] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [joinSessionId, setJoinSessionId] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [me, setMe] = useState(preview?.me || null);
+  const [form, setForm] = useState({ nickname: preview?.me?.nickname || '', password: '' });
 
-	useEffect(() => {
-		if (!token) {
-			navigate('/login');
-			return;
-		}
-		(async ()=>{
-			try {
-				const info = await getUserInfo(token);
-				setMe(info);
-				setForm(f=>({ ...f, nickname: info?.nickname || '' }));
-			} catch (e) { /* ignore for now */ }
-		})();
-	}, [token, navigate]);
+  useEffect(() => {
+    if (preview) return undefined;
+    if (!token) {
+      navigate('/login');
+      return undefined;
+    }
+    let alive = true;
+    getUserInfo(token)
+      .then((info) => {
+        if (!alive) return;
+        setMe(info);
+        setForm((current) => ({ ...current, nickname: info?.nickname || '' }));
+      })
+      .catch(() => {
+        if (alive) setError('Player profile is temporarily unavailable.');
+      });
+    return () => { alive = false; };
+  }, [token, navigate, preview]);
 
-	const handleLogout = () => {
-		setToken(null);
-		navigate('/login');
-	};
+  const handleLogout = () => {
+    setToken(null);
+    navigate('/login');
+  };
 
-	const openModal = () => {
-		setError('');
-		setSelected(null);
-		setShowModal(true);
-	};
+  const createRoom = async () => {
+    if (!selected || !token) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const { sessionId } = await createSession({ gameType: selected.gameType, maxPlayers: selected.maxPlayers }, token);
+      await joinSession(sessionId, token);
+      navigate(`/lobby/${sessionId}`);
+    } catch (requestError) {
+      setError(requestError.message || 'Failed to create the room.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-	const openJoin = () => {
-		setError('');
-		setJoinSessionId('');
-		setShowJoin(true);
-	};
+  const joinRoom = async () => {
+    const id = joinSessionId.trim();
+    if (!id) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await joinSession(id, token);
+      setShowJoin(false);
+      navigate(`/lobby/${id}`);
+    } catch (requestError) {
+      setError(requestError.message || 'Failed to join the room.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-	const openEdit = () => {
-		setError('');
-		setForm({ nickname: me?.nickname || '', password: '' });
-		setShowEdit(true);
-	};
+  const saveProfile = async () => {
+    if (!form.nickname.trim()) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const payload = { nickname: form.nickname.trim() };
+      if (form.password.trim()) payload.password = form.password.trim();
+      const info = await updateUserInfo(payload, token);
+      setMe(info);
+      setShowEdit(false);
+    } catch (requestError) {
+      setError(requestError.message || 'Profile update failed.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-	const handleJoin = async () => {
-		const id = joinSessionId.trim();
-		if (!id) return;
-		try {
-			await joinSession(id, token);
-			setShowJoin(false);
-			navigate(`/lobby/${id}`);
-		} catch (e) {
-			setError(e.message || 'Failed to join session');
-		}
-	};
+  return (
+    <PageContainer>
+      <div className="arcade-dashboard-layout">
+        <header className="arcade-dashboard-header">
+          <div>
+            <p className="arcade-eyebrow">Main floor // two cabinets online</p>
+            <h1 className="arcade-title">Choose your table</h1>
+            <p className="arcade-copy mt-3">Welcome back, <strong className="arcade-accent">{me?.nickname || 'player'}</strong>. Pick a game, open a room, and send the code.</p>
+          </div>
+          <div className="arcade-actions">
+            <ArcadeButton variant="ghost" size="small" onClick={() => {
+              setError('');
+              setForm({ nickname: me?.nickname || '', password: '' });
+              setShowEdit(true);
+            }}>Profile</ArcadeButton>
+            <ArcadeButton variant="ghost" size="small" onClick={handleLogout}>Log out</ArcadeButton>
+          </div>
+        </header>
 
-	const handleConfirm = async () => {
-		if (!selected || !token) return;
-		setSubmitting(true);
-		setError('');
-		try {
-			const { sessionId } = await createSession({ gameType: selected.gameType, maxPlayers: selected.maxPlayers }, token);
-			await joinSession(sessionId, token);
-			setShowModal(false);
-			navigate(`/lobby/${sessionId}`);
-		} catch (e) {
-			setError(e.message || 'Failed to create or join session');
-		} finally {
-			setSubmitting(false);
-		}
-	};
+        <div className="arcade-game-grid" role="radiogroup" aria-label="Game selection">
+          {GAMES.map((game) => {
+            const active = selected.gameType === game.gameType;
+            return (
+              <button
+                key={game.gameType}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                className={`arcade-game-card ${active ? 'arcade-game-card--selected' : ''}`}
+                onClick={() => setSelected(game)}
+              >
+                <img src={game.img} alt="" />
+                <span className="arcade-game-card__body">
+                  <span className="arcade-game-card__title">{game.name}</span>
+                  <span className="arcade-copy">{game.tagline}</span>
+                  <ArcadeBadge tone={active ? 'success' : 'muted'}>{active ? 'Selected' : game.players}</ArcadeBadge>
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-	return (
-		<PageContainer>
-			<CardContainer className="max-w-xl">
-				<h2 className="text-2xl font-bold text-center mb-1">Dashboard</h2>
-				<div className="text-center text-sm mb-3">{me ? `Welcome, ${me.nickname}` : ''}</div>
-				<div className="flex flex-col gap-3 justify-center">
-					<SubmitButton type="button" className="btn-secondary" onClick={openModal}>Create Session</SubmitButton>
-					<SubmitButton type="button" className="btn-secondary" onClick={openJoin}>Join Session</SubmitButton>
-					<SubmitButton type="button" className="btn-outline" onClick={openEdit}>Edit Profile</SubmitButton>
-					<SubmitButton type="button" className="btn-ghost" onClick={handleLogout}>Logout</SubmitButton>
-				</div>
-				<ErrorPopup message={error} />
-			</CardContainer>
+        <ArcadePanel quiet className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div>
+            <p className="arcade-eyebrow">Ready player</p>
+            <h2 className="text-xl font-bold">{selected.name}</h2>
+            <p className="arcade-copy mt-2">A new room supports {selected.players}. You will be the host.</p>
+          </div>
+          <div className="arcade-actions shrink-0">
+            <ArcadeButton variant="secondary" onClick={() => { setError(''); setJoinSessionId(''); setShowJoin(true); }}>Join code</ArcadeButton>
+            <ArcadeButton loading={submitting} onClick={createRoom}>Create room</ArcadeButton>
+          </div>
+        </ArcadePanel>
+        <ErrorPopup message={error} />
+      </div>
 
-					{showModal && (
-						<div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-50">
-							<div className="bg-base-100 rounded-lg shadow-xl w-full max-w-5xl p-8 flex flex-col gap-6 max-h-[90vh]">
-								<h3 className="text-2xl font-semibold">Select a Game</h3>
-								<div className="overflow-y-auto pr-2">
-									<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-										{GAMES.map(g => {
-											const active = selected?.gameType === g.gameType;
-											return (
-												<button
-													key={g.gameType}
-													type="button"
-													onClick={() => setSelected(g)}
-													className={`border rounded-xl p-4 flex flex-col items-center gap-3 hover:border-primary transition h-72 bg-base-200/40 ${active ? 'border-primary ring ring-primary/40' : 'border-base-300'}`}
-												>
-													<img src={g.img} alt={g.name} className="w-full h-44 object-cover rounded-md shadow-sm" />
-													<div className="text-base font-medium text-center">{g.name}</div>
-													<div className="text-xs opacity-70">Players: {g.players}</div>
-												</button>
-											);
-										})}
-									</div>
-								</div>
-								<div className="flex justify-end gap-4 pt-2">
-									<SubmitButton type="button" className="btn-ghost" onClick={() => setShowModal(false)} disabled={submitting}>Cancel</SubmitButton>
-									<SubmitButton type="button" disabled={!selected || submitting} onClick={handleConfirm}>
-										{submitting ? 'Creating...' : 'Confirm'}
-									</SubmitButton>
-								</div>
-							</div>
-						</div>
-					)}
+      <ArcadeDialog
+        open={showJoin}
+        title="Join a room"
+        eyebrow="Enter invite code"
+        onClose={() => setShowJoin(false)}
+        actions={(
+          <>
+            <ArcadeButton variant="ghost" onClick={() => setShowJoin(false)}>Cancel</ArcadeButton>
+            <ArcadeButton loading={submitting} disabled={!joinSessionId.trim()} onClick={joinRoom}>Join table</ArcadeButton>
+          </>
+        )}
+      >
+        <div className="arcade-form-stack">
+          <ArcadeInput label="Session ID" placeholder="Paste room code" value={joinSessionId} onChange={(event) => setJoinSessionId(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') joinRoom(); }} />
+          <ErrorPopup message={error} />
+        </div>
+      </ArcadeDialog>
 
-					{showJoin && (
-						<div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-50">
-							<div className="bg-base-100 rounded-lg shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
-								<h3 className="text-xl font-semibold">Join Session</h3>
-								<input
-									className="input input-bordered w-full"
-									placeholder="Enter Session ID"
-									value={joinSessionId}
-									onChange={e=>setJoinSessionId(e.target.value)}
-								/>
-								<div className="flex justify-end gap-3 pt-2">
-									<button type="button" className="btn btn-ghost" onClick={()=>setShowJoin(false)}>Cancel</button>
-									<button type="button" className="btn btn-primary" disabled={!joinSessionId.trim()} onClick={handleJoin}>Join</button>
-								</div>
-							</div>
-						</div>
-					)}
-
-					{showEdit && (
-						<div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-50">
-							<div className="bg-base-100 rounded-lg shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
-								<h3 className="text-xl font-semibold">Edit Profile</h3>
-								<label className="text-xs">Nickname</label>
-								<input
-									className="input input-bordered w-full"
-									placeholder="Enter nickname"
-									value={form.nickname}
-									onChange={e=>setForm(f=>({...f, nickname: e.target.value}))}
-								/>
-								<label className="text-xs">Password</label>
-								<input
-									type="password"
-									className="input input-bordered w-full"
-									placeholder="Enter new password (optional)"
-									value={form.password}
-									onChange={e=>setForm(f=>({...f, password: e.target.value}))}
-								/>
-								<div className="flex justify-end gap-3 pt-2">
-									<button type="button" className="btn btn-ghost" onClick={()=>setShowEdit(false)}>Cancel</button>
-									<button
-										type="button"
-										className="btn btn-primary"
-										disabled={!form.nickname.trim()}
-										onClick={async ()=>{
-											try {
-												const payload = { nickname: form.nickname.trim() };
-												if (form.password.trim()) payload.password = form.password.trim();
-												const info = await updateUserInfo(payload, token);
-												setMe(info);
-												setShowEdit(false);
-											} catch (e) {
-												setError(e.message||'Update failed');
-											}
-										}}
-									>
-										Confirm
-									</button>
-								</div>
-							</div>
-						</div>
-					)}
-		</PageContainer>
-	);
+      <ArcadeDialog
+        open={showEdit}
+        title="Player profile"
+        eyebrow="Edit identity"
+        onClose={() => setShowEdit(false)}
+        actions={(
+          <>
+            <ArcadeButton variant="ghost" onClick={() => setShowEdit(false)}>Cancel</ArcadeButton>
+            <ArcadeButton loading={submitting} disabled={!form.nickname.trim()} onClick={saveProfile}>Save player</ArcadeButton>
+          </>
+        )}
+      >
+        <div className="arcade-form-stack">
+          <ArcadeInput label="Nickname" maxLength={32} value={form.nickname} onChange={(event) => setForm((current) => ({ ...current, nickname: event.target.value }))} />
+          <ArcadeInput label="New password" hint="Leave blank to keep the current password." type="password" autoComplete="new-password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} />
+          <ErrorPopup message={error} />
+        </div>
+      </ArcadeDialog>
+    </PageContainer>
+  );
 }
-
-export default Dashboard;

@@ -1,0 +1,31 @@
+server:
+  port: 8080
+
+spring:
+  flyway:
+    enabled: true
+  application:
+    name: backend
+  datasource:
+    # Allow overriding via env vars for container/prod; fallback keeps local dev working.
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/flip}
+    username: ${SPRING_DATASOURCE_USERNAME:flip}
+    password: ${SPRING_DATASOURCE_PASSWORD:flip}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate.format_sql: true
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics"
+
+app:
+  jwt:
+    secret: "${APP_JWT_SECRET:change-me-dev}"  # default only for local/dev, override in production

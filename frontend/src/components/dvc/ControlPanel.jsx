@@ -1,57 +1,46 @@
-import React from 'react';
+import { ArcadeButton, StatusBanner } from '../arcade/ArcadeUI';
 
-export function ControlPanel({ awaiting, disabled, myCards, doDrawColor, continueReveal, doSelfReveal, doSettle, openGuess, guessSucceeded, canSettle, settledSubmitted, isStartPhaseSettle=false, hasPending=false, isMyTurn=false, selfRevealIndex=null }) {
-  // Unified rule: if it's not my turn, always show "opponent turn",
-  // except during start-phase settle where everyone can press Settle.
+const phaseCopy = {
+  SETTLE_POSITION: 'Arrange your tiles from low to high. Black comes before white when values match.',
+  DRAW_COLOR: 'Choose which color pile to draw from.',
+  GUESS_SELECTION: 'Select one hidden opponent tile to make a guess.',
+  REVEAL_DECISION: 'Correct guess. Continue your run or stop safely.',
+  SELF_REVEAL_CHOICE: 'Choose one private tile to reveal after an incorrect guess.',
+};
+
+export function ControlPanel({ awaiting, disabled, doDrawColor, continueReveal, doSelfReveal, doSettle, guessSucceeded, canSettle, settledSubmitted, isStartPhaseSettle = false, hasPending = false, isMyTurn = false, selfRevealIndex = null, blackRemaining = 0, whiteRemaining = 0 }) {
   const notMyTurn = !isMyTurn && awaiting !== 'SETTLE_POSITION';
-
-  if (notMyTurn) {
-    return (
-      <div className="dvc-controls flex flex-col gap-2 text-xs">
-        <div className="italic opacity-80" data-testid="opponent-turn">opponent turn</div>
-      </div>
-    );
-  }
+  if (notMyTurn) return <StatusBanner>Opponent turn. Watch the racks for new information.</StatusBanner>;
 
   return (
-    <div className="dvc-controls flex flex-col gap-2 text-xs">
-      {awaiting==='SETTLE_POSITION' && (
-        isStartPhaseSettle ? (
-          settledSubmitted ? (
-            <div className="italic opacity-80">Waiting for other players to settle...</div>
-          ) : (
-            <button className="btn btn-sm btn-primary" disabled={disabled || !canSettle} onClick={()=>doSettle(null)} data-testid="settle-finish">Settle</button>
-          )
-        ) : (
-          hasPending ? (
-            <button className="btn btn-sm btn-primary" disabled={disabled} onClick={()=>doSettle(null)} data-testid="settle-runtime">Settle</button>
-          ) : (
-            <div className="italic opacity-80" data-testid="opponent-turn">opponent turn</div>
-          )
-        )
+    <div className="dvc-controls">
+      <div className="dvc-phase" data-testid="phase-instruction">{phaseCopy[awaiting] || 'Waiting for the next phase...'}</div>
+      {awaiting === 'SETTLE_POSITION' && (
+        isStartPhaseSettle
+          ? settledSubmitted
+            ? <StatusBanner tone="success">Your rack is locked. Waiting for other players.</StatusBanner>
+            : <ArcadeButton disabled={disabled || !canSettle} onClick={() => doSettle(null)} data-testid="settle-finish">Lock rack</ArcadeButton>
+          : hasPending
+            ? <ArcadeButton disabled={disabled} onClick={() => doSettle(null)} data-testid="settle-runtime">Place pending tile</ArcadeButton>
+            : <StatusBanner>Waiting for the active player.</StatusBanner>
       )}
-      {awaiting==='DRAW_COLOR' && (
-        <div className="flex gap-2">
-          <button className="btn btn-sm btn-primary" disabled={disabled} onClick={()=>doDrawColor('BLACK')} data-testid="draw-black">Draw Black</button>
-          <button className="btn btn-sm btn-secondary" disabled={disabled} onClick={()=>doDrawColor('WHITE')} data-testid="draw-white">Draw White</button>
+      {awaiting === 'DRAW_COLOR' && (
+        <div className="arcade-actions">
+          <ArcadeButton disabled={disabled || blackRemaining <= 0} onClick={() => doDrawColor('BLACK')} data-testid="draw-black">Draw black ({blackRemaining})</ArcadeButton>
+          <ArcadeButton variant="secondary" disabled={disabled || whiteRemaining <= 0} onClick={() => doDrawColor('WHITE')} data-testid="draw-white">Draw white ({whiteRemaining})</ArcadeButton>
         </div>
       )}
-      {awaiting==='GUESS_SELECTION' && (
-        <div className="italic opacity-80" data-testid="guess-instruction">select a opponent card to guess</div>
-      )}
-      {awaiting==='REVEAL_DECISION' && guessSucceeded && (
-        <div className="flex gap-2">
-          <button className="btn btn-sm btn-success" disabled={disabled} onClick={()=>continueReveal(true)} data-testid="reveal-continue">Continue</button>
-          <button className="btn btn-sm" disabled={disabled} onClick={()=>continueReveal(false)} data-testid="reveal-stop">Cease</button>
+      {awaiting === 'GUESS_SELECTION' && <p className="arcade-copy text-sm" data-testid="guess-instruction">Pick a hidden tile from an opponent rack above.</p>}
+      {awaiting === 'REVEAL_DECISION' && guessSucceeded && (
+        <div className="arcade-actions">
+          <ArcadeButton variant="success" disabled={disabled} onClick={() => continueReveal(true)} data-testid="reveal-continue">Continue</ArcadeButton>
+          <ArcadeButton variant="ghost" disabled={disabled} onClick={() => continueReveal(false)} data-testid="reveal-stop">Stop safely</ArcadeButton>
         </div>
       )}
-      {awaiting==='SELF_REVEAL_CHOICE' && (
-        <div className="flex flex-col gap-1">
-          <div>Select one of your hidden cards:</div>
-          <div className="flex items-center gap-2">
-            <button className="btn btn-sm btn-primary" disabled={disabled || selfRevealIndex==null} onClick={()=>doSelfReveal()} data-testid="self-reveal-confirm">Confirm</button>
-            {selfRevealIndex==null && <span className="opacity-70">Select a hidden card to enable</span>}
-          </div>
+      {awaiting === 'SELF_REVEAL_CHOICE' && (
+        <div className="arcade-form-stack">
+          <p className="arcade-copy text-sm">{selfRevealIndex == null ? 'Select one private tile in your rack.' : `Tile ${selfRevealIndex + 1} selected.`}</p>
+          <ArcadeButton disabled={disabled || selfRevealIndex == null} onClick={doSelfReveal} data-testid="self-reveal-confirm">Reveal selected tile</ArcadeButton>
         </div>
       )}
     </div>

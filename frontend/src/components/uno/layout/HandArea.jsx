@@ -1,47 +1,23 @@
-import React from 'react';
-import UnoCard from '../../uno/UnoCard';
-import SubmitButton from '../../SubmitButton';
+import UnoCard from '../UnoCard';
+import { ArcadeButton } from '../../arcade/ArcadeUI';
 
-/**
- * HandArea renders overlapping hand + draw button.
- * props: hand [{id,color,value,type}], playableIds Set(card.id) (optional), disabled, onPlay, onDraw, pendingDraw
- */
-export default function HandArea({ hand = [], playableIds = new Set(), disabled, onPlay, onDraw, pendingDraw }) {
-  const overlapRatio = 0.7; // show 30%
-
+export default function HandArea({ hand = [], playableIds = new Set(), disabled, onPlay, onDraw, pendingDraw, sending = false }) {
   return (
-    <div className={`relative w-full h-full flex flex-col`}>
-      <div className={`flex-1 flex items-end justify-center overflow-x-auto px-4 pb-2 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="relative flex items-end h-40">{/* hand visual height */}
-          {hand.map((card, idx) => {
+    <div className="flex flex-col md:flex-row items-end gap-4">
+      <div className="flex-1 min-w-0 overflow-x-auto" aria-label="Your hand">
+        <div className="uno-hand">
+          {hand.map((card, index) => {
             const playable = playableIds.has(card.id) || playableIds.has(card);
-            const width = 64; // w-16
-            const ml = idx === 0 ? 0 : -width * overlapRatio;
             return (
-              <div
-                key={card.id || idx}
-                className="card-wrapper group"
-                style={{ marginLeft: ml }}
-              >
-                <UnoCard
-                  card={card}
-                  onClick={() => playable && onPlay?.(card.id || card)}
-                  disabled={!playable || disabled}
-                />
+              <div key={card.id || `${card.color}-${card.value}-${index}`} className="uno-hand__card" style={{ marginLeft: index === 0 ? 0 : -40 }}>
+                <UnoCard card={card} onClick={(selected) => onPlay?.(selected)} disabled={!playable || disabled} />
               </div>
             );
           })}
-          {hand.length === 0 && <div className="text-xs opacity-60">(Empty)</div>}
-        </div>
-        <div className="flex items-center pl-4">
-          <SubmitButton type="button" className="btn-secondary" onClick={onDraw} disabled={disabled}>{pendingDraw>0?`Draw ${pendingDraw}`:'Draw'}</SubmitButton>
+          {!hand.length && <div className="arcade-empty min-h-36">Your hand is empty.</div>}
         </div>
       </div>
-      <style>{`
-        .card-wrapper { position: relative; transition: transform .15s ease, margin .15s ease; }
-        .card-wrapper:hover { z-index: 20; transform: translateY(-10px) scale(1.05); margin-left: 0 !important; }
-        .card-wrapper:hover + .card-wrapper { /* allow reveal of hovered card without gap collapse */ }
-      `}</style>
+      <ArcadeButton variant="secondary" loading={sending} onClick={onDraw} disabled={disabled}>{pendingDraw > 0 ? `Draw ${pendingDraw}` : 'Draw card'}</ArcadeButton>
     </div>
   );
 }

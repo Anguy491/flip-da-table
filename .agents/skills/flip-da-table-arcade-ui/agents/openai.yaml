@@ -1,0 +1,10 @@
+interface:
+  display_name: "Flip Da Table Arcade UI"
+  short_description: "Build and review the neon 8-bit arcade interface"
+  icon_small: "../assets/arcade-mark.svg"
+  icon_large: "../assets/arcade-mark.svg"
+  brand_color: "#24F5D6"
+  default_prompt: "Use $flip-da-table-arcade-ui to redesign this screen in the project's neon 8-bit arcade system."
+
+policy:
+  allow_implicit_invocation: true

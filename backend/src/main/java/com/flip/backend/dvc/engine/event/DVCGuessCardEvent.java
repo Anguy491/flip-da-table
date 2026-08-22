@@ -38,8 +38,13 @@ public class DVCGuessCardEvent extends GameEvent {
         if (executed) return false;
         if (targetPlayerId == null || targetIndex == null || guess == null) return false; // needs input
         if (actor.getId().equals(targetPlayerId)) return false;
-        // ensure target exists and index valid & unrevealed
-        return board.snapshotOrder().stream().anyMatch(p -> p.getId().equals(targetPlayerId));
+        // Ensure target exists and the selected position still contains an unrevealed tile.
+        DVCPlayer target = board.snapshotOrder().stream()
+            .filter(p -> p.getId().equals(targetPlayerId))
+            .findFirst()
+            .orElse(null);
+        if (target == null || targetIndex < 0 || targetIndex >= target.hand().snapshot().size()) return false;
+        return !target.hand().snapshot().get(targetIndex).isFaceUp();
     }
 
     @Override public void execute() {

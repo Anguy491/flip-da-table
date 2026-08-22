@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register';
@@ -6,6 +7,8 @@ import Lobby from './pages/Lobby';
 import UnoPlayScreen from './pages/UnoPlayScreen';
 import DVCPlayScreen from './pages/DVCPlayScreen';
 import SessionSummary from './pages/SessionSummary';
+
+const UILab = import.meta.env.DEV ? lazy(() => import('./pages/UILab')) : null;
 
 function App() {
   return (
@@ -19,6 +22,7 @@ function App() {
         <Route path="/unoplayscreen/:sessionid" element={<UnoPlayScreen />} />
         <Route path="/dvcplayscreen/:sessionid" element={<DVCPlayScreen />} />
         <Route path="/sessionsum/:sessionid" element={<SessionSummary />} />
+        {UILab && <Route path="/__ui-lab" element={<Suspense fallback={<div>Loading UI Lab...</div>}><UILab /></Suspense>} />}
       </Routes>
     </BrowserRouter>
   );

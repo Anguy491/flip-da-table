@@ -1,16 +1,7 @@
-// A reusable form input component with standard styling.
-// Supports common HTML input props like type, placeholder, value, onChange, and required.
-function FormInput({ type = 'text', placeholder, value, onChange, required = false }) {
-  return (
-    <input
-      type={type}
-      placeholder={placeholder}
-      className="input input-bordered w-full"
-      value={value}
-      onChange={onChange}
-      required={required}
-    />
-  );
+import { ArcadeInput } from './arcade/ArcadeUI';
+
+function FormInput({ type = 'text', placeholder, label, value, onChange, required = false, ...props }) {
+  return <ArcadeInput type={type} placeholder={placeholder} label={label || placeholder} value={value} onChange={onChange} required={required} {...props} />;
 }
 
 export default FormInput;

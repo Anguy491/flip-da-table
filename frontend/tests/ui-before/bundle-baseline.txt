@@ -1,0 +1,13 @@
+Flip Da Table frontend baseline
+Commit: bb11b77f912b8eba3bfd7f089d4e235889b1438e
+Built with: Vite 7.1.3
+
+index.html                       0.50 kB | gzip  0.33 kB
+Uno.png                         25.51 kB
+Davinci.png                    494.60 kB
+Bounty.png                   1,877.51 kB
+index.css                       73.49 kB | gzip 12.83 kB
+index.js                        19.56 kB | gzip  5.64 kB
+index.js                       286.11 kB | gzip 89.38 kB
+
+Total initial JavaScript gzip: 95.02 kB

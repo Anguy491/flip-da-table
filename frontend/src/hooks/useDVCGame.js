@@ -1,58 +1,42 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { parseCard } from '../components/dvc/parseCard';
 
-/**
- * useDVCGame: encapsulate client-side guard logic & derived UI permissions.
- * Responsibilities:
- *  - Track local drag-reordered hand (initial settle & pending settle)
- *  - Expose booleans for interactive states based on awaiting + turn ownership
- *  - Filter illegal actions before hitting API
- */
 export function useDVCGame({ view, myPlayerId }) {
   const board = view?.board;
   const awaiting = board?.awaiting;
-  const playerViews = view?.players || [];
-  const meView = playerViews.find(p => p.playerId === myPlayerId);
+  const playerViews = useMemo(() => view?.players || [], [view?.players]);
+  const meView = useMemo(() => playerViews.find((player) => player.playerId === myPlayerId), [myPlayerId, playerViews]);
   const myPending = meView?.pending || null;
-  const rawCards = meView?.cards || [];
-  const parsedHand = useMemo(()=> rawCards.map(parseCard), [rawCards]);
-  // When server-provided hand strings change, drop any local reordering to adopt server order
+  const rawCards = useMemo(() => meView?.cards || [], [meView?.cards]);
+  const parsedHand = useMemo(() => rawCards.map(parseCard), [rawCards]);
   const handKey = useMemo(() => JSON.stringify(rawCards), [rawCards]);
+  const [localOrder, setLocalOrder] = useState(null);
 
-  // Local ordering (indices) while arranging before initial settle (does not persist to server yet)
-  const [localOrder, setLocalOrder] = useState(null); // null means not modified
   useEffect(() => { setLocalOrder(null); }, [handKey]);
 
-  const effectiveHand = localOrder ? localOrder.map(i => parsedHand[i]) : parsedHand;
+  const effectiveHand = useMemo(
+    () => localOrder ? localOrder.map((index) => parsedHand[index]) : parsedHand,
+    [localOrder, parsedHand],
+  );
 
-  const isMyTurn = useMemo(()=> {
+  const isMyTurn = useMemo(() => {
     if (!board) return false;
-    // During settle: start-phase (no pending) everyone can act; runtime settle (has pending) only self can act
-    if (board.awaiting === 'SETTLE_POSITION') {
-      return myPending ? true : true; // start-phase also true
-    }
-    const currentId = playerViews[board.currentPlayerIndex]?.playerId;
-    return currentId === myPlayerId;
-  }, [board, playerViews, myPlayerId, myPending]);
+    if (board.awaiting === 'SETTLE_POSITION') return true;
+    return playerViews[board.currentPlayerIndex]?.playerId === myPlayerId;
+  }, [board, myPlayerId, playerViews]);
 
-  // Interaction permissions
-  const canDragInitial = awaiting === 'SETTLE_POSITION' && !myPending; // pre-game settle (no pending)
-  const canDragPending = awaiting === 'SETTLE_POSITION' && !!myPending; // runtime settle (has pending)
-  const canSelectOpponentCard = awaiting === 'GUESS_SELECTION' && isMyTurn;
-  const showGuessPrompt = awaiting === 'GUESS_SELECTION' && isMyTurn;
-  const showDrawColorModal = awaiting === 'DRAW_COLOR' && isMyTurn;
+  const canDragInitial = awaiting === 'SETTLE_POSITION' && !myPending;
+  const canDragPending = awaiting === 'SETTLE_POSITION' && Boolean(myPending);
 
   const reorderHand = useCallback((from, to) => {
     if (!canDragInitial && !canDragPending) return;
-    setLocalOrder(prev => {
-      const baseIdx = prev ? [...prev] : parsedHand.map((_,i)=>i);
-      const [m] = baseIdx.splice(from,1);
-      baseIdx.splice(to,0,m);
-      return baseIdx;
+    setLocalOrder((current) => {
+      const indexes = current ? [...current] : parsedHand.map((_, index) => index);
+      const [moved] = indexes.splice(from, 1);
+      indexes.splice(to, 0, moved);
+      return indexes;
     });
   }, [canDragInitial, canDragPending, parsedHand]);
-
-  const resetLocalOrder = () => setLocalOrder(null);
 
   return {
     awaiting,
@@ -61,11 +45,11 @@ export function useDVCGame({ view, myPlayerId }) {
     isMyTurn,
     canDragInitial,
     canDragPending,
-    canSelectOpponentCard,
-    showGuessPrompt,
-    showDrawColorModal,
+    canSelectOpponentCard: awaiting === 'GUESS_SELECTION' && isMyTurn,
+    showGuessPrompt: awaiting === 'GUESS_SELECTION' && isMyTurn,
+    showDrawColorModal: awaiting === 'DRAW_COLOR' && isMyTurn,
     reorderHand,
-    resetLocalOrder,
-  localOrder
+    resetLocalOrder: () => setLocalOrder(null),
+    localOrder,
   };
 }

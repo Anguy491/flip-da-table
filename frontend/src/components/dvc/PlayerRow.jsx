@@ -1,16 +1,22 @@
-import React from 'react';
+import { ArcadeBadge } from '../arcade/ArcadeUI';
 import { CardStrip } from './CardStrip';
+import { parseCard } from './parseCard';
 
-export function PlayerRow({ pv, index, currentPlayerId, parseCardFn, clickable=false, onCardClick }) {
-  const parsed = pv.cards.map(parseCardFn);
+export function PlayerRow({ player, index, currentPlayerId, clickable = false, onCardClick }) {
+  const active = player.playerId === currentPlayerId;
   return (
-    <div className={`dvc-player-row flex items-center gap-2 p-1 rounded ${pv.playerId===currentPlayerId?'bg-primary/10':''}`} data-testid={`player-${index}`}>
-      <div className="dvc-avatar w-8 h-8 rounded-full bg-base-300 flex items-center justify-center text-[10px] font-bold">{index+1}</div>
-      <div className="flex flex-col flex-1">
-        <div className="text-xs font-mono flex items-center gap-2"><span>{pv.playerId}</span></div>
-  <CardStrip cards={parsed} clickable={clickable} onCardClick={onCardClick} />
+    <article className={`dvc-player-row ${active ? 'dvc-player-row--active' : ''}`} data-testid={`player-${index}`}>
+      <span className="dvc-player-row__avatar" aria-hidden="true">P{index + 1}</span>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 mb-2">
+          <strong className="arcade-code text-xs" title={player.playerId}>{player.playerId}</strong>
+          {active && <ArcadeBadge tone="success">Current</ArcadeBadge>}
+        </div>
+        <div className="overflow-x-auto">
+          <CardStrip cards={(player.cards || []).map(parseCard)} clickable={clickable} onCardClick={onCardClick} />
+        </div>
       </div>
-      <div className="text-[10px] opacity-60 w-10 text-center">{pv.hiddenCount>0?`H:${pv.hiddenCount}`:'All'}</div>
-    </div>
+      <ArcadeBadge tone={player.hiddenCount > 0 ? 'muted' : 'success'}>{player.hiddenCount > 0 ? `${player.hiddenCount} hidden` : 'Revealed'}</ArcadeBadge>
+    </article>
   );
 }

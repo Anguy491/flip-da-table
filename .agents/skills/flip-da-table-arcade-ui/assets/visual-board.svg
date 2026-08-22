@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">Flip Da Table neon arcade visual board</title>
+  <desc id="desc">Original reference board showing dark cabinet panels, neon accents, abstract color cards, and black and white code tiles.</desc>
+  <rect width="1200" height="675" fill="#070914"/>
+  <path d="M0 48H1200M0 96H1200M0 144H1200M0 192H1200M0 240H1200M0 288H1200M0 336H1200M0 384H1200M0 432H1200M0 480H1200M0 528H1200M0 576H1200M0 624H1200M48 0V675M96 0V675M144 0V675M192 0V675M240 0V675M288 0V675M336 0V675M384 0V675M432 0V675M480 0V675M528 0V675M576 0V675M624 0V675M672 0V675M720 0V675M768 0V675M816 0V675M864 0V675M912 0V675M960 0V675M1008 0V675M1056 0V675M1104 0V675M1152 0V675" stroke="#171D38" stroke-width="1"/>
+  <rect x="64" y="58" width="1072" height="116" fill="#171D38" stroke="#24F5D6" stroke-width="2"/>
+  <rect x="72" y="66" width="1072" height="116" fill="none" stroke="#FF3EB5" stroke-width="4"/>
+  <text x="104" y="112" fill="#F7F7E8" font-family="monospace" font-size="38" font-weight="700">FLIP DA TABLE</text>
+  <text x="104" y="148" fill="#24F5D6" font-family="monospace" font-size="20">NEON CABINET // INSERT COIN</text>
+  <g transform="translate(64 226)">
+    <rect width="510" height="374" fill="#171D38" stroke="#FF3EB5" stroke-width="2"/>
+    <text x="28" y="44" fill="#FFD84A" font-family="monospace" font-size="18" font-weight="700">COLOR CHAOS</text>
+    <g transform="translate(78 84) rotate(-12 74 112)"><rect width="148" height="224" rx="4" fill="#FF4D6D" stroke="#F7F7E8" stroke-width="4"/><rect x="34" y="42" width="80" height="140" fill="#070914" opacity=".75"/></g>
+    <g transform="translate(170 74)"><rect width="148" height="224" rx="4" fill="#2474FF" stroke="#F7F7E8" stroke-width="4"/><rect x="34" y="42" width="80" height="140" fill="#070914" opacity=".75"/></g>
+    <g transform="translate(260 86) rotate(12 74 112)"><rect width="148" height="224" rx="4" fill="#FFD84A" stroke="#F7F7E8" stroke-width="4"/><rect x="34" y="42" width="80" height="140" fill="#070914" opacity=".75"/></g>
+    <text x="28" y="344" fill="#AAB2D5" font-family="sans-serif" font-size="17">Fast color cues. Hard shadows. One clear action.</text>
+  </g>
+  <g transform="translate(604 226)">
+    <rect width="532" height="374" fill="#171D38" stroke="#24F5D6" stroke-width="2"/>
+    <text x="28" y="44" fill="#24F5D6" font-family="monospace" font-size="18" font-weight="700">CODE BREAKER</text>
+    <g transform="translate(48 84)" font-family="monospace" font-size="58" font-weight="700" text-anchor="middle">
+      <g><rect width="96" height="164" fill="#F7F7E8" stroke="#AAB2D5" stroke-width="6"/><text x="48" y="104" fill="#070914">3</text></g>
+      <g transform="translate(108)"><rect width="96" height="164" fill="#070914" stroke="#AAB2D5" stroke-width="6"/><text x="48" y="104" fill="#F7F7E8">?</text></g>
+      <g transform="translate(216)"><rect width="96" height="164" fill="#F7F7E8" stroke="#AAB2D5" stroke-width="6"/><text x="48" y="104" fill="#070914">7</text></g>
+      <g transform="translate(324)"><rect width="96" height="164" fill="#070914" stroke="#24F5D6" stroke-width="6"/><text x="48" y="104" fill="#24F5D6">?</text></g>
+    </g>
+    <text x="28" y="292" fill="#F7F7E8" font-family="monospace" font-size="18">READ // GUESS // REVEAL</text>
+    <text x="28" y="344" fill="#AAB2D5" font-family="sans-serif" font-size="17">Quiet contrast. Numeric focus. Explicit phases.</text>
+  </g>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 32" role="img" aria-labelledby="title" shape-rendering="crispEdges">
+  <title id="title">Reference sheet for original pixel interface icons</title>
+  <rect width="160" height="32" fill="#070914"/>
+  <g fill="#24F5D6">
+    <path d="M4 12h8V8l12 8-12 8v-4H4z"/>
+    <path d="M40 8h16v4H40zm-4 4h4v12h16V12h4v16H36z"/>
+    <path d="M72 4h16v4H72zm-4 4h24v20H68zm8 4v12h8V12z"/>
+    <path d="M104 8h20v4h-20zm-4 4h4v12h20V12h4v16h-28z"/>
+    <path d="M140 4h8v8h8v8h-8v8h-8v-8h-8v-8h8z"/>
+  </g>
+</svg>

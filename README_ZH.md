@@ -2,13 +2,13 @@
 
 简体中文 | [English](README.md)
 
-一个基于 Spring Boot + React 的在线 UNO（及可扩展更多桌游/会话）的示例项目。后端提供认证、会话管理与 UNO 规则运行时；前端提供登录/注册、创建加入对局、实时观战与操作界面。通过 Docker 及 `docker-compose` 可一键部署（PostgreSQL + 后端 + 前端 Nginx）。
+一个基于 Spring Boot + React 的 UNO 与 Da Vinci Code 多人在线桌游平台。后端提供认证、会话、游戏运行时与实时通信；前端以仓库自有的霓虹 8-bit Arcade 设计系统统一登录、Lobby、两款游戏和结算页面。可通过 Docker Compose 部署 PostgreSQL、后端与 Nginx 前端。
 
 ## 技术栈概览
 - 后端：Spring Boot 3 (Web, Security, Data JPA, Validation, Actuator, WebSocket/SSE 用 Web 模块)、Flyway、JWT (jjwt)、Lombok
 - 数据库：PostgreSQL + Flyway 版本化迁移 (`backend/src/main/resources/db/migration`)
-- 前端：React 19, React Router v7, Vite, Tailwind CSS (v4) + DaisyUI
-- 实时更新：服务器端事件 (Server-Sent Events, SSE) `/api/games/uno/{gameId}/stream`
+- 前端：React 19、React Router v7、Vite、Tailwind CSS v4、仓库自有 Arcade 组件层
+- 实时更新：UNO 使用 SSE，Lobby 与 DVC 使用 WebSocket + STOMP
 - 构建与运行：Gradle (Java 17 toolchain), Vite；Docker 镜像 `anguy491/flip-backend` & `anguy491/flip-frontend`
 
 ## 项目目录结构（精简展示）
@@ -37,9 +37,11 @@ frontend/
   src/
     api/                  # fetch 封装 (auth, sessions, uno)
     context/              # 全局 AuthContext
-    hooks/                # useUnoGame, usePlayAnimations
-    components/           # 基础输入/布局组件
-      uno/                # UNO 专用展示与交互组件
+    hooks/                # UNO / DVC 网络与状态容器
+    components/           # 公共 Arcade UI 与纯展示游戏视图
+      arcade/             # 设计系统基础组件
+      uno/                # UNO 展示与交互组件
+      dvc/                # Da Vinci Code 展示组件
     pages/                # Login / Lobby / PlayScreen / 等页面
     assets/               # 图片资源
   vite.config.js          # 构建配置
@@ -62,11 +64,38 @@ docker-compose.yml        # 一键编排 Postgres + Backend + Frontend
 - 配置：`application.yml` 支持通过环境变量覆盖数据源与 JWT 密钥 (`APP_JWT_SECRET`)。
 
 ## 前端概要
-- 路由页面：`pages/` (Login, Register, Dashboard, Lobby, PlayScreen, SessionSummary)。
-- 业务上下文：`context/AuthContext.jsx` 管理用户登录状态与 token。
-- API 封装：`src/api/*.js` 对应 `auth`, `sessions`, `uno`；统一 `fetch` 基础路径 `/api`。
-- UNO 逻辑 Hook：`hooks/useUnoGame.js` 管理轮询/流事件与本地状态（含动画 hook）。
-- 组件：`components/uno/*` 提供卡牌、事件日志、手牌区等 UI。
+- 路由页面：登录、注册、Dashboard、Lobby、UNO、DVC 与 SessionSummary。
+- `context/AuthContext.jsx` 管理登录 token；`src/api/*.js` 隔离请求，保持既有 REST/SSE/WebSocket 协议兼容。
+- `useUnoGame`、`useDVCGame` 负责网络与状态；`UnoGameView`、`DvcGameView` 是可由 fixtures 独立渲染的纯展示层。
+- `src/styles/tokens.css` 是主题数值的唯一来源，`src/styles/arcade.css` 负责公共组件和响应式规则。
+- 开发环境可访问 `/__ui-lab`；生产构建不会包含该路由及其 fixtures。
+
+## 8-bit Arcade 设计系统
+
+全站使用深色街机柜外壳，并按 neutral、UNO、DVC 三种语义上下文切换强调色。Press Start 2P 只用于标题、数字和短标签，正文统一使用 Inter；组件采用 2px 像素边框、4px 硬阴影、黄色可见焦点、短动效和 reduced-motion 降级。
+
+仓库级设计 skill 位于 `.agents/skills/flip-da-table-arcade-ui/`，包含视觉语言、组件配方、页面蓝图、无障碍验收、来源许可证、原创视觉板和 UI 审计脚本。视觉上参考 Retro Design System 与 NES.css，但不直接引入二者。
+
+## 前端开发与验收
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Vite 启动后可访问 `http://localhost:5173/__ui-lab`。常用命令：
+
+```bash
+npm run lint        # ESLint、React Hooks、JSX 无障碍规则
+npm run ui:audit    # 检查 DaisyUI、任意主题色、非法阴影与动效
+npm run test        # Vitest + React Testing Library
+npm run test:e2e    # Chromium / Firefox / WebKit + axe
+npm run build       # 生产构建，排除 UI Lab
+npm run check       # lint + UI audit + 单测 + 构建
+```
+
+七个页面的桌面与手机/横屏 Chromium 视觉基准位于 `frontend/tests/ui-lab.spec.js-snapshots/`；原登录页截图与 bundle 数据保留在 `frontend/tests/ui-before/`，用于前后对照。GitHub Actions 会对前端与设计 skill 的修改执行相同门槛。自托管字体许可证随 `frontend/public/licenses/` 一并发布。
 
 ## UNO 实时交互流程
 1. 前端进入对局页面：先 `GET /view` 拉取首次视图。

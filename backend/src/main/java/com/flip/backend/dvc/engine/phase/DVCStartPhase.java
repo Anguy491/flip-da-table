@@ -51,7 +51,24 @@ public class DVCStartPhase extends StartPhase {
                 dealColor(p, DVCCard.Color.WHITE, 2);
             }
         }
+        arrangeAndSettleBots();
         board = new DVCBoard(players);
+    }
+
+    /** Bots have no client-side rack UI, so arrange and confirm their initial hands on the server. */
+    private void arrangeAndSettleBots() {
+        for (DVCPlayer player : players) {
+            if (!player.isBot()) continue;
+            List<DVCCard> ordered = new ArrayList<>(player.hand().snapshot());
+            ordered.sort((left, right) -> {
+                if (left.isJoker() && right.isJoker()) return 0;
+                if (left.isJoker()) return 1;
+                if (right.isJoker()) return -1;
+                return DVCCard.compareForOrder(left, right);
+            });
+            player.hand().setExactOrder(ordered);
+            settledSet.add(player.getId());
+        }
     }
 
     private void dealColor(DVCPlayer p, DVCCard.Color color, int count) {
@@ -118,7 +135,7 @@ public class DVCStartPhase extends StartPhase {
                 : snapshot.stream().map(DVCCard::backDisplay).toList();
             pviews.add(new DVCPlayerView(p.getId(), p.isBot(), snapshot.size(), hidden, cards, null));
         }
-        return new DVCView(boardView, List.copyOf(pviews), perspectivePlayerId);
+        return new DVCView(boardView, List.copyOf(pviews), perspectivePlayerId, List.of());
     }
 
     @Override public DVCRuntimePhase transit() {

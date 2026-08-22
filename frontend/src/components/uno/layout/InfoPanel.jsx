@@ -1,26 +1,13 @@
-import React from 'react';
-
 export default function InfoPanel({ gameCount, direction, activeColor, currentPlayerName, pendingDraw }) {
-  const dirText = direction === 'CCW' ? 'Counter Clockwise' : 'Clockwise';
-  const colorMap = {
-    RED: 'bg-red-500',
-    GREEN: 'bg-green-500',
-    BLUE: 'bg-blue-500',
-    YELLOW: 'bg-yellow-400 text-black'
-  };
+  const directionText = direction === 'CCW' ? 'Counter-clockwise' : 'Clockwise';
   return (
-    <div className="w-full h-full flex flex-col gap-2 text-xs p-2">
-      <div className="grid grid-cols-2 gap-y-1 gap-x-2">
-        <span className="font-semibold">Round</span><span>{gameCount}</span>
-        <span className="font-semibold">Direction</span><span>{dirText}</span>
-        <span className="font-semibold">Active Color</span>
-        <span className="flex items-center gap-1">
-          <span className={`w-4 h-4 rounded ${colorMap[activeColor] || 'bg-gray-400'}`}></span>
-          <span>{activeColor || '—'}</span>
-        </span>
-        <span className="font-semibold">Current Player</span><span className="font-medium text-primary truncate" title={currentPlayerName}>{currentPlayerName || '—'}</span>
-        <span className="font-semibold">Pending Draw</span><span>{pendingDraw}</span>
-      </div>
-    </div>
+    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
+      <dt className="arcade-muted">Round</dt><dd className="font-bold">{gameCount}</dd>
+      <dt className="arcade-muted">Direction</dt><dd>{directionText}</dd>
+      <dt className="arcade-muted">Active color</dt>
+      <dd className="flex items-center gap-2"><span className="uno-color-chip" data-color={activeColor || 'NONE'} aria-hidden="true" /><span>{activeColor || 'None'}</span></dd>
+      <dt className="arcade-muted">Current player</dt><dd className="arcade-accent truncate" title={currentPlayerName}>{currentPlayerName || 'Waiting'}</dd>
+      <dt className="arcade-muted">Draw stack</dt><dd className={pendingDraw ? 'arcade-error-text font-bold' : ''}>{pendingDraw || 0}</dd>
+    </dl>
   );
 }

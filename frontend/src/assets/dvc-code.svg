@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc" shape-rendering="crispEdges">
+  <title id="title">Abstract black and white code tiles</title>
+  <desc id="desc">Original pixel artwork representing a deduction game with numbered tiles.</desc>
+  <rect width="640" height="360" fill="#070914"/>
+  <path fill="#11152b" d="M0 0h640v360H0z"/>
+  <path fill="#24f5d6" d="M72 56h496v8H72zm0 240h496v8H72zM72 64h8v232h-8zm488 0h8v232h-8z"/>
+  <g stroke="#aab2d5" stroke-width="6">
+    <path fill="#fffdf0" d="M112 104h104v152H112z"/>
+    <path fill="#090b12" d="M220 88h104v168H220z"/>
+    <path fill="#fffdf0" d="M328 104h104v152H328z"/>
+    <path fill="#090b12" d="M436 88h104v168H436z"/>
+  </g>
+  <g font-family="monospace" font-size="84" font-weight="700" text-anchor="middle">
+    <text x="164" y="212" fill="#070914">3</text>
+    <text x="272" y="204" fill="#f7f7e8">?</text>
+    <text x="380" y="212" fill="#070914">7</text>
+    <text x="488" y="204" fill="#24f5d6">?</text>
+  </g>
+</svg>
