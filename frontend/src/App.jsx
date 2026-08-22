@@ -7,6 +7,10 @@ import Lobby from './pages/Lobby';
 import UnoPlayScreen from './pages/UnoPlayScreen';
 import DVCPlayScreen from './pages/DVCPlayScreen';
 import SessionSummary from './pages/SessionSummary';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import GoogleAuthCallback from './pages/GoogleAuthCallback';
+import Privacy from './pages/Privacy';
 
 const UILab = import.meta.env.DEV ? lazy(() => import('./pages/UILab')) : null;
 
@@ -17,6 +21,10 @@ function App() {
         <Route path="/" element={<Navigate to="/login" />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/lobby/:sessionid" element={<Lobby />} />
         <Route path="/unoplayscreen/:sessionid" element={<UnoPlayScreen />} />

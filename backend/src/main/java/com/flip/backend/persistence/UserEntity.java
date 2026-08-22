@@ -24,4 +24,8 @@ public class UserEntity {
 
     @Column(nullable=false, name="created_at")
     private Instant createdAt;
+
+    @Column(nullable=false, name="auth_version")
+    @Builder.Default
+    private int authVersion = 0;
 }

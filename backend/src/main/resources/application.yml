@@ -1,5 +1,6 @@
 server:
   port: 8080
+  forward-headers-strategy: framework
 
 spring:
   flyway:
@@ -20,6 +21,18 @@ spring:
   jackson:
     serialization:
       WRITE_DATES_AS_TIMESTAMPS: false
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.resend.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:resend}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
 management:
   endpoints:
     web:
@@ -27,5 +40,16 @@ management:
         include: "health,info,metrics"
 
 app:
+  public-url: "${APP_PUBLIC_URL:http://localhost:5173}"
+  support-email: "${APP_SUPPORT_EMAIL:support@anguy.dev}"
+  mail:
+    from: "${APP_MAIL_FROM:Flip Da Table <no-reply@mail.anguy.dev>}"
+  auth:
+    password-reset:
+      enabled: ${APP_AUTH_PASSWORD_RESET_ENABLED:false}
+    google:
+      enabled: ${APP_AUTH_GOOGLE_ENABLED:false}
+      client-id: "${GOOGLE_CLIENT_ID:}"
+    cleanup-interval-ms: ${APP_AUTH_CLEANUP_INTERVAL_MS:3600000}
   jwt:
     secret: "${APP_JWT_SECRET:change-me-dev}"  # default only for local/dev, override in production

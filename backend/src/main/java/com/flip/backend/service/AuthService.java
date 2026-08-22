@@ -3,6 +3,7 @@ package com.flip.backend.service;
 import com.flip.backend.api.dto.AuthDtos.*;
 import com.flip.backend.persistence.UserEntity;
 import com.flip.backend.persistence.UserRepository;
+import com.flip.backend.security.EmailNormalizer;
 import com.flip.backend.security.JwtService;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
@@ -28,35 +29,37 @@ public class AuthService {
     }
 
     public AuthResponse register(RegisterRequest r) {
-        repo.findByEmail(r.email()).ifPresent(u -> { throw new IllegalArgumentException("email exists"); });
+        String email = EmailNormalizer.normalize(r.email());
+        repo.findByEmailIgnoreCase(email).ifPresent(u -> { throw new IllegalArgumentException("email exists"); });
         var user = UserEntity.builder()
-                .email(r.email())
+                .email(email)
                 .passwordHash(encoder.encode(r.password()))
                 .nickname(r.nickname())
                 .roles("USER")
                 .createdAt(Instant.now())
                 .build();
         user = repo.save(user);
-        String token = jwt.generate(user.getEmail(), Map.of(
-                "uid", user.getId(),
-                "nick", user.getNickname(),
-                "roles", user.getRoles()
-        ));
-        return new AuthResponse(user.getId(), user.getEmail(), user.getNickname(), token);
+        return issue(user);
     }
 
     public AuthResponse login(LoginRequest r) {
-        Authentication auth = new UsernamePasswordAuthenticationToken(r.email(), r.password());
+        String email = EmailNormalizer.normalize(r.email());
+        Authentication auth = new UsernamePasswordAuthenticationToken(email, r.password());
         try {
             authManager.authenticate(auth);
         } catch (org.springframework.security.core.AuthenticationException ex) {
             throw new org.springframework.security.authentication.BadCredentialsException("bad credentials");
         }
-        var user = repo.findByEmail(r.email()).orElseThrow(() -> new org.springframework.security.authentication.BadCredentialsException("bad credentials"));
+        var user = repo.findByEmailIgnoreCase(email).orElseThrow(() -> new org.springframework.security.authentication.BadCredentialsException("bad credentials"));
+        return issue(user);
+    }
+
+    public AuthResponse issue(UserEntity user) {
         String token = jwt.generate(user.getEmail(), Map.of(
                 "uid", user.getId(),
                 "nick", user.getNickname(),
-                "roles", user.getRoles()
+                "roles", user.getRoles(),
+                "ver", user.getAuthVersion()
         ));
         return new AuthResponse(user.getId(), user.getEmail(), user.getNickname(), token);
     }

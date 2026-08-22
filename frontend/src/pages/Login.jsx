@@ -1,20 +1,32 @@
-import { useState, useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useContext, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LoginApi } from '../api/auth';
 import { AuthContext } from '../context/auth-context';
 import PageContainer from '../components/PageContainer';
 import FormInput from '../components/FormInput';
 import SubmitButton from '../components/SubmitButton';
 import ErrorPopup from '../components/ErrorPopup';
-import { ArcadePanel } from '../components/arcade/ArcadeUI';
+import { ArcadePanel, StatusBanner } from '../components/arcade/ArcadeUI';
+import GoogleSignInButton from '../components/GoogleSignInButton';
+import useAuthCapabilities from '../hooks/useAuthCapabilities';
+import { clearAuthFragment, readAuthFragment } from '../utils/authFragment';
 
-function Login() {
+function Login({ previewCapabilities = null }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setToken } = useContext(AuthContext);
+  const capabilities = useAuthCapabilities(previewCapabilities);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [notice] = useState(location.state?.notice || '');
+
+  useEffect(() => {
+    const fragment = readAuthFragment();
+    clearAuthFragment();
+    if (fragment.googleError) setError('Google sign-in could not be completed. Please try again.');
+  }, []);
 
   // Handle login form submission
   const handleLogin = async (e) => {
@@ -49,10 +61,16 @@ function Login() {
               <p className="arcade-copy mt-3">Sign in to create a room or rejoin your table.</p>
             </div>
             <FormInput type="email" label="Email" placeholder="player@example.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <FormInput type="password" label="Password" placeholder="Enter password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <FormInput type="password" label="Password" placeholder="Enter password" autoComplete="current-password" maxLength={64} value={password} onChange={(e) => setPassword(e.target.value)} required />
             <ErrorPopup message={error} />
             <SubmitButton fullWidth loading={submitting}>Start</SubmitButton>
-            <p className="arcade-copy text-sm text-center">New player? <Link to="/register">Create an account</Link></p>
+            {notice && <StatusBanner tone="success" live>{notice}</StatusBanner>}
+            {capabilities.passwordReset && <p className="arcade-copy text-sm text-center"><Link to="/forgot-password">Forgot password?</Link></p>}
+            <GoogleSignInButton capability={capabilities.google} />
+            <div className="arcade-auth-links">
+              <p className="arcade-copy text-sm">New player? <Link to="/register">Create an account</Link></p>
+              <Link to="/privacy">Privacy</Link>
+            </div>
           </form>
         </ArcadePanel>
       </div>

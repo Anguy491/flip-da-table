@@ -106,9 +106,15 @@ export default function Dashboard({ preview = null }) {
     setSubmitting(true);
     setError('');
     try {
+      const passwordChanged = Boolean(form.password.trim());
       const payload = { nickname: form.nickname.trim() };
-      if (form.password.trim()) payload.password = form.password.trim();
+      if (passwordChanged) payload.password = form.password.trim();
       const info = await updateUserInfo(payload, token);
+      if (passwordChanged) {
+        setToken(null);
+        navigate('/login', { replace: true, state: { notice: 'Password updated. Sign in again with the new password.' } });
+        return;
+      }
       setMe(info);
       setShowEdit(false);
     } catch (requestError) {

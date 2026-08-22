@@ -18,7 +18,8 @@ public class DbUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        UserEntity u = repo.findByEmail(email).orElseThrow(() -> new UsernameNotFoundException(email));
+        UserEntity u = repo.findByEmailIgnoreCase(EmailNormalizer.normalize(email))
+                .orElseThrow(() -> new UsernameNotFoundException(email));
         var authorities = Arrays.stream(u.getRoles().split(","))
                 .map(r -> new SimpleGrantedAuthority("ROLE_" + r.trim()))
                 .toList();

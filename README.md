@@ -42,24 +42,24 @@ frontend/
       dvc/              # Da Vinci Code presentation components
     pages/              # Login, Lobby, PlayScreen, etc.
     assets/
-nginx/
-  nginx.conf
+  nginx.conf            # canonical reverse-proxy, security-header, and rate-limit config
 
 docker-compose.yml
 ```
 
 ## Backend Overview
-- Auth: `/api/auth/register`, `/api/auth/login` (JWT; frontend uses `credentials: 'include'` for cookies if set)
+- Auth: email/password registration and login, non-enumerating password recovery, and optional Google Identity Services sign-in. JWTs include an account auth version so password changes revoke older tokens.
+- Public auth endpoints include `/api/auth/capabilities`, `/api/auth/password/*`, and `/api/auth/google/*`; feature flags keep both additions independently reversible.
 - Sessions / Games: `/api/sessions` endpoints (create / query / join)
 - UNO runtime:
   - `GET /api/games/uno/{gameId}/view?viewerId=...` perspective view (full hand only for the requesting player)
   - `POST /api/games/uno/{gameId}/commands` body `{ type, playerId, color?, value? }`
   - `GET /api/games/uno/{gameId}/stream` SSE broadcast (public, no private hands)
 - Flyway migrations create user/role/session/game tables & state columns
-- Configuration overridable via env: datasource + `APP_JWT_SECRET`
+- Configuration is overridable via environment variables; see [`docs/AUTH_DEPLOYMENT.md`](docs/AUTH_DEPLOYMENT.md) for the Resend, Google, domain, and staged-release checklist.
 
 ## Frontend Overview
-- Pages in `src/pages`: Login, Register, Dashboard, Lobby, UNO, DVC, and SessionSummary
+- Pages in `src/pages`: Login, Register, Forgot/Reset Password, Google callback/linking, Privacy, Dashboard, Lobby, UNO, DVC, and SessionSummary
 - `AuthContext` maintains the authentication token
 - `src/api/*.js` isolates fetch logic; REST/SSE/WebSocket contracts remain backend-compatible
 - `useUnoGame` and `useDVCGame` own network/state concerns; `UnoGameView` and `DvcGameView` are deterministic presentation layers
@@ -91,7 +91,7 @@ npm run build       # production bundle; UI Lab is excluded
 npm run check       # lint + UI audit + unit tests + build
 ```
 
-Chromium visual baselines for all seven pages at desktop and mobile/landscape sizes are stored in `frontend/tests/ui-lab.spec.js-snapshots/`; `frontend/tests/ui-before/` retains the original login screen and bundle data for before/after review. GitHub Actions runs the same quality gates for frontend and design-skill changes. Self-hosted font notices are distributed from `frontend/public/licenses/`.
+Chromium visual baselines for all UI Lab screens at desktop and mobile/landscape sizes are stored in `frontend/tests/ui-lab.spec.js-snapshots/`; `frontend/tests/ui-before/` retains the original login screen and bundle data for before/after review. GitHub Actions runs the same quality gates for frontend and design-skill changes. Self-hosted font notices are distributed from `frontend/public/licenses/`.
 
 ## Realtime Flow
 1. Initial load: fetch `/view` for personalized snapshot
@@ -128,6 +128,9 @@ Goal: clean layering between generic turn engine and concrete UNO rules, enablin
 Design aligns with SRP, OCP, and clear separation of concerns for testability.
 
 ## Docker Deployment
+
+Authentication should first be deployed with both feature flags disabled. Complete the provider setup and production preflight in [`docs/AUTH_DEPLOYMENT.md`](docs/AUTH_DEPLOYMENT.md), then enable password recovery and Google sign-in separately.
+
 ```
 # PowerShell example
 $env:APP_JWT_SECRET = 'your-strong-secret'

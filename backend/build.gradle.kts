@@ -31,9 +31,12 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.flywaydb:flyway-core:10.17.0")
     implementation("org.flywaydb:flyway-database-postgresql:10.17.0")
     runtimeOnly("org.postgresql:postgresql")
+
+    implementation("com.google.api-client:google-api-client:2.9.0")
 
     implementation("me.paulschwarz:spring-dotenv:4.0.0")
 
@@ -42,6 +45,9 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
 
     implementation("io.jsonwebtoken:jjwt-api:0.11.5")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")

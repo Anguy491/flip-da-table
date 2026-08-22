@@ -46,25 +46,24 @@ frontend/
     assets/               # 图片资源
   vite.config.js          # 构建配置
   tailwind.config.js      # Tailwind v4 配置
-
-nginx/
-  nginx.conf              # 反向代理 & 静态文件 & 健康检查
+  nginx.conf              # 统一的反向代理、安全响应头、限流与静态文件配置
 
 docker-compose.yml        # 一键编排 Postgres + Backend + Frontend
 ```
 
 ## 后端概要
 - 主要包：`com.flip.backend.api` (REST/SSE 控制器), `...uno.engine` (UNO 规则 & 运行时), 认证/会话相关代码（用户、角色、Session/Game 管理）
-- 认证：`/api/auth/register` & `/api/auth/login`，返回含 JWT token（同时支持 Cookie 方式，前端 `fetch` 使用 `credentials: 'include'`）。
+- 认证：保留邮箱密码注册/登录，新增不可枚举的密码找回与可选 Google Identity Services 登录；JWT 带账号认证版本，修改密码后旧令牌立即失效。
+- 公开认证接口还包括 `/api/auth/capabilities`、`/api/auth/password/*` 与 `/api/auth/google/*`；两个新功能可分别通过开关回退。
 - 会话 / 游戏：`/api/sessions` 系列端点（创建、查询、加入），UNO 游戏在 `/api/games/uno` 下：
   - `GET /api/games/uno/{gameId}/view?viewerId=...` 获取针对特定玩家视角的状态（自己的手牌包含在内，其他玩家只含数量）。
   - `POST /api/games/uno/{gameId}/commands` 发送指令，Body: `{ type, playerId, color?, value? }`，返回是否应用及新的视图。
   - `GET /api/games/uno/{gameId}/stream` SSE 推送通用视图（无私有手牌）。
 - 迁移：`V001__init.sql` 起始到后续表（用户角色、sessions、games、state_json 等）。
-- 配置：`application.yml` 支持通过环境变量覆盖数据源与 JWT 密钥 (`APP_JWT_SECRET`)。
+- 配置：`application.yml` 支持环境变量覆盖。Resend、Google、域名和分阶段发布步骤见 [`docs/AUTH_DEPLOYMENT.md`](docs/AUTH_DEPLOYMENT.md)。
 
 ## 前端概要
-- 路由页面：登录、注册、Dashboard、Lobby、UNO、DVC 与 SessionSummary。
+- 路由页面：登录、注册、找回/重置密码、Google 回调与账号绑定、隐私政策、Dashboard、Lobby、UNO、DVC 与 SessionSummary。
 - `context/AuthContext.jsx` 管理登录 token；`src/api/*.js` 隔离请求，保持既有 REST/SSE/WebSocket 协议兼容。
 - `useUnoGame`、`useDVCGame` 负责网络与状态；`UnoGameView`、`DvcGameView` 是可由 fixtures 独立渲染的纯展示层。
 - `src/styles/tokens.css` 是主题数值的唯一来源，`src/styles/arcade.css` 负责公共组件和响应式规则。
@@ -95,7 +94,7 @@ npm run build       # 生产构建，排除 UI Lab
 npm run check       # lint + UI audit + 单测 + 构建
 ```
 
-七个页面的桌面与手机/横屏 Chromium 视觉基准位于 `frontend/tests/ui-lab.spec.js-snapshots/`；原登录页截图与 bundle 数据保留在 `frontend/tests/ui-before/`，用于前后对照。GitHub Actions 会对前端与设计 skill 的修改执行相同门槛。自托管字体许可证随 `frontend/public/licenses/` 一并发布。
+所有 UI Lab 页面状态的桌面与手机/横屏 Chromium 视觉基准位于 `frontend/tests/ui-lab.spec.js-snapshots/`；原登录页截图与 bundle 数据保留在 `frontend/tests/ui-before/`，用于前后对照。GitHub Actions 会对前端与设计 skill 的修改执行相同门槛。自托管字体许可证随 `frontend/public/licenses/` 一并发布。
 
 ## UNO 实时交互流程
 1. 前端进入对局页面：先 `GET /view` 拉取首次视图。
@@ -107,7 +106,9 @@ npm run check       # lint + UI audit + 单测 + 构建
 `docker-compose.yml` 中包含：
 - postgres: 数据库，持久卷 `pgdata`
 - backend: 依赖数据库健康检查后启动，暴露 8080（内部，与前端 Nginx 同网络）
-- frontend: 提供 80/443；Nginx 反向代理到后端 (具体 proxy 规则见 `nginx.conf`)，挂载证书 `/etc/letsencrypt`
+- frontend: 提供 80/443；Nginx 反向代理到后端（配置源为 `frontend/nginx.conf`），挂载证书 `/etc/letsencrypt`
+
+认证升级应先在两个功能开关均关闭时部署。完成 [`docs/AUTH_DEPLOYMENT.md`](docs/AUTH_DEPLOYMENT.md) 中的生产数据预检、Resend 与 Google 配置后，再分别启用密码找回和 Google 登录。
 
 启动（确保已设置环境变量 `APP_JWT_SECRET`）：
 ```bash

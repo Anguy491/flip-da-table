@@ -7,17 +7,37 @@ import Register from './Register';
 import Dashboard from './Dashboard';
 import Lobby from './Lobby';
 import SessionSummary from './SessionSummary';
+import ForgotPassword from './ForgotPassword';
+import ResetPassword from './ResetPassword';
+import GoogleAuthCallback from './GoogleAuthCallback';
 import { dashboardFixture, lobbyFixture, summaryFixture } from '../dev/fixtures';
-import { LoginApi, RegisterApi } from '../api/auth';
+import {
+  ExchangeGoogleCodeApi,
+  ForgotPasswordApi,
+  GetAuthCapabilitiesApi,
+  LinkGoogleAccountApi,
+  LoginApi,
+  RegisterApi,
+  ResetPasswordApi,
+} from '../api/auth';
 
 vi.mock('../api/auth', () => ({
   LoginApi: vi.fn(),
   RegisterApi: vi.fn(),
+  GetAuthCapabilitiesApi: vi.fn(() => Promise.resolve({
+    passwordReset: true,
+    supportEmail: 'support@anguy.dev',
+    google: { enabled: false, clientId: '', loginUri: '' },
+  })),
+  ForgotPasswordApi: vi.fn(),
+  ResetPasswordApi: vi.fn(),
+  ExchangeGoogleCodeApi: vi.fn(() => Promise.resolve({ token: 'application-token' })),
+  LinkGoogleAccountApi: vi.fn(),
 }));
 
-function renderPage(page, token = 'preview-token') {
+function renderPage(page, token = 'preview-token', setToken = vi.fn()) {
   return render(
-    <AuthContext.Provider value={{ token, setToken: vi.fn() }}>
+    <AuthContext.Provider value={{ token, setToken }}>
       <MemoryRouter>{page}</MemoryRouter>
     </AuthContext.Provider>,
   );
@@ -25,6 +45,7 @@ function renderPage(page, token = 'preview-token') {
 
 afterEach(() => {
   vi.clearAllMocks();
+  window.history.replaceState({}, '', '/');
 });
 
 describe('public and shared page states', () => {
@@ -50,6 +71,66 @@ describe('public and shared page states', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('Passwords do not match');
     expect(RegisterApi).not.toHaveBeenCalled();
+  });
+
+  it('shows the same successful recovery state after a forgot-password request', async () => {
+    ForgotPasswordApi.mockResolvedValueOnce({ message: 'accepted' });
+    renderPage(<ForgotPassword />, null);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Email' }), { target: { value: 'player@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send reset link' }));
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/if an account exists/i));
+    expect(ForgotPasswordApi).toHaveBeenCalledWith({ email: 'player@example.com' });
+  });
+
+  it('consumes a password reset token from the fragment and clears it from the URL', async () => {
+    window.history.replaceState({}, '', '/reset-password#token=one-time-reset');
+    ResetPasswordApi.mockResolvedValueOnce({});
+    renderPage(<ResetPassword />, null);
+
+    expect(window.location.hash).toBe('');
+    fireEvent.change(screen.getByLabelText('New password', { selector: 'input' }), { target: { value: 'new-arcade-pass' } });
+    fireEvent.change(screen.getByLabelText('Confirm password', { selector: 'input' }), { target: { value: 'new-arcade-pass' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset password' }));
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/older sign-ins are now invalid/i));
+    expect(ResetPasswordApi).toHaveBeenCalledWith({ token: 'one-time-reset', newPassword: 'new-arcade-pass' });
+  });
+
+  it('does not submit a reset when password confirmation differs', () => {
+    renderPage(<ResetPassword previewToken="one-time-reset" />, null);
+    fireEvent.change(screen.getByLabelText('New password', { selector: 'input' }), { target: { value: 'new-arcade-pass' } });
+    fireEvent.change(screen.getByLabelText('Confirm password', { selector: 'input' }), { target: { value: 'different-pass' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset password' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Passwords do not match');
+    expect(ResetPasswordApi).not.toHaveBeenCalled();
+  });
+
+  it('exchanges a Google handoff from the fragment and stores the application token', async () => {
+    window.history.replaceState({}, '', '/auth/google/callback#code=google-handoff');
+    ExchangeGoogleCodeApi.mockResolvedValueOnce({ token: 'application-token' });
+    const setToken = vi.fn();
+    renderPage(<GoogleAuthCallback />, null, setToken);
+
+    await waitFor(() => expect(setToken).toHaveBeenCalledWith('application-token'));
+    expect(window.location.hash).toBe('');
+    expect(ExchangeGoogleCodeApi).toHaveBeenCalledWith({ code: 'google-handoff' });
+  });
+
+  it('requires the original password for a third-party Google account collision', async () => {
+    window.history.replaceState({}, '', '/auth/google/callback#link=link-handoff');
+    LinkGoogleAccountApi.mockRejectedValueOnce(new Error('username or password incorrect'));
+    renderPage(<GoogleAuthCallback />, null);
+
+    expect(window.location.hash).toBe('');
+    expect(screen.getByText(/matches an existing player/i)).toBeVisible();
+    fireEvent.change(screen.getByLabelText('Existing account password'), { target: { value: 'wrong-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Link and continue' }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/did not match/i));
+    expect(LinkGoogleAccountApi).toHaveBeenCalledWith({ code: 'link-handoff', password: 'wrong-password' });
   });
 
   it('keeps the dashboard focused on the two supported games and opens its join dialog', () => {

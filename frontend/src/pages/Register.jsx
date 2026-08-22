@@ -7,10 +7,13 @@ import FormInput from '../components/FormInput';
 import SubmitButton from '../components/SubmitButton';
 import ErrorPopup from '../components/ErrorPopup';
 import { ArcadePanel } from '../components/arcade/ArcadeUI';
+import GoogleSignInButton from '../components/GoogleSignInButton';
+import useAuthCapabilities from '../hooks/useAuthCapabilities';
 
-function Register() {
+function Register({ previewCapabilities = null }) {
   const navigate = useNavigate();
   const { setToken } = useContext(AuthContext);
+  const capabilities = useAuthCapabilities(previewCapabilities);
   const [email, setEmail] = useState('');
   const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
@@ -58,11 +61,15 @@ function Register() {
             </div>
             <FormInput type="email" label="Email" placeholder="player@example.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <FormInput type="text" label="Nickname" placeholder="Table name" autoComplete="nickname" maxLength={32} value={nickname} onChange={(e) => setNickname(e.target.value)} required />
-            <FormInput type="password" label="Password" placeholder="Create password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            <FormInput type="password" label="Confirm password" placeholder="Repeat password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+            <FormInput type="password" label="Password" placeholder="Create password" autoComplete="new-password" minLength={6} maxLength={64} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <FormInput type="password" label="Confirm password" placeholder="Repeat password" autoComplete="new-password" minLength={6} maxLength={64} value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
             <ErrorPopup message={error} />
             <SubmitButton fullWidth loading={submitting}>Create player</SubmitButton>
-            <p className="arcade-copy text-sm text-center">Already registered? <Link to="/login">Return to login</Link></p>
+            <GoogleSignInButton capability={capabilities.google} />
+            <div className="arcade-auth-links">
+              <p className="arcade-copy text-sm">Already registered? <Link to="/login">Return to login</Link></p>
+              <Link to="/privacy">Privacy</Link>
+            </div>
           </form>
         </ArcadePanel>
       </div>

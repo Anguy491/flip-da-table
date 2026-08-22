@@ -1,0 +1,8 @@
+node_modules/
+dist/
+playwright-report/
+test-results/
+tests/
+src/**/*.test.jsx
+coverage/
+.DS_Store

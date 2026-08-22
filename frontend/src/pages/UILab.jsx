@@ -20,6 +20,9 @@ import Register from './Register';
 import Dashboard from './Dashboard';
 import Lobby from './Lobby';
 import SessionSummary from './SessionSummary';
+import ForgotPassword from './ForgotPassword';
+import ResetPassword from './ResetPassword';
+import Privacy from './Privacy';
 import {
   dashboardFixture,
   dvcFixture,
@@ -29,6 +32,11 @@ import {
 } from '../dev/fixtures';
 
 const tokens = ['ink', 'surface', 'panel', 'cyan', 'magenta', 'yellow', 'error', 'success'];
+const authPreviewCapabilities = {
+  passwordReset: true,
+  supportEmail: 'support@anguy.dev',
+  google: { enabled: false, clientId: '', loginUri: '' },
+};
 
 export default function UILab() {
   const [params] = useSearchParams();
@@ -39,8 +47,11 @@ export default function UILab() {
   const [colorPickerOpen, setColorPickerOpen] = useState(wildMode);
   const theme = screen === 'uno' ? 'uno' : screen === 'dvc' ? 'dvc' : 'neutral';
 
-  if (screen === 'login') return <Login />;
-  if (screen === 'register') return <Register />;
+  if (screen === 'login') return <Login previewCapabilities={authPreviewCapabilities} />;
+  if (screen === 'register') return <Register previewCapabilities={authPreviewCapabilities} />;
+  if (screen === 'forgot') return <ForgotPassword />;
+  if (screen === 'reset') return <ResetPassword previewToken="preview-reset-token" />;
+  if (screen === 'privacy') return <Privacy previewCapabilities={authPreviewCapabilities} />;
   if (screen === 'dashboard') return <Dashboard preview={dashboardFixture} />;
   if (screen === 'lobby') return <Lobby preview={lobbyFixture} />;
   if (screen === 'summary') return <SessionSummary previewData={summaryFixture} previewSessionId="ARCADE-ROOM-8BIT-2048" />;

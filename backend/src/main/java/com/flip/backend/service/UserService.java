@@ -38,6 +38,7 @@ public class UserService {
         }
         if (req.password != null && !req.password.isBlank()) {
             u.setPasswordHash(encoder.encode(req.password));
+            u.setAuthVersion(u.getAuthVersion() + 1);
             changed = true;
         }
         if (changed) users.save(u);

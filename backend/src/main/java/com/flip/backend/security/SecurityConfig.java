@@ -21,7 +21,7 @@ public class SecurityConfig {
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
           http.csrf(csrf -> csrf.disable())
               .authorizeHttpRequests(auth -> auth
-                  .requestMatchers("/api/health", "/actuator/health", "/api/auth/register", "/api/auth/login").permitAll()
+                  .requestMatchers("/api/health", "/actuator/health", "/api/auth/**").permitAll()
                   .requestMatchers("/ws/**").permitAll()
                   .requestMatchers("/api/games/uno/*/stream").permitAll()
                   .anyRequest().authenticated()

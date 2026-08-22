@@ -11,15 +11,18 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import com.flip.backend.persistence.UserRepository;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService uds;
+    private final UserRepository users;
 
-    public JwtAuthFilter(JwtService jwtService, UserDetailsService uds) {
+    public JwtAuthFilter(JwtService jwtService, UserDetailsService uds, UserRepository users) {
         this.jwtService = jwtService;
         this.uds = uds;
+        this.users = users;
     }
 
     @Override
@@ -34,6 +37,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             try {
                 Claims claims = jwtService.parse(token).getBody();
                 String email = claims.getSubject();
+                var user = users.findByEmailIgnoreCase(EmailNormalizer.normalize(email)).orElseThrow();
+                Object rawVersion = claims.get("ver");
+                int tokenVersion = rawVersion instanceof Number number ? number.intValue() : 0;
+                if (tokenVersion != user.getAuthVersion()) throw new IllegalArgumentException("stale token");
                 var userDetails = uds.loadUserByUsername(email);
                 var authToken = new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities());
