@@ -45,6 +45,9 @@ app:
   mail:
     from: "${APP_MAIL_FROM:Flip Da Table <no-reply@mail.anguy.dev>}"
   auth:
+    login:
+      max-failures: ${APP_AUTH_LOGIN_MAX_FAILURES:5}
+      window-seconds: ${APP_AUTH_LOGIN_WINDOW_SECONDS:900}
     password-reset:
       enabled: ${APP_AUTH_PASSWORD_RESET_ENABLED:false}
     google:
@@ -53,3 +56,8 @@ app:
     cleanup-interval-ms: ${APP_AUTH_CLEANUP_INTERVAL_MS:3600000}
   jwt:
     secret: "${APP_JWT_SECRET:change-me-dev}"  # default only for local/dev, override in production
+  realtime:
+    sse:
+      timeout-ms: ${APP_REALTIME_SSE_TIMEOUT_MS:1800000}
+      max-per-player: ${APP_REALTIME_SSE_MAX_PER_PLAYER:3}
+      max-per-game: ${APP_REALTIME_SSE_MAX_PER_GAME:32}

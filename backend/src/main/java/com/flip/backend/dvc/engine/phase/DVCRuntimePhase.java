@@ -62,23 +62,23 @@ public class DVCRuntimePhase extends RuntimePhase {
         this.deck = deck; this.board = board; this.players = players;
     }
 
-    @Override public void enter() {
+    @Override public synchronized void enter() {
         // First action: enqueue an implicit draw (or guess if deck empty)
         startTurn();
         driveBotsUntilHumanTurn();
     }
 
-    @Override public String run() { return winnerId; }
+    @Override public synchronized String run() { return winnerId; }
 
     public DVCDeck deck() { return deck; }
     public DVCBoard board() { return board; }
-    public List<DVCPlayer> players() { return players; }
-    public boolean isFinished() { return finished; }
-    public String winnerId() { return winnerId; }
-    public Awaiting awaiting() { return awaiting; }
-    public long turnId() { return turnId; }
-    public DVCEndingPhase endingPhase() { return endingPhase; }
-    public List<DVCActionLogEntry> actionLogSnapshot() { return List.copyOf(actionLog); }
+    public synchronized List<DVCPlayer> players() { return List.copyOf(players); }
+    public synchronized boolean isFinished() { return finished; }
+    public synchronized String winnerId() { return winnerId; }
+    public synchronized Awaiting awaiting() { return awaiting; }
+    public synchronized long turnId() { return turnId; }
+    public synchronized DVCEndingPhase endingPhase() { return endingPhase; }
+    public synchronized List<DVCActionLogEntry> actionLogSnapshot() { return List.copyOf(actionLog); }
 
     private void addLog(
         String type,
@@ -105,7 +105,7 @@ public class DVCRuntimePhase extends RuntimePhase {
     }
 
     /** Drain and clear accumulated public reveal events. */
-    public List<PublicReveal> drainRecentReveals() {
+    public synchronized List<PublicReveal> drainRecentReveals() {
         if (recentReveals.isEmpty()) return List.of();
         var copy = new ArrayList<>(recentReveals);
         recentReveals.clear();
@@ -113,7 +113,7 @@ public class DVCRuntimePhase extends RuntimePhase {
     }
 
     /** Snapshot of currently public tokens by playerId (includes revealed pending card if any). */
-    public Map<String, List<String>> publicTokensSnapshot() {
+    public synchronized Map<String, List<String>> publicTokensSnapshot() {
         Map<String, List<String>> map = new HashMap<>();
         for (var p : board.snapshotOrder()) {
             List<String> tokens = new ArrayList<>();
@@ -126,7 +126,7 @@ public class DVCRuntimePhase extends RuntimePhase {
     }
 
     /* ===================== View Construction ===================== */
-    public DVCView buildView(String perspectivePlayerId) {
+    public synchronized DVCView buildView(String perspectivePlayerId) {
         // Order snapshot starting from board.currentPlayer for index mapping
         var order = board.snapshotOrder();
         int currentIndex = 0;
@@ -312,7 +312,7 @@ public class DVCRuntimePhase extends RuntimePhase {
     }
 
     /* ===================== UI Input Methods ===================== */
-    public boolean provideDrawColor(String playerId, String colorName) {
+    public synchronized boolean provideDrawColor(String playerId, String colorName) {
         if (awaiting != Awaiting.DRAW_COLOR || pendingDraw == null) return false;
         if (!current().getId().equals(playerId)) return false;
         try {
@@ -344,7 +344,7 @@ public class DVCRuntimePhase extends RuntimePhase {
         return false;
     }
 
-    public boolean provideGuess(String playerId, String targetPlayerId, int targetIndex, boolean joker, Integer number) {
+    public synchronized boolean provideGuess(String playerId, String targetPlayerId, int targetIndex, boolean joker, Integer number) {
         if (awaiting != Awaiting.GUESS_SELECTION || pendingGuess == null) return false;
         if (!current().getId().equals(playerId)) return false;
         DVCPlayer.Guess guess = joker ? DVCPlayer.Guess.jokerGuess() : DVCPlayer.Guess.number(number);
@@ -417,7 +417,7 @@ public class DVCRuntimePhase extends RuntimePhase {
         return true;
     }
 
-    public boolean provideRevealDecision(String playerId, boolean continueGuess) {
+    public synchronized boolean provideRevealDecision(String playerId, boolean continueGuess) {
         if (awaiting != Awaiting.REVEAL_DECISION || pendingReveal == null) return false;
         if (!current().getId().equals(playerId)) return false;
     pendingReveal.setContinueGuess(continueGuess);
@@ -437,7 +437,7 @@ public class DVCRuntimePhase extends RuntimePhase {
         return true;
     }
 
-    public boolean provideSelfReveal(String playerId, int ownIndex) {
+    public synchronized boolean provideSelfReveal(String playerId, int ownIndex) {
         if (awaiting != Awaiting.SELF_REVEAL_CHOICE || pendingReveal == null) return false;
         if (!current().getId().equals(playerId)) return false;
         // Simulate revealing self card due to wrong guess with empty deck
@@ -469,7 +469,7 @@ public class DVCRuntimePhase extends RuntimePhase {
         return true;
     }
 
-    public boolean provideSettlePosition(String playerId, Integer insertIndex) {
+    public synchronized boolean provideSettlePosition(String playerId, Integer insertIndex) {
         if (awaiting != Awaiting.SETTLE_POSITION || pendingSettle == null) return false;
         if (!current().getId().equals(playerId)) return false;
         pendingSettle.setInsertIndex(insertIndex);
@@ -481,43 +481,48 @@ public class DVCRuntimePhase extends RuntimePhase {
     }
 
     /** New API: provide full ordered hand string instead of single insert index. */
-    public boolean provideSettleHand(String playerId, String handString) {
+    public synchronized boolean provideSettleHand(String playerId, String handString) {
         if (awaiting != Awaiting.SETTLE_POSITION || pendingSettle == null) return false;
         if (!current().getId().equals(playerId)) return false;
-    // When pending card exists we still need to execute settle event (auto ordering or joker) before reordering.
-    pendingSettle.setInsertIndex(null); // request auto placement
-    if (!pendingSettle.isValid()) return false;
-    pendingSettle.execute();
-    pendingSettle = null;
-        // Now reorder if handString provided
-        if (handString != null && !handString.isBlank()) {
-            var me = current();
-            var snapshot = new java.util.ArrayList<>(me.hand().snapshot());
-            // Build map from cardId token -> queue of cards to support duplicates
-            java.util.Map<String, java.util.ArrayDeque<DVCCard>> tokenToCards = new java.util.HashMap<>();
-            for (DVCCard c : snapshot) {
-                tokenToCards.computeIfAbsent(c.cardId(), k -> new java.util.ArrayDeque<>()).add(c);
-            }
-            java.util.List<DVCCard> ordered = new java.util.ArrayList<>();
-            int idx = 0; String s = handString.trim();
-            while (idx < s.length()) {
-                char colorChar = s.charAt(idx++);
-                if (colorChar!='B' && colorChar!='W') return false;
-                StringBuilder val = new StringBuilder();
-                while (idx < s.length() && s.charAt(idx) != '≤') { val.append(s.charAt(idx++)); }
-                if (idx >= s.length() || s.charAt(idx)!='≤') return false;
-                idx++; // skip terminator
-                String token = colorChar + val.toString() + "≤";
-                var q = tokenToCards.get(token);
-                if (q == null || q.isEmpty()) return false;
-                ordered.add(q.poll());
-            }
-            if (ordered.size() != snapshot.size()) return false;
-            me.hand().setExactOrder(ordered);
-        }
+        var me = current();
+        List<DVCCard> expected = new ArrayList<>(me.hand().snapshot());
+        DVCCard pending = board.getPending(playerId);
+        if (pending != null) expected.add(pending);
+        List<DVCCard> ordered = parseExactHand(expected, handString);
+        if (handString != null && !handString.isBlank() && ordered == null) return false;
+
+        // Validate every client-controlled value before the settle event moves the pending card.
+        pendingSettle.setInsertIndex(null);
+        if (!pendingSettle.isValid()) return false;
+        pendingSettle.execute();
+        pendingSettle = null;
+        if (ordered != null) me.hand().setExactOrder(ordered);
         awaiting = Awaiting.NONE;
         endTurnAndAdvance();
         return true;
+    }
+
+    private List<DVCCard> parseExactHand(List<DVCCard> expected, String handString) {
+        if (handString == null || handString.isBlank()) return null;
+        Map<String, ArrayDeque<DVCCard>> tokenToCards = new HashMap<>();
+        for (DVCCard card : expected) {
+            tokenToCards.computeIfAbsent(card.cardId(), ignored -> new ArrayDeque<>()).add(card);
+        }
+        List<DVCCard> ordered = new ArrayList<>();
+        int index = 0;
+        String supplied = handString.trim();
+        while (index < supplied.length()) {
+            char color = supplied.charAt(index++);
+            if (color != 'B' && color != 'W') return null;
+            StringBuilder value = new StringBuilder();
+            while (index < supplied.length() && supplied.charAt(index) != '≤') value.append(supplied.charAt(index++));
+            if (index >= supplied.length() || supplied.charAt(index) != '≤') return null;
+            index++;
+            var matching = tokenToCards.get(color + value.toString() + "≤");
+            if (matching == null || matching.isEmpty()) return null;
+            ordered.add(matching.removeFirst());
+        }
+        return ordered.size() == expected.size() ? ordered : null;
     }
 
     private void handlePostRevealChain() {

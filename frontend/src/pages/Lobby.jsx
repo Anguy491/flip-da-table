@@ -122,6 +122,7 @@ export default function Lobby({ preview = null }) {
       if (!active) return;
       client = new Client({
         brokerURL: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
+        connectHeaders: { Authorization: `Bearer ${token}` },
         reconnectDelay: 3000,
         onConnect: () => {
           if (!active) return;

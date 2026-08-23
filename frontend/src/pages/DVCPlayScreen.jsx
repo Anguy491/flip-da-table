@@ -88,6 +88,7 @@ export default function DVCPlayScreen({ initial }) {
       if (!active) return;
       client = new Client({
         brokerURL: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
+        connectHeaders: { Authorization: `Bearer ${token}` },
         reconnectDelay: 3000,
         onConnect: () => {
           if (!active) return;
@@ -126,7 +127,7 @@ export default function DVCPlayScreen({ initial }) {
       active = false;
       if (client) void client.deactivate();
     };
-  }, [gameId, myPlayerId]);
+  }, [gameId, myPlayerId, token]);
 
   useEffect(() => {
     const evaluate = () => {

@@ -9,6 +9,7 @@ import com.flip.backend.uno.engine.phase.UnoStartPhase;
 import com.flip.backend.uno.engine.phase.UnoRuntimePhase;
 import com.flip.backend.uno.engine.UnoGameRegistry;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UnoGameService extends GameService {
@@ -18,8 +19,22 @@ public class UnoGameService extends GameService {
 	@Override public boolean supports(String gameType) { return "UNO".equalsIgnoreCase(gameType); }
 
 	@Override
+	protected boolean isFinished(String gameId) {
+		var runtime = registry.get(gameId);
+		return runtime != null && runtime.endingPhase() != null;
+	}
+
+	@Override
+	public Object viewFor(String gameId, String playerId) {
+		var runtime = registry.get(gameId);
+		if (runtime == null) throw new IllegalArgumentException("game not found");
+		return runtime.buildView(playerId);
+	}
+
+	@Override
+	@Transactional
 	public StartGameResponse startFirst(String sessionId, StartGameRequest req) {
-		var session = sessions.findById(sessionId).orElseThrow(() -> new IllegalArgumentException("session not found"));
+		var session = beginFirstRound(sessionId);
 		if (!supports(session.getGameType())) throw new IllegalArgumentException("Unsupported game type for UNO service");
 		int players = countValidPlayers(req);
 		if (players < 2) throw new IllegalArgumentException("UNO requires at least 2 players");
@@ -60,13 +75,14 @@ public class UnoGameService extends GameService {
 	}
 
 	@Override
+	@Transactional
 	public StartGameResponse startNext(String sessionId, StartGameRequest req) {
-		var session = sessions.findById(sessionId).orElseThrow(() -> new IllegalArgumentException("session not found"));
+		var nextRound = beginNextRound(sessionId);
+		var session = nextRound.session();
 		if (!supports(session.getGameType())) throw new IllegalArgumentException("Unsupported game type for UNO service");
 		int players = countValidPlayers(req);
 		if (players < 2) throw new IllegalArgumentException("UNO requires at least 2 players");
-		int next = nextRoundIndex(sessionId);
-		var base = persistRound(session, next);
+		var base = persistRound(session, nextRound.roundIndex());
 		// Reuse start logic for new round
 		java.util.List<PlayerStartInfo> playerInfos = new java.util.ArrayList<>();
 		java.util.List<String> playerIds = new java.util.ArrayList<>();

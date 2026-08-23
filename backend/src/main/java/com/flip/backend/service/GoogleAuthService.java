@@ -75,29 +75,21 @@ public class GoogleAuthService {
         }
 
         var matchingUser = users.findByEmailIgnoreCase(google.email()).orElse(null);
-        if (matchingUser != null && !isGoogleAuthoritative(google)) {
+        if (matchingUser != null) {
             meters.counter("auth.google.login", "result", "link_required").increment();
             return newLinkHandoff(matchingUser, google);
         }
 
-        UserEntity user;
-        if (matchingUser != null) {
-            ensureProviderSlotAvailable(matchingUser.getId());
-            identities.save(newIdentity(matchingUser, google));
-            user = matchingUser;
-            meters.counter("auth.google.login", "result", "auto_linked").increment();
-        } else {
-            String nickname = googleNickname(google);
-            user = users.save(UserEntity.builder()
-                    .email(google.email())
-                    .passwordHash(encoder.encode(secureTokens.generate()))
-                    .nickname(nickname)
-                    .roles("USER")
-                    .createdAt(Instant.now())
-                    .build());
-            identities.save(newIdentity(user, google));
-            meters.counter("auth.google.login", "result", "created").increment();
-        }
+        String nickname = googleNickname(google);
+        UserEntity user = users.save(UserEntity.builder()
+                .email(google.email())
+                .passwordHash(encoder.encode(secureTokens.generate()))
+                .nickname(nickname)
+                .roles("USER")
+                .createdAt(Instant.now())
+                .build());
+        identities.save(newIdentity(user, google));
+        meters.counter("auth.google.login", "result", "created").increment();
         return newLoginHandoff(user);
     }
 
@@ -200,11 +192,6 @@ public class GoogleAuthService {
         if (identities.findByUserIdAndProvider(userId, GOOGLE_PROVIDER).isPresent()) {
             throw new IllegalArgumentException("GOOGLE_ACCOUNT_ALREADY_LINKED");
         }
-    }
-
-    private static boolean isGoogleAuthoritative(VerifiedGoogleIdentity google) {
-        return google.email().endsWith("@gmail.com")
-                || (google.emailVerified() && google.hostedDomain() != null && !google.hostedDomain().isBlank());
     }
 
     private static String googleNickname(VerifiedGoogleIdentity google) {

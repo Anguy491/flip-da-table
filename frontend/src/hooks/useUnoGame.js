@@ -18,6 +18,16 @@ export function canPlayUnoCard(card, { top, activeColor, pendingDraw = 0, pendin
   return matchesTop(card, top, activeColor);
 }
 
+export function parseSseBlock(block) {
+  let event = 'message';
+  const data = [];
+  for (const line of block.split(/\r?\n/)) {
+    if (line.startsWith('event:')) event = line.slice(6).trim();
+    if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+  }
+  return { event, data: data.join('\n') };
+}
+
 export default function useUnoGame({ gameId, playerId, token, autoPoll = false, pollMs = 5000 }) {
   const [view, setView] = useState(null);
   const [events, setEvents] = useState([]);
@@ -54,49 +64,74 @@ export default function useUnoGame({ gameId, playerId, token, autoPoll = false, 
       return undefined;
     }
 
-    let eventSource;
+    let abortController;
     let reconnectTimer;
     let stopped = false;
 
-    const connect = () => {
-      if (stopped) return;
-      setConnectionState((current) => current === 'connected' ? 'reconnecting' : 'connecting');
-      eventSource = new EventSource(`/api/games/uno/${gameId}/stream`);
-      eventSource.onopen = () => setConnectionState('connected');
-      eventSource.addEventListener('VIEW', (event) => {
-        try {
-          const payload = JSON.parse(event.data);
-          setView((currentView) => {
-            if (!currentView) return payload;
-            const currentPlayers = Array.isArray(currentView.players) ? currentView.players : [];
-            const incomingPlayers = Array.isArray(payload.players) ? payload.players : [];
-            const mergedPlayers = incomingPlayers.map((incoming) => {
-              const current = currentPlayers.find((player) => player.playerId === incoming.playerId);
-              return incoming.playerId === playerId && !incoming.hand && current?.hand
-                ? { ...incoming, hand: current.hand }
-                : incoming;
-            });
-            return { ...currentView, ...payload, players: mergedPlayers };
-          });
-          if (Array.isArray(payload?.events)) setEvents(payload.events);
-          setConnectionState('connected');
-        } catch {
-          setError('A live table update could not be read.');
-        }
+    const applyLiveView = (payload) => {
+      setView((currentView) => {
+        if (!currentView) return payload;
+        const currentPlayers = Array.isArray(currentView.players) ? currentView.players : [];
+        const incomingPlayers = Array.isArray(payload.players) ? payload.players : [];
+        const mergedPlayers = incomingPlayers.map((incoming) => {
+          const current = currentPlayers.find((player) => player.playerId === incoming.playerId);
+          return incoming.playerId === playerId && !incoming.hand && current?.hand
+            ? { ...incoming, hand: current.hand }
+            : incoming;
+        });
+        return { ...currentView, ...payload, players: mergedPlayers };
       });
-      eventSource.onerror = () => {
-        eventSource.close();
-        if (stopped) return;
-        setConnectionState('reconnecting');
-        reconnectTimer = window.setTimeout(connect, 3000);
-      };
+      if (Array.isArray(payload?.events)) setEvents(payload.events);
+      setConnectionState('connected');
     };
 
-    connect();
+    const connect = async () => {
+      if (stopped) return;
+      setConnectionState((current) => current === 'connected' ? 'reconnecting' : 'connecting');
+      abortController = new AbortController();
+      try {
+        const response = await fetch(`/api/games/uno/${gameId}/stream`, {
+          headers: {
+            Accept: 'text/event-stream',
+            Authorization: `Bearer ${token}`,
+          },
+          signal: abortController.signal,
+        });
+        if (!response.ok || !response.body) throw new Error(`Stream failed: ${response.status}`);
+        setConnectionState('connected');
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (!stopped) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const blocks = buffer.split(/\r?\n\r?\n/);
+          buffer = blocks.pop() || '';
+          for (const block of blocks) {
+            const parsed = parseSseBlock(block);
+            if (parsed.event !== 'VIEW' || !parsed.data) continue;
+            try {
+              applyLiveView(JSON.parse(parsed.data));
+            } catch {
+              setError('A live table update could not be read.');
+            }
+          }
+        }
+      } catch (streamError) {
+        if (stopped || streamError?.name === 'AbortError') return;
+      }
+      if (!stopped) {
+        setConnectionState('reconnecting');
+        reconnectTimer = window.setTimeout(() => { void connect(); }, 3000);
+      }
+    };
+
+    void connect();
     return () => {
       stopped = true;
       window.clearTimeout(reconnectTimer);
-      eventSource?.close();
+      abortController?.abort();
     };
   }, [gameId, playerId, token]);
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canPlayUnoCard } from './useUnoGame';
+import { canPlayUnoCard, parseSseBlock } from './useUnoGame';
 
 describe('UNO playable card mapping', () => {
   it('only enables the matching penalty type while a draw stack is active', () => {
@@ -24,5 +24,14 @@ describe('UNO playable card mapping', () => {
 
     expect(canPlayUnoCard({ color: 'NONE', value: 'WILD_DRAW_FOUR' }, state)).toBe(true);
     expect(canPlayUnoCard({ color: 'BLUE', value: 'DRAW_TWO' }, state)).toBe(false);
+  });
+});
+
+describe('UNO authenticated event stream parsing', () => {
+  it('parses a named JSON view event', () => {
+    expect(parseSseBlock('event:VIEW\ndata:{"phase":"RUNTIME"}')).toEqual({
+      event: 'VIEW',
+      data: '{"phase":"RUNTIME"}',
+    });
   });
 });

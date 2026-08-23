@@ -5,7 +5,9 @@ import com.flip.backend.uno.engine.phase.UnoRuntimePhase;
 import com.flip.backend.uno.engine.view.UnoView;
 import com.flip.backend.uno.engine.view.UnoPlayerView;
 import com.flip.backend.uno.engine.view.UnoBoardView;
+import com.flip.backend.security.GameAccessService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.*;
@@ -15,7 +17,12 @@ import java.util.*;
 public class UnoController {
     private final UnoGameRegistry registry;
     private final UnoSseService sseService;
-    public UnoController(UnoGameRegistry registry, UnoSseService sseService) { this.registry = registry; this.sseService = sseService; }
+    private final GameAccessService access;
+    public UnoController(UnoGameRegistry registry, UnoSseService sseService, GameAccessService access) {
+        this.registry = registry;
+        this.sseService = sseService;
+        this.access = access;
+    }
 
     /** DTO for incoming commands. */
     public record UnoCommand(String type, String playerId, String color, String value) {}
@@ -27,41 +34,46 @@ public class UnoController {
     public record ErrorInfo(String message) {}
 
     @GetMapping("/{gameId}/view")
-    public ResponseEntity<Map<String,Object>> getView(@PathVariable String gameId, @RequestParam String viewerId) {
+    public ResponseEntity<Map<String,Object>> getView(
+            @PathVariable String gameId,
+            @RequestParam String viewerId,
+            Authentication authentication
+    ) {
         UnoRuntimePhase runtime = registry.get(gameId);
         if (runtime == null) return ResponseEntity.notFound().build();
-        var backendView = runtime.buildView(viewerId);
+        String playerId = access.requireClaimedPlayer(authentication, gameId, viewerId);
+        var backendView = runtime.buildView(playerId);
         return ResponseEntity.ok(transformView(runtime, backendView));
     }
 
     @PostMapping("/{gameId}/commands")
-    public ResponseEntity<CommandResult> command(@PathVariable String gameId, @RequestBody UnoCommand cmd) {
+    public ResponseEntity<CommandResult> command(
+            @PathVariable String gameId,
+            @RequestBody UnoCommand cmd,
+            Authentication authentication
+    ) {
         UnoRuntimePhase runtime = registry.get(gameId);
         if (runtime == null) return ResponseEntity.ok(CommandResult.error("Game not found", null));
-        // Ensure listener installed
-        if (runtime.actionLogSnapshot().isEmpty()) { // crude guard for first-time
-            runtime.setTurnListener(rt -> {
-                // Broadcast generic perspective (no private hand exposure)
-                var vGen = transformView(rt, rt.buildView(null));
-                sseService.broadcastView(gameId, vGen);
-            });
-        }
-        var result = runtime.applyPlayerCommand(new UnoRuntimePhase.PlayerCommand(cmd.type(), cmd.playerId(), cmd.color(), cmd.value()));
+        String playerId = access.requireClaimedPlayer(authentication, gameId, cmd.playerId());
+        runtime.setTurnListener(ignored -> sseService.broadcastView(gameId));
+        var result = runtime.applyPlayerCommand(new UnoRuntimePhase.PlayerCommand(cmd.type(), playerId, cmd.color(), cmd.value()));
         var v = transformView(runtime, result.view());
         if (!result.applied()) {
             List<ErrorInfo> errs = result.errors().stream().map(e -> new ErrorInfo(e.code()+":"+e.message())).toList();
-            // Broadcast even on error? Only if state mutated. For simplicity: broadcast always.
-            sseService.broadcastView(gameId, v);
+            sseService.broadcastView(gameId);
             return ResponseEntity.ok(new CommandResult(false, errs, v));
         }
-        sseService.broadcastView(gameId, v);
+        sseService.broadcastView(gameId);
         return ResponseEntity.ok(new CommandResult(true, List.of(), v));
     }
 
     /** SSE stream for live view updates. */
     @GetMapping("/{gameId}/stream")
-    public SseEmitter stream(@PathVariable String gameId) {
-        return sseService.subscribe(gameId);
+    public SseEmitter stream(@PathVariable String gameId, Authentication authentication) {
+        UnoRuntimePhase runtime = registry.get(gameId);
+        if (runtime == null) throw new IllegalArgumentException("game not found");
+        String playerId = access.requirePlayer(authentication, gameId);
+        return sseService.subscribe(gameId, playerId, () -> transformView(runtime, runtime.buildView(playerId)));
     }
 
     /** Convert internal UnoView (string hand displays) into front-end expected structure. */

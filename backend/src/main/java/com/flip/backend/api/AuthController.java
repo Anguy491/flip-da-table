@@ -5,6 +5,7 @@ import com.flip.backend.service.AuthService;
 import com.flip.backend.service.PasswordResetService;
 import com.flip.backend.security.AuthFeatureProperties;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,8 +30,8 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest req) {
-        return ResponseEntity.ok(svc.login(req));
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest req, HttpServletRequest request) {
+        return ResponseEntity.ok(svc.login(req, request.getRemoteAddr()));
     }
 
     @GetMapping("/capabilities")

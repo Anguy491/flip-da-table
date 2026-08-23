@@ -9,20 +9,39 @@ import com.flip.backend.dvc.engine.DVCGameRegistry;
 import com.flip.backend.dvc.engine.DVCStartRegistry;
 import com.flip.backend.dvc.engine.phase.DVCStartPhase;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DVCGameService extends GameService {
+    private final DVCGameRegistry runtimeRegistry;
     private final DVCStartRegistry startRegistry;
     public DVCGameService(SessionRepository sessions, GameRepository games, DVCGameRegistry runtimeRegistry, DVCStartRegistry startRegistry) {
         super(sessions, games);
+        this.runtimeRegistry = runtimeRegistry;
         this.startRegistry = startRegistry;
     }
 
     @Override public boolean supports(String gameType) { return "DAVINCI".equalsIgnoreCase(gameType); }
 
     @Override
+    protected boolean isFinished(String gameId) {
+        var runtime = runtimeRegistry.get(gameId);
+        return runtime != null && runtime.isFinished();
+    }
+
+    @Override
+    public Object viewFor(String gameId, String playerId) {
+        var runtime = runtimeRegistry.get(gameId);
+        if (runtime != null) return runtime.buildView(playerId);
+        var start = startRegistry.get(gameId);
+        if (start != null) return start.buildView(playerId);
+        throw new IllegalArgumentException("game not found");
+    }
+
+    @Override
+    @Transactional
     public StartGameResponse startFirst(String sessionId, StartGameRequest req) {
-        var session = sessions.findById(sessionId).orElseThrow(() -> new IllegalArgumentException("session not found"));
+        var session = beginFirstRound(sessionId);
         if (!supports(session.getGameType())) throw new IllegalArgumentException("Unsupported game type for DaVinci service");
         int players = countValidPlayers(req);
         if (players < 2 || players > 4) throw new IllegalArgumentException("players must be 2-4 for DaVinci");
@@ -54,13 +73,14 @@ public class DVCGameService extends GameService {
     }
 
     @Override
+    @Transactional
     public StartGameResponse startNext(String sessionId, StartGameRequest req) {
-        var session = sessions.findById(sessionId).orElseThrow(() -> new IllegalArgumentException("session not found"));
+        var nextRound = beginNextRound(sessionId);
+        var session = nextRound.session();
         if (!supports(session.getGameType())) throw new IllegalArgumentException("Unsupported game type for DaVinci service");
         int players = countValidPlayers(req);
         if (players < 2 || players > 4) throw new IllegalArgumentException("players must be 2-4 for DaVinci");
-        int next = nextRoundIndex(sessionId);
-        var base = persistRound(session, next);
+        var base = persistRound(session, nextRound.roundIndex());
         java.util.List<PlayerStartInfo> playerInfos = new java.util.ArrayList<>();
         java.util.List<String> playerIds = new java.util.ArrayList<>();
         int seq = 1; int botSeq = 1;

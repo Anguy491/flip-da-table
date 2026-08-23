@@ -6,5 +6,7 @@ import java.util.Optional;
 
 public interface SessionMemberRepository extends JpaRepository<SessionMemberEntity, Long> {
     List<SessionMemberEntity> findBySessionId(String sessionId);
+    List<SessionMemberEntity> findBySessionIdOrderByJoinedAtAscIdAsc(String sessionId);
     Optional<SessionMemberEntity> findBySessionIdAndUserId(String sessionId, Long userId);
+    long countBySessionId(String sessionId);
 }

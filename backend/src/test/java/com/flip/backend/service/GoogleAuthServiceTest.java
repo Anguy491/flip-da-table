@@ -61,7 +61,7 @@ class GoogleAuthServiceTest {
     }
 
     @Test
-    void automaticallyLinksAnAuthoritativeGmailAddressToTheExistingPlayer() {
+    void requiresTheOriginalPasswordForAGmailAddressCollision() {
         Fixture fixture = fixture(new VerifiedGoogleIdentity("google-sub", "player@gmail.com", true, null, "Google Player"));
         var player = fixture.player("player@gmail.com");
         when(fixture.identities.findByProviderAndSubject("GOOGLE", "google-sub")).thenReturn(Optional.empty());
@@ -70,9 +70,10 @@ class GoogleAuthServiceTest {
 
         var result = fixture.service.begin("credential", "csrf", "csrf");
 
-        assertEquals(GoogleAuthService.LOGIN_PURPOSE, result.purpose());
-        verify(fixture.identities).save(argThat(identity -> identity.getUserId().equals(player.getId())
-                && identity.getSubject().equals("google-sub")));
+        assertEquals(GoogleAuthService.LINK_PURPOSE, result.purpose());
+        verify(fixture.identities, never()).save(any());
+        verify(fixture.handoffs).save(argThat(code -> code.getProviderSubject().equals("google-sub")
+                && code.getPurpose().equals(GoogleAuthService.LINK_PURPOSE)));
     }
 
     @Test
@@ -92,7 +93,7 @@ class GoogleAuthServiceTest {
     }
 
     @Test
-    void automaticallyLinksAVerifiedWorkspaceAddress() {
+    void requiresTheOriginalPasswordForAVerifiedWorkspaceAddressCollision() {
         Fixture fixture = fixture(new VerifiedGoogleIdentity(
                 "workspace-sub", "player@company.example", true, "company.example", "Workspace Player"));
         var player = fixture.player("player@company.example");
@@ -102,8 +103,10 @@ class GoogleAuthServiceTest {
 
         var result = fixture.service.begin("credential", "csrf", "csrf");
 
-        assertEquals(GoogleAuthService.LOGIN_PURPOSE, result.purpose());
-        verify(fixture.identities).save(argThat(identity -> identity.getSubject().equals("workspace-sub")));
+        assertEquals(GoogleAuthService.LINK_PURPOSE, result.purpose());
+        verify(fixture.identities, never()).save(any());
+        verify(fixture.handoffs).save(argThat(code -> code.getProviderSubject().equals("workspace-sub")
+                && code.getPurpose().equals(GoogleAuthService.LINK_PURPOSE)));
     }
 
     @Test

@@ -23,7 +23,6 @@ public class SecurityConfig {
               .authorizeHttpRequests(auth -> auth
                   .requestMatchers("/api/health", "/actuator/health", "/api/auth/**").permitAll()
                   .requestMatchers("/ws/**").permitAll()
-                  .requestMatchers("/api/games/uno/*/stream").permitAll()
                   .anyRequest().authenticated()
               )
               // Remove default httpBasic to avoid browser basic auth popup, provide JSON entry point

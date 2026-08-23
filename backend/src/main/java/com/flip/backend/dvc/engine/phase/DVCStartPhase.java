@@ -25,11 +25,11 @@ public class DVCStartPhase extends StartPhase {
 
     public DVCStartPhase(List<String> playerIds) { this.playerIds = Objects.requireNonNull(playerIds); }
 
-    public DVCDeck deck() { return deck; }
-    public DVCBoard board() { return board; }
-    public List<DVCPlayer> players() { return players; }
+    public synchronized DVCDeck deck() { return deck; }
+    public synchronized DVCBoard board() { return board; }
+    public synchronized List<DVCPlayer> players() { return List.copyOf(players); }
 
-    @Override public void enter() {
+    @Override public synchronized void enter() {
         if (entered) return; entered = true;
         if (playerIds.size() < 2 || playerIds.size() > 4) throw new IllegalArgumentException("Players must be 2-4");
         deck.initialize();
@@ -84,11 +84,11 @@ public class DVCStartPhase extends StartPhase {
     }
 
     /** Player finished arranging initial cards. */
-    public void settled(String playerId) { if (players.stream().anyMatch(p->p.getId().equals(playerId))) settledSet.add(playerId); }
-    public boolean allSettled() { return settledSet.size() == players.size(); }
+    public synchronized void settled(String playerId) { if (players.stream().anyMatch(p->p.getId().equals(playerId))) settledSet.add(playerId); }
+    public synchronized boolean allSettled() { return settledSet.size() == players.size(); }
 
     /** Reorder a player's hand using provided concatenated cardId string. */
-    public boolean reorderHand(String playerId, String handString) {
+    public synchronized boolean reorderHand(String playerId, String handString) {
         if (handString == null || handString.isBlank()) return false;
         DVCPlayer target = players.stream().filter(p->p.getId().equals(playerId)).findFirst().orElse(null);
         if (target == null) return false;
@@ -114,7 +114,7 @@ public class DVCStartPhase extends StartPhase {
     }
 
     /** Build a view for start phase with awaiting=SETTLE_POSITION. */
-    public DVCView buildView(String perspectivePlayerId) {
+    public synchronized DVCView buildView(String perspectivePlayerId) {
         if (board == null) return null;
         // During start phase, each color starts with 13 in deck minus dealt cards
         int totalPerColor = 13;
@@ -138,7 +138,7 @@ public class DVCStartPhase extends StartPhase {
         return new DVCView(boardView, List.copyOf(pviews), perspectivePlayerId, List.of());
     }
 
-    @Override public DVCRuntimePhase transit() {
+    @Override public synchronized DVCRuntimePhase transit() {
         if (!allSettled()) throw new IllegalStateException("Not all players settled");
         return new DVCRuntimePhase(deck, board, players);
     }

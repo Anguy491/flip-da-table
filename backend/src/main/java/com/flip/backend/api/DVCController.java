@@ -6,7 +6,9 @@ import com.flip.backend.dvc.engine.phase.DVCRuntimePhase;
 import com.flip.backend.dvc.engine.phase.DVCStartPhase;
 import com.flip.backend.dvc.engine.view.DVCView;
 import com.flip.backend.service.game.DVCGameService;
+import com.flip.backend.security.GameAccessService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 /** Minimal REST controller for DVC interactions (prototype). */
@@ -16,28 +18,31 @@ public class DVCController {
 	private final DVCGameRegistry runtimeRegistry;
 	private final DVCStartRegistry startRegistry;
 	private final DvcWsService ws;
-	public DVCController(DVCGameRegistry runtimeRegistry, DVCStartRegistry startRegistry, DVCGameService gameService, DvcWsService ws) {
-		this.runtimeRegistry = runtimeRegistry; this.startRegistry = startRegistry; this.ws = ws; }
+	private final GameAccessService access;
+	public DVCController(DVCGameRegistry runtimeRegistry, DVCStartRegistry startRegistry, DVCGameService gameService, DvcWsService ws, GameAccessService access) {
+		this.runtimeRegistry = runtimeRegistry; this.startRegistry = startRegistry; this.ws = ws; this.access = access; }
 
 	private DVCRuntimePhase runtime(String gameId) { return runtimeRegistry.get(gameId); }
 	private DVCStartPhase startPhase(String gameId) { return startRegistry.get(gameId); }
 
 	@GetMapping("/{gameId}/view/{playerId}")
-	public ResponseEntity<DVCView> view(@PathVariable String gameId, @PathVariable String playerId) {
+	public ResponseEntity<DVCView> view(@PathVariable String gameId, @PathVariable String playerId, Authentication authentication) {
+		String authorizedPlayerId = access.requireClaimedPlayer(authentication, gameId, playerId);
 		var rt = runtime(gameId);
 		if (rt!=null) {
-			var v = rt.buildView(playerId);
+			var v = rt.buildView(authorizedPlayerId);
 			return ResponseEntity.ok(v);
 		}
 		var sp = startPhase(gameId);
 		if (sp==null) return ResponseEntity.notFound().build();
-		var v = sp.buildView(playerId);
+		var v = sp.buildView(authorizedPlayerId);
 		return ResponseEntity.ok(v);
 	}
 
 	/** Public snapshot of currently revealed tokens per player (no private info). */
 	@GetMapping("/{gameId}/public-tokens")
-	public ResponseEntity<java.util.Map<String, java.util.List<String>>> publicTokens(@PathVariable String gameId) {
+	public ResponseEntity<java.util.Map<String, java.util.List<String>>> publicTokens(@PathVariable String gameId, Authentication authentication) {
+		access.requirePlayer(authentication, gameId);
 		var rt = runtime(gameId);
 		if (rt == null) return ResponseEntity.notFound().build();
 		return ResponseEntity.ok(rt.publicTokensSnapshot());
@@ -45,40 +50,51 @@ public class DVCController {
 
 	public record DrawColorRequest(String playerId, String color) {}
 	@PostMapping("/{gameId}/drawColor")
-	public boolean drawColor(@PathVariable String gameId, @RequestBody DrawColorRequest req) {
-		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideDrawColor(req.playerId(), req.color()); if (ok) ws.broadcastRuntime(gameId, rt); return ok;
+	public boolean drawColor(@PathVariable String gameId, @RequestBody DrawColorRequest req, Authentication authentication) {
+		String playerId = access.requireClaimedPlayer(authentication, gameId, req.playerId());
+		var rt = runtime(gameId); if (rt==null) return false;
+		synchronized (rt) { boolean ok = rt.provideDrawColor(playerId, req.color()); if (ok) ws.broadcastRuntime(gameId, rt); return ok; }
 	}
 
 	public record GuessRequest(String playerId, String targetPlayerId, int targetIndex, boolean joker, Integer number) {}
 	@PostMapping("/{gameId}/guess")
-	public boolean guess(@PathVariable String gameId, @RequestBody GuessRequest req) {
-		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideGuess(req.playerId(), req.targetPlayerId(), req.targetIndex(), req.joker(), req.number()); if (ok) { ws.broadcastRuntime(gameId, rt); ws.broadcastDvcPublicReveals(gameId, (java.util.Collection<?>) rt.drainRecentReveals()); } return ok;
+	public boolean guess(@PathVariable String gameId, @RequestBody GuessRequest req, Authentication authentication) {
+		String playerId = access.requireClaimedPlayer(authentication, gameId, req.playerId());
+		var rt = runtime(gameId); if (rt==null) return false;
+		synchronized (rt) { boolean ok = rt.provideGuess(playerId, req.targetPlayerId(), req.targetIndex(), req.joker(), req.number()); if (ok) { ws.broadcastRuntime(gameId, rt); ws.broadcastDvcPublicReveals(gameId, (java.util.Collection<?>) rt.drainRecentReveals()); } return ok; }
 	}
 
 	public record RevealDecisionRequest(String playerId, boolean cont) {}
 	@PostMapping("/{gameId}/revealDecision")
-	public boolean revealDecision(@PathVariable String gameId, @RequestBody RevealDecisionRequest req) {
-		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideRevealDecision(req.playerId(), req.cont()); if (ok) { ws.broadcastRuntime(gameId, rt); ws.broadcastDvcPublicReveals(gameId, (java.util.Collection<?>) rt.drainRecentReveals()); } return ok;
+	public boolean revealDecision(@PathVariable String gameId, @RequestBody RevealDecisionRequest req, Authentication authentication) {
+		String playerId = access.requireClaimedPlayer(authentication, gameId, req.playerId());
+		var rt = runtime(gameId); if (rt==null) return false;
+		synchronized (rt) { boolean ok = rt.provideRevealDecision(playerId, req.cont()); if (ok) { ws.broadcastRuntime(gameId, rt); ws.broadcastDvcPublicReveals(gameId, (java.util.Collection<?>) rt.drainRecentReveals()); } return ok; }
 	}
 
 	public record SelfRevealRequest(String playerId, int ownIndex) {}
 	@PostMapping("/{gameId}/selfReveal")
-	public boolean selfReveal(@PathVariable String gameId, @RequestBody SelfRevealRequest req) {
-		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideSelfReveal(req.playerId(), req.ownIndex()); if (ok) { ws.broadcastRuntime(gameId, rt); ws.broadcastDvcPublicReveals(gameId, (java.util.Collection<?>) rt.drainRecentReveals()); } return ok;
+	public boolean selfReveal(@PathVariable String gameId, @RequestBody SelfRevealRequest req, Authentication authentication) {
+		String playerId = access.requireClaimedPlayer(authentication, gameId, req.playerId());
+		var rt = runtime(gameId); if (rt==null) return false;
+		synchronized (rt) { boolean ok = rt.provideSelfReveal(playerId, req.ownIndex()); if (ok) { ws.broadcastRuntime(gameId, rt); ws.broadcastDvcPublicReveals(gameId, (java.util.Collection<?>) rt.drainRecentReveals()); } return ok; }
 	}
 
 	public record SettleRequest(String playerId, Boolean isSettled, String hand) {}
 	@PostMapping("/{gameId}/settle")
-	public boolean settle(@PathVariable String gameId, @RequestBody SettleRequest req) {
+	public boolean settle(@PathVariable String gameId, @RequestBody SettleRequest req, Authentication authentication) {
+		String playerId = access.requireClaimedPlayer(authentication, gameId, req.playerId());
 		// If still in start phase interpret as initial arrange + settle
 		var sp = startPhase(gameId);
 		if (sp != null) {
+			synchronized (sp) {
+				if (startRegistry.get(gameId) != sp) return false;
 			// Apply player's arranged hand first; if provided but invalid, reject without marking settled
 			if (req.hand()!=null) {
-				boolean ok = sp.reorderHand(req.playerId(), req.hand());
+				boolean ok = sp.reorderHand(playerId, req.hand());
 				if (!ok) return false;
 			}
-			if (Boolean.TRUE.equals(req.isSettled())) sp.settled(req.playerId());
+			if (Boolean.TRUE.equals(req.isSettled())) sp.settled(playerId);
 			// Auto transit when all settled
 			if (sp.allSettled()) {
 				var runtime = sp.transit();
@@ -90,7 +106,9 @@ public class DVCController {
 				ws.broadcastStart(gameId, sp);
 			}
 			return true;
+			}
 		}
-		var rt = runtime(gameId); if (rt==null) return false; boolean ok = rt.provideSettleHand(req.playerId(), req.hand()); if (ok) { ws.broadcastRuntime(gameId, rt); ws.broadcastDvcPublicReveals(gameId, (java.util.Collection<?>) rt.drainRecentReveals()); } return ok;
+		var rt = runtime(gameId); if (rt==null) return false;
+		synchronized (rt) { boolean ok = rt.provideSettleHand(playerId, req.hand()); if (ok) { ws.broadcastRuntime(gameId, rt); ws.broadcastDvcPublicReveals(gameId, (java.util.Collection<?>) rt.drainRecentReveals()); } return ok; }
 	}
 }

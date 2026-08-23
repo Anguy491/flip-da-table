@@ -75,6 +75,14 @@ public class DVCRuntimeDeckEmptyTest {
         assertTrue(decisionOk);
         assertEquals(DVCRuntimePhase.Awaiting.SETTLE_POSITION, runtime.awaiting());
 
+        // Invalid client ordering must not consume the pending card or alter the hand.
+        var handBeforeInvalidSettle = A.hand().snapshot();
+        var pendingBeforeInvalidSettle = board.getPending("A");
+        assertFalse(runtime.provideSettleHand("A", "not-a-hand"));
+        assertEquals(handBeforeInvalidSettle, A.hand().snapshot());
+        assertSame(pendingBeforeInvalidSettle, board.getPending("A"));
+        assertEquals(DVCRuntimePhase.Awaiting.SETTLE_POSITION, runtime.awaiting());
+
         // Settle: auto placement (null index allowed), end turn then advance to B
         boolean settleOk = runtime.provideSettlePosition("A", null);
         assertTrue(settleOk);
