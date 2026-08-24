@@ -136,6 +136,7 @@ For local Google sign-in, Mailpit password-reset email, and PostgreSQL setup, fo
 ```
 # PowerShell example
 $env:APP_JWT_SECRET = 'your-strong-secret'
+$env:POSTGRES_PASSWORD = 'your-strong-database-password'
 docker compose up -d --pull always
 ```
 

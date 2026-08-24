@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: flip
       POSTGRES_USER: flip
-      POSTGRES_PASSWORD: flip
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +22,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/flip
       SPRING_DATASOURCE_USERNAME: flip
-      SPRING_DATASOURCE_PASSWORD: flip
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
       APP_JWT_SECRET: ${APP_JWT_SECRET}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://game.anguy.dev}
       APP_SUPPORT_EMAIL: ${APP_SUPPORT_EMAIL:-support@anguy.dev}

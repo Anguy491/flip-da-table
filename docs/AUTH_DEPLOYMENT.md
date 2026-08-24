@@ -35,6 +35,7 @@ HAVING count(*) > 1;
 ```dotenv
 APP_PUBLIC_URL=https://game.anguy.dev
 APP_JWT_SECRET=<至少 32 字节随机秘密>
+POSTGRES_PASSWORD=<独立生成的强随机数据库口令>
 APP_SUPPORT_EMAIL=support@anguy.dev
 APP_MAIL_FROM=Flip Da Table <no-reply@mail.anguy.dev>
 RESEND_API_KEY=<Resend API Key>

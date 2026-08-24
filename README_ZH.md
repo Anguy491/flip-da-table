@@ -112,10 +112,11 @@ npm run check       # lint + UI audit + 单测 + 构建
 
 认证升级应先在两个功能开关均关闭时部署。完成 [`docs/AUTH_DEPLOYMENT.md`](docs/AUTH_DEPLOYMENT.md) 中的生产数据预检、Resend 与 Google 配置后，再分别启用密码找回和 Google 登录。
 
-启动（确保已设置环境变量 `APP_JWT_SECRET`）：
+启动（确保已设置环境变量 `APP_JWT_SECRET` 与独立随机的 `POSTGRES_PASSWORD`）：
 ```bash
 # Windows PowerShell 示例
 $env:APP_JWT_SECRET = 'your-strong-secret'
+$env:POSTGRES_PASSWORD = 'your-strong-database-password'
 docker compose up -d --pull always
 ```
 
