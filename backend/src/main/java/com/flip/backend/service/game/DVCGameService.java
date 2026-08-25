@@ -22,6 +22,7 @@ public class DVCGameService extends GameService {
     }
 
     @Override public boolean supports(String gameType) { return "DAVINCI".equalsIgnoreCase(gameType); }
+    @Override public GameCapabilities capabilities() { return GameCapabilities.forGameType("DAVINCI"); }
 
     @Override
     protected boolean isFinished(String gameId) {

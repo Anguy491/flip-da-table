@@ -33,6 +33,10 @@ export function getSession(sessionId, token) {
   return get(`/sessions/${sessionId}`, token); // { id, ownerId, gameType, maxPlayers }
 }
 
+export function getLatestGame(sessionId, token) {
+  return get(`/sessions/${sessionId}/latest-game`, token);
+}
+
 export function startFirstGame(sessionId, payload, token) {
   // Returns { gameId, roundIndex, myPlayerId, players: [{playerId,name,bot,ready}], view? }
   return post(`/sessions/${sessionId}/start`, payload, token);

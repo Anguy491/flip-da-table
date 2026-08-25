@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useContext, useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import PageContainer from '../components/PageContainer';
 import {
@@ -8,11 +8,14 @@ import {
   Scoreboard,
 } from '../components/arcade/ArcadeUI';
 import { readSessionResults } from '../utils/sessionResults';
+import { getLatestGame } from '../api/sessions';
+import { AuthContext } from '../context/auth-context';
 
 export default function SessionSummary({ previewData = null, previewSessionId = null }) {
   const { sessionid: routeSessionId } = useParams();
   const sessionid = previewSessionId || routeSessionId;
   const navigate = useNavigate();
+  const { token } = useContext(AuthContext);
   const [data, setData] = useState(previewData);
 
   useEffect(() => {
@@ -20,8 +23,25 @@ export default function SessionSummary({ previewData = null, previewSessionId = 
       setData(previewData);
       return;
     }
-    setData(readSessionResults(sessionid));
-  }, [sessionid, previewData]);
+    const stored = readSessionResults(sessionid);
+    if (stored) {
+      setData(stored);
+      return undefined;
+    }
+    if (!token) return undefined;
+    let active = true;
+    getLatestGame(sessionid, token)
+      .then((latest) => {
+        if (!active || latest.gameType !== 'LASVEGAS' || latest.view?.phase !== 'FINISHED') return;
+        setData({
+          gameType: 'LASVEGAS',
+          totalRounds: latest.view.totalRounds,
+          vegasResults: latest.view.results || [],
+        });
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [sessionid, previewData, token]);
 
   const ranking = useMemo(() => {
     if (!data) return [];
@@ -46,6 +66,7 @@ export default function SessionSummary({ previewData = null, previewSessionId = 
     );
   }
 
+  const isLasVegas = data.gameType === 'LASVEGAS';
   const topThree = ranking.slice(0, 3);
   const podium = [topThree[1], topThree[0], topThree[2]];
   const placement = ['second', 'first', 'third'];
@@ -62,7 +83,7 @@ export default function SessionSummary({ previewData = null, previewSessionId = 
   }));
 
   return (
-    <PageContainer theme={data.gameType === 'DAVINCI' ? 'dvc' : 'uno'}>
+    <PageContainer theme={data.gameType === 'DAVINCI' ? 'dvc' : isLasVegas ? 'vegas' : 'uno'}>
       <div className="arcade-dashboard-layout">
         <header className="arcade-dashboard-header">
           <div>
@@ -70,10 +91,31 @@ export default function SessionSummary({ previewData = null, previewSessionId = 
             <h1 className="arcade-title">Final scoreboard</h1>
             <p className="arcade-copy mt-3">Session <span className="arcade-code arcade-accent">{sessionid}</span></p>
           </div>
-          <ArcadeBadge tone="success">{data.totalRounds} games</ArcadeBadge>
+          <ArcadeBadge tone="success">{isLasVegas ? `${data.totalRounds} casino rounds` : `${data.totalRounds} games`}</ArcadeBadge>
         </header>
 
-        {podium.some(Boolean) && (
+        {isLasVegas && (
+          <ArcadePanel aria-labelledby="vegas-summary-title">
+            <p className="arcade-eyebrow">Top assets // ties share victory</p>
+            <h2 id="vegas-summary-title" className="text-xl font-bold mb-5">
+              {(data.vegasResults || []).filter((player) => player.winner).map((player) => player.name).join(' & ') || 'Final standings'}
+            </h2>
+            <Scoreboard
+              columns={[
+                { key: 'rank', label: 'Rank', render: (row) => `#${row.rank}${row.winner ? ' WIN' : ''}` },
+                { key: 'name', label: 'Player' },
+                { key: 'cashTotal', label: 'Cash', render: (row) => `$${row.cashTotal.toLocaleString('en-US')}` },
+                { key: 'chips', label: 'Chips' },
+                { key: 'tieBreakCount', label: 'Cards + chips' },
+                { key: 'totalAssets', label: 'Total', render: (row) => `$${row.totalAssets.toLocaleString('en-US')}` },
+              ]}
+              rows={data.vegasResults || []}
+              getRowKey={(row) => row.playerId}
+            />
+          </ArcadePanel>
+        )}
+
+        {!isLasVegas && podium.some(Boolean) && (
           <ArcadePanel aria-labelledby="podium-title">
             <p className="arcade-eyebrow">Top players</p>
             <h2 id="podium-title" className="text-xl font-bold">Cabinet champions</h2>
@@ -90,13 +132,13 @@ export default function SessionSummary({ previewData = null, previewSessionId = 
           </ArcadePanel>
         )}
 
-        <ArcadePanel aria-labelledby="rounds-title">
+        {!isLasVegas && <ArcadePanel aria-labelledby="rounds-title">
           <p className="arcade-eyebrow">Round archive</p>
           <h2 id="rounds-title" className="text-xl font-bold mb-5">Game results</h2>
           <Scoreboard columns={columns} rows={rows} getRowKey={(row) => row.round} />
-        </ArcadePanel>
+        </ArcadePanel>}
 
-        {ranking.length > 3 && (
+        {!isLasVegas && ranking.length > 3 && (
           <ArcadePanel quiet>
             <p className="arcade-eyebrow">Remaining players</p>
             <div className="arcade-actions">

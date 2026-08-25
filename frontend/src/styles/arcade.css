@@ -592,7 +592,7 @@ a {
 
 .arcade-game-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(16px, 3vw, 28px);
 }
 
@@ -745,6 +745,59 @@ a {
 .uno-color-chip[data-color="YELLOW"] { background: var(--uno-yellow); }
 .uno-color-chip[data-color="NONE"] { background: var(--text-muted); }
 
+.vegas-game { gap: var(--space-3); }
+.vegas-seat-track { display: flex; min-width: 0; max-width: 100%; gap: var(--space-2); overflow-x: auto; padding: 4px 4px 10px; scroll-snap-type: x proximity; }
+.vegas-seat { min-width: 224px; border-color: color-mix(in srgb, var(--vegas-player-color) 72%, var(--text-muted)); scroll-snap-align: start; }
+.vegas-seat-scroll { min-width: 92px; align-self: stretch; flex: 0 0 auto; }
+.vegas-seat[data-seat="1"], [data-seat="1"] { --vegas-player-color: var(--vegas-player-1); }
+.vegas-seat[data-seat="2"], [data-seat="2"] { --vegas-player-color: var(--vegas-player-2); }
+.vegas-seat[data-seat="3"], [data-seat="3"] { --vegas-player-color: var(--vegas-player-3); }
+.vegas-seat[data-seat="4"], [data-seat="4"] { --vegas-player-color: var(--vegas-player-4); }
+.vegas-seat[data-seat="5"], [data-seat="5"] { --vegas-player-color: var(--vegas-player-5); }
+.vegas-seat[data-seat="6"], [data-seat="6"] { --vegas-player-color: var(--vegas-player-6); }
+.vegas-seat[data-seat="7"], [data-seat="7"] { --vegas-player-color: var(--vegas-player-7); }
+.vegas-seat[data-seat="8"], [data-seat="8"] { --vegas-player-color: var(--vegas-player-8); }
+.vegas-seat[data-seat="9"], [data-seat="9"] { --vegas-player-color: var(--vegas-player-9); }
+.vegas-seat[data-seat="10"], [data-seat="10"] { --vegas-player-color: var(--vegas-player-10); }
+.vegas-seat .arcade-seat__avatar { border-color: var(--vegas-player-color); color: var(--vegas-player-color); }
+.vegas-seat__assets { grid-column: 2 / -1; color: var(--vegas-player-color); font-family: var(--font-mono); font-size: 0.65rem; }
+
+.vegas-settlement { display: flex; flex-wrap: wrap; gap: var(--space-2); border: var(--border-pixel) solid var(--vegas-gold); background: color-mix(in srgb, var(--vegas-gold) 13%, var(--surface-panel)); box-shadow: var(--shadow-pixel); padding: var(--space-3); color: var(--vegas-cream); font-weight: 800; }
+.vegas-settlement span { border-left: 4px solid var(--vegas-coral); padding-left: var(--space-2); }
+
+.vegas-casino-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+.vegas-casino { min-height: 250px; overflow: hidden; border-color: color-mix(in srgb, var(--vegas-gold) 56%, var(--vegas-felt-raised)); }
+.vegas-casino--settling { border-color: var(--vegas-cream); box-shadow: 6px 6px 0 var(--vegas-coral); transform: translate(-2px, -2px); }
+.vegas-casino__header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); border-bottom: var(--border-pixel) solid color-mix(in srgb, var(--vegas-gold) 55%, transparent); background: color-mix(in srgb, var(--vegas-ink) 72%, transparent); padding: var(--space-3); }
+.vegas-casino__header .arcade-eyebrow { margin-bottom: var(--space-1); }
+.vegas-casino__number { margin: 0; color: var(--vegas-gold); font-family: var(--font-display); font-size: 1.8rem; line-height: 1; }
+.vegas-casino__bonuses { display: grid; gap: var(--space-1); }
+.vegas-money-card { min-width: 118px; border: var(--border-pixel) solid var(--vegas-cream); background: var(--vegas-gold); box-shadow: 3px 3px 0 var(--shadow-ink); color: var(--vegas-ink); font-family: var(--font-mono); font-size: 0.68rem; font-weight: 900; padding: 5px 7px; text-align: right; }
+.vegas-casino__players { display: grid; gap: var(--space-2); padding: var(--space-3); }
+.vegas-casino__empty { min-height: 104px; display: grid; place-items: center; margin: 0; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.72rem; }
+.vegas-influence { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-2); border-left: 4px solid var(--vegas-player-color); background: color-mix(in srgb, var(--vegas-player-color) 9%, transparent); padding: 6px 8px; }
+.vegas-influence__name { overflow: hidden; color: var(--text-main); font-size: 0.72rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.vegas-influence__dice { display: flex; align-items: center; gap: var(--space-1); }
+.vegas-influence .arcade-badge { background: var(--vegas-ink); color: var(--vegas-cream); }
+
+.vegas-die { position: relative; width: 42px; height: 42px; flex: 0 0 auto; display: grid; place-items: center; overflow: hidden; border: var(--border-pixel) solid var(--vegas-cream); border-radius: var(--radius-pixel); background: var(--vegas-player-color); box-shadow: 3px 3px 0 var(--shadow-ink); color: var(--vegas-ink); }
+.vegas-die::before { position: absolute; inset: 4px; border: 1px dashed color-mix(in srgb, var(--vegas-ink) 58%, transparent); content: ""; }
+.vegas-die[data-seat="2"]::before, .vegas-die[data-seat="5"]::before, .vegas-die[data-seat="8"]::before { background: repeating-linear-gradient(45deg, transparent 0 4px, color-mix(in srgb, var(--vegas-ink) 24%, transparent) 4px 6px); }
+.vegas-die[data-seat="3"]::before, .vegas-die[data-seat="6"]::before, .vegas-die[data-seat="9"]::before { border-style: dotted; border-width: 3px; }
+.vegas-die[data-seat="4"]::before, .vegas-die[data-seat="7"]::before, .vegas-die[data-seat="10"]::before { background: linear-gradient(90deg, transparent 42%, color-mix(in srgb, var(--vegas-ink) 26%, transparent) 42% 58%, transparent 58%); }
+.vegas-die--big { width: 54px; height: 54px; border: 4px double var(--vegas-cream); }
+.vegas-die__face { position: relative; z-index: 1; font-family: var(--font-display); font-size: 0.82rem; text-shadow: 1px 1px 0 var(--vegas-cream); }
+.vegas-die__owner { position: absolute; z-index: 1; right: 2px; bottom: 1px; font-family: var(--font-mono); font-size: 0.48rem; font-weight: 900; }
+
+.vegas-bottom-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr); gap: var(--space-3); }
+.vegas-console { min-width: 0; }
+.vegas-current-roll { display: flex; min-height: 74px; align-items: center; gap: var(--space-2); overflow-x: auto; margin-top: var(--space-4); border: var(--border-pixel) solid color-mix(in srgb, var(--text-muted) 42%, transparent); background: var(--vegas-ink); padding: var(--space-3); }
+.vegas-face-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(142px, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
+.vegas-event-panel { min-width: 0; border: var(--border-pixel) solid color-mix(in srgb, var(--text-muted) 55%, transparent); background: var(--surface-panel); box-shadow: var(--shadow-pixel); padding: var(--space-3); }
+.vegas-event-panel summary { min-height: 44px; display: flex; align-items: center; color: var(--vegas-gold); cursor: pointer; font-family: var(--font-display); font-size: 0.6rem; line-height: 1.5; text-transform: uppercase; }
+.vegas-event-log { max-height: 236px; overflow-y: auto; margin: var(--space-2) 0 0; padding: 0; list-style: none; font-size: 0.74rem; line-height: 1.5; }
+.vegas-event-log li { border-left: var(--border-pixel) solid var(--vegas-coral); margin-bottom: var(--space-2); background: color-mix(in srgb, var(--surface-raised) 56%, transparent); padding: 6px 8px; color: var(--text-muted); }
+
 .dvc-board { display: grid; gap: 12px; }
 .dvc-opponents { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 10px; }
 .dvc-player-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 10px; border: var(--border-pixel) solid color-mix(in srgb, var(--text-muted) 38%, transparent); background: color-mix(in srgb, var(--surface-raised) 58%, transparent); padding: 10px; }
@@ -825,6 +878,12 @@ a {
   .dvc-action-log { max-height: 140px; }
 }
 
+@media (max-width: 1100px) and (min-width: 621px) {
+  .arcade-game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vegas-casino-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vegas-bottom-grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 620px) {
   .arcade-shell { padding: 14px; }
   .arcade-main { min-height: calc(100vh - 28px); }
@@ -840,6 +899,8 @@ a {
   .arcade-dialog__actions > * { flex: 1 1 auto; }
   .dvc-player-row { grid-template-columns: 34px minmax(0, 1fr); }
   .dvc-player-row > :last-child { grid-column: 2; }
+  .vegas-casino-grid { grid-template-columns: 1fr; }
+  .vegas-bottom-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-height: 460px) and (orientation: landscape) {
@@ -861,6 +922,19 @@ a {
   .dvc-log-region { min-height: 80px; margin-top: 6px; padding-top: 6px; }
   .dvc-log-region__header { margin-bottom: 4px; }
   .dvc-action-log { min-height: 72px; height: 72px; max-height: 72px; }
+  .vegas-seat { min-width: 190px; }
+  .vegas-seat__assets { font-size: 0.58rem; }
+  .vegas-casino-grid { display: flex; max-width: 100%; overflow-x: auto; gap: var(--space-2); padding: 2px 4px 8px; scroll-snap-type: x mandatory; }
+  .vegas-casino { min-width: 280px; min-height: 190px; scroll-snap-align: start; }
+  .vegas-casino__header { padding: 8px; }
+  .vegas-casino__players { max-height: 112px; overflow-y: auto; padding: 8px; }
+  .vegas-casino__empty { min-height: 72px; }
+  .vegas-bottom-grid { grid-template-columns: minmax(0, 1.3fr) minmax(220px, 0.7fr); gap: 8px; }
+  .vegas-console { padding: 10px; }
+  .vegas-event-log { max-height: 130px; }
+  .vegas-current-roll { min-height: 60px; margin-top: 8px; padding: 8px; }
+  .vegas-die { width: 38px; height: 38px; }
+  .vegas-die--big { width: 48px; height: 48px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

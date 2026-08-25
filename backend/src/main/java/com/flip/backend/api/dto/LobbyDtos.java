@@ -1,6 +1,7 @@
 package com.flip.backend.api.dto;
 
 import jakarta.validation.constraints.*;
+import com.flip.backend.service.game.GameCapabilities;
 import java.util.List;
 
 public class LobbyDtos {
@@ -35,7 +36,8 @@ public class LobbyDtos {
 
     public record SessionView(
         String id, Long ownerId, String gameType, int maxPlayers,
-        List<LobbyPlayer> players
+        List<LobbyPlayer> players,
+        GameCapabilities capabilities
     ) {}
 
     public record LobbyPlayer(Long userId, String nickname) {}

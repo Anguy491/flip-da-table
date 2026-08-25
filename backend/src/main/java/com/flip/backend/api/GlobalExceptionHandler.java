@@ -15,6 +15,7 @@ import java.util.Map;
 public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<?> badRequest(IllegalArgumentException ex) {
+        io.micrometer.core.instrument.Metrics.counter("games.illegal.requests").increment();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
     }
 
@@ -49,6 +50,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(GameStateConflictException.class)
     public ResponseEntity<?> gameStateConflict(GameStateConflictException ex) {
+        io.micrometer.core.instrument.Metrics.counter("games.state.conflicts").increment();
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "GAME_STATE_CONFLICT"));
     }
 }

@@ -15,6 +15,7 @@ import {
 import UnoGameView from '../components/uno/UnoGameView';
 import ChooseColorModal from '../components/uno/ChooseColorModal';
 import DvcGameView from '../components/dvc/DvcGameView';
+import LasVegasGameView from '../components/lasvegas/LasVegasGameView';
 import Login from './Login';
 import Register from './Register';
 import Dashboard from './Dashboard';
@@ -27,6 +28,7 @@ import {
   dashboardFixture,
   dvcFixture,
   lobbyFixture,
+  lasVegasFixture,
   summaryFixture,
   unoFixture,
 } from '../dev/fixtures';
@@ -45,7 +47,7 @@ export default function UILab() {
   const dvcSettledMode = params.get('state') === 'settled';
   const [dialogOpen, setDialogOpen] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(wildMode);
-  const theme = screen === 'uno' ? 'uno' : screen === 'dvc' ? 'dvc' : 'neutral';
+  const theme = screen === 'uno' ? 'uno' : screen === 'dvc' ? 'dvc' : screen === 'vegas' ? 'vegas' : 'neutral';
 
   if (screen === 'login') return <Login previewCapabilities={authPreviewCapabilities} />;
   if (screen === 'register') return <Register previewCapabilities={authPreviewCapabilities} />;
@@ -108,6 +110,34 @@ export default function UILab() {
           onContinueReveal={() => {}}
           onSelfReveal={() => {}}
           onSettle={() => {}}
+        />
+      )}
+
+      {screen === 'vegas' && (
+        <LasVegasGameView
+          sessionId="VEGAS-10-SEATS"
+          gameId="LASVEGAS-DEMO-01"
+          view={lasVegasFixture}
+          playerId="P1"
+          connectionState="connected"
+          loading={false}
+          sending={false}
+          error=""
+          publicEvents={[{
+            sequence: 12,
+            type: 'CASINO_JACKPOT',
+            actorId: 'P5',
+            casinoNumber: 6,
+            amount: 100_000,
+          }]}
+          assetsVisible={false}
+          onRoll={() => {}}
+          onPlace={() => {}}
+          onSkip={() => {}}
+          onToggleAssets={() => {}}
+          onRefresh={() => {}}
+          onLeave={() => {}}
+          onSummary={() => {}}
         />
       )}
 

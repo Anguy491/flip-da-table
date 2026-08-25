@@ -4,6 +4,7 @@ import com.flip.backend.api.dto.LobbyDtos.*;
 import com.flip.backend.persistence.SessionEntity;
 import com.flip.backend.persistence.SessionRepository;
 import com.flip.backend.persistence.SessionMemberRepository;
+import com.flip.backend.service.game.GameCapabilities;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -17,6 +18,9 @@ public class SessionQueryService {
         var list = members.findBySessionId(id).stream()
                 .map(m -> new LobbyPlayer(m.getUserId(), m.getNickname()))
                 .toList();
-        return new SessionView(s.getId(), s.getOwnerId(), s.getGameType(), s.getMaxPlayers(), list);
+        return new SessionView(
+                s.getId(), s.getOwnerId(), s.getGameType(), s.getMaxPlayers(), list,
+                GameCapabilities.forGameType(s.getGameType())
+        );
     }
 }

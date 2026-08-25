@@ -71,6 +71,12 @@ public class Board<P extends Player> {
 	public void reverse() { direction *= -1; }
 	public void tickTurn() { turnCount++; }
 
+	/** Restore a persisted aggregate without replaying every historical turn. */
+	protected void restoreTurnCount(long value) {
+		if (value < 0) throw new IllegalArgumentException("turnCount must be >= 0");
+		turnCount = value;
+	}
+
 	public List<P> snapshotOrder() {
 		List<P> list = new ArrayList<>(size);
 		Node<P> n = current;

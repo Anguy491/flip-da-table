@@ -20,6 +20,23 @@
   --uno-wild: #15182b;
   --tile-white: #fffdf0;
   --tile-black: #090b12;
+  --vegas-ink: #071b1d;
+  --vegas-felt: #0c3b38;
+  --vegas-felt-raised: #164f49;
+  --vegas-gold: #ffcc4d;
+  --vegas-cream: #fff4c2;
+  --vegas-coral: #ff5f6d;
+  --vegas-mint: #28d7c0;
+  --vegas-player-1: #ff5f6d;
+  --vegas-player-2: #28d7c0;
+  --vegas-player-3: #ffcc4d;
+  --vegas-player-4: #67a7ff;
+  --vegas-player-5: #d88cff;
+  --vegas-player-6: #ff944d;
+  --vegas-player-7: #80e66e;
+  --vegas-player-8: #ff83c6;
+  --vegas-player-9: #65d6ff;
+  --vegas-player-10: #d7df69;
   --overlay: #070914e8;
   --shadow-ink: #02030a;
   --scanline: #f7f7e80a;
@@ -67,4 +84,14 @@
   --accent-primary: var(--arcade-cyan);
   --accent-secondary: var(--tile-white);
   --grid-line: #f7f7e80a;
+}
+
+[data-game="vegas"] {
+  --surface-page: var(--vegas-ink);
+  --surface-panel: var(--vegas-felt);
+  --surface-raised: var(--vegas-felt-raised);
+  --accent-primary: var(--vegas-gold);
+  --accent-secondary: var(--vegas-coral);
+  --accent-focus: var(--vegas-cream);
+  --grid-line: color-mix(in srgb, var(--vegas-gold) 9%, transparent);
 }

@@ -12,6 +12,7 @@ const screens = [
   { name: 'lobby', desktop: { width: 1440, height: 900 }, mobile: { width: 390, height: 844 } },
   { name: 'uno', desktop: { width: 1440, height: 900 }, mobile: { width: 667, height: 375 } },
   { name: 'dvc', desktop: { width: 1440, height: 900 }, mobile: { width: 667, height: 375 } },
+  { name: 'vegas', desktop: { width: 1440, height: 900 }, mobile: { width: 667, height: 375 } },
   { name: 'summary', desktop: { width: 1440, height: 900 }, mobile: { width: 390, height: 844 } },
 ];
 
@@ -46,7 +47,7 @@ test('ordinary mobile layout has no page overflow', async ({ page }) => {
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-for (const game of ['uno', 'dvc']) {
+for (const game of ['uno', 'dvc', 'vegas']) {
   test(`${game} phone landscape keeps controls reachable`, async ({ page }) => {
     await page.setViewportSize({ width: 667, height: 375 });
     await page.goto(`/__ui-lab?screen=${game}`);
@@ -55,6 +56,40 @@ for (const game of ['uno', 'dvc']) {
     expect(overflow).toBeLessThanOrEqual(1);
   });
 }
+
+test('Las Vegas tablet keeps a two-column casino grid @visual', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('/__ui-lab?screen=vegas');
+  const casinos = page.locator('.vegas-casino');
+  await expect(casinos).toHaveCount(6);
+  const first = await casinos.nth(0).boundingBox();
+  const second = await casinos.nth(1).boundingBox();
+  const third = await casinos.nth(2).boundingBox();
+  expect(first).not.toBeNull();
+  expect(second).not.toBeNull();
+  expect(third).not.toBeNull();
+  expect(Math.abs(first.y - second.y)).toBeLessThanOrEqual(1);
+  expect(third.y).toBeGreaterThan(first.y + first.height - 1);
+  if (testInfo.project.name === 'chromium') {
+    await expect(page).toHaveScreenshot('vegas-1024x768.png', { fullPage: true });
+  }
+});
+
+test('Las Vegas keeps keyboard focus, reduced motion, and 200% zoom usable', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/__ui-lab?screen=vegas');
+  const reveal = page.getByRole('button', { name: 'Reveal total assets' });
+  await reveal.focus();
+  await expect(reveal).toBeFocused();
+  const transitionDuration = await reveal.evaluate((element) => getComputedStyle(element).transitionDuration);
+  expect(['0s', '0.001s']).toContain(transitionDuration.split(',')[0]);
+
+  await page.evaluate(() => { document.body.style.zoom = '2'; });
+  await expect(page.getByRole('button', { name: 'Leave table' })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
 
 test('dialog traps focus and closes with Escape', async ({ page }) => {
   await page.goto('/__ui-lab?screen=components');

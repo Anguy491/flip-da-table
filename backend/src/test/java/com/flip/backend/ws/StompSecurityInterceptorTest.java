@@ -41,6 +41,19 @@ class StompSecurityInterceptorTest {
     }
 
     @Test
+    void restrictsLasVegasPrivateViewsAndAllowsMemberEventTopic() {
+        Fixture fixture = fixture();
+        when(fixture.access.requirePlayer(fixture.authentication, "vegas-1")).thenReturn("P1");
+
+        assertDoesNotThrow(() -> fixture.interceptor.preSend(
+                subscribe("/topic/las-vegas/vegas-1/P1", fixture.authentication), fixture.channel));
+        assertDoesNotThrow(() -> fixture.interceptor.preSend(
+                subscribe("/topic/las-vegas/vegas-1/events", fixture.authentication), fixture.channel));
+        assertThrows(AccessDeniedException.class, () -> fixture.interceptor.preSend(
+                subscribe("/topic/las-vegas/vegas-1/P2", fixture.authentication), fixture.channel));
+    }
+
+    @Test
     void allowsMemberLobbyTopicsButRejectsAnotherUsersPrivateLaunchTopic() {
         Fixture fixture = fixture();
         when(fixture.access.requireUserId(fixture.authentication)).thenReturn(7L);

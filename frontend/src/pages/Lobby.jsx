@@ -41,12 +41,20 @@ export default function Lobby({ preview = null }) {
   const [connectionState, setConnectionState] = useState(preview?.connectionState || 'connecting');
 
   const gameType = sessionInfo?.gameType?.toUpperCase();
-  const maxPlayers = sessionInfo?.maxPlayers || 10;
+  const capabilities = sessionInfo?.capabilities || {
+    minPlayers: gameType === 'DAVINCI' || gameType === 'UNO' ? 2 : gameType === 'LASVEGAS' ? 3 : 2,
+    maxPlayers: sessionInfo?.maxPlayers || 10,
+    botsAllowed: gameType !== 'LASVEGAS',
+    seriesAllowed: gameType !== 'LASVEGAS',
+    internalRounds: gameType === 'LASVEGAS' ? 3 : 1,
+  };
+  const minPlayers = capabilities.minPlayers;
+  const maxPlayers = Math.min(sessionInfo?.maxPlayers || capabilities.maxPlayers, capabilities.maxPlayers);
   const activePlayers = players.filter((player) => player.name?.trim());
   const playerCount = activePlayers.length;
   const readyPlayers = activePlayers.filter((player) => player.bot || player.ready);
   const allReady = readyPlayers.length === activePlayers.length && playerCount > 0;
-  const canStart = Boolean(gameType && playerCount >= 2 && playerCount <= maxPlayers && allReady);
+  const canStart = Boolean(gameType && playerCount >= minPlayers && playerCount <= maxPlayers && allReady);
   const isOwner = Boolean(myUserId && sessionInfo?.ownerId === myUserId);
 
   useEffect(() => {
@@ -73,7 +81,7 @@ export default function Lobby({ preview = null }) {
   }, [sessionid, token, preview]);
 
   const addBot = () => {
-    if (playerCount >= maxPlayers) return;
+    if (!capabilities.botsAllowed || playerCount >= maxPlayers) return;
     setPlayers((current) => [...current, { name: `Bot ${current.filter((player) => player.bot).length + 1}`, bot: true, ready: true }]);
   };
 
@@ -92,8 +100,12 @@ export default function Lobby({ preview = null }) {
   }, [sessionid]);
 
   const enterGame = useCallback((payload, totalRounds = rounds) => {
-    const route = gameType === 'UNO' ? `/unoplayscreen/${sessionid}` : `/dvcplayscreen/${sessionid}`;
-    navigate(route, { state: { gameId: payload.gameId, roundIndex: payload.roundIndex, myPlayerId: payload.myPlayerId, players: payload.players, totalRounds, results: [] } });
+    const route = gameType === 'UNO'
+      ? `/unoplayscreen/${sessionid}`
+      : gameType === 'LASVEGAS'
+        ? `/lasvegasplayscreen/${sessionid}`
+        : `/dvcplayscreen/${sessionid}`;
+    navigate(route, { state: { gameId: payload.gameId, roundIndex: payload.roundIndex, myPlayerId: payload.myPlayerId, players: payload.players, view: payload.view, totalRounds, results: [] } });
   }, [gameType, navigate, rounds, sessionid]);
 
   const startGame = async () => {
@@ -139,7 +151,7 @@ export default function Lobby({ preview = null }) {
           if (userTopic) {
             client.subscribe(userTopic, (message) => {
               try {
-                enterGame(JSON.parse(message.body), 1);
+                enterGame(JSON.parse(message.body), capabilities.seriesAllowed ? rounds : 1);
               } catch {
                 setError('The game started, but its launch message was invalid.');
               }
@@ -156,10 +168,10 @@ export default function Lobby({ preview = null }) {
       active = false;
       if (client) void client.deactivate();
     };
-  }, [enterGame, myUserId, sessionid, token, preview]);
+  }, [capabilities.seriesAllowed, enterGame, myUserId, rounds, sessionid, token, preview]);
 
   return (
-    <PageContainer theme={gameType === 'UNO' ? 'uno' : gameType === 'DAVINCI' ? 'dvc' : 'neutral'}>
+    <PageContainer theme={gameType === 'UNO' ? 'uno' : gameType === 'DAVINCI' ? 'dvc' : gameType === 'LASVEGAS' ? 'vegas' : 'neutral'}>
       <div className="arcade-dashboard-layout">
         <header className="arcade-dashboard-header">
           <div>
@@ -206,7 +218,9 @@ export default function Lobby({ preview = null }) {
                 </div>
               ))}
               {!players.length && !loadingSession && <div className="arcade-empty">No players have joined yet.</div>}
-              <ArcadeButton variant="ghost" block onClick={addBot} disabled={playerCount >= maxPlayers}>+ Add bot</ArcadeButton>
+              {capabilities.botsAllowed && (
+                <ArcadeButton variant="ghost" block onClick={addBot} disabled={playerCount >= maxPlayers}>+ Add bot</ArcadeButton>
+              )}
             </div>
           </ArcadePanel>
 
@@ -214,12 +228,19 @@ export default function Lobby({ preview = null }) {
             <p className="arcade-eyebrow">Room console</p>
             <h2 id="room-console-title" className="text-xl font-bold">Match setup</h2>
             <div className="arcade-form-stack mt-6">
-              <ArcadeSelect label="Rounds" value={rounds} onChange={(event) => setRounds(Number(event.target.value))}>
-                {Array.from({ length: 10 }, (_, index) => index + 1).map((round) => <option key={round} value={round}>{round}</option>)}
-              </ArcadeSelect>
+              {capabilities.seriesAllowed ? (
+                <ArcadeSelect label="Rounds" value={rounds} onChange={(event) => setRounds(Number(event.target.value))}>
+                  {Array.from({ length: 10 }, (_, index) => index + 1).map((round) => <option key={round} value={round}>{round}</option>)}
+                </ArcadeSelect>
+              ) : (
+                <div className="arcade-status arcade-status--info" role="status">
+                  1 platform game / {capabilities.internalRounds} casino rounds
+                </div>
+              )}
               <div className="arcade-copy text-sm">
                 <p>Game: <strong className="arcade-accent">{gameType || 'Loading'}</strong></p>
-                <p>Capacity: 2-{maxPlayers}</p>
+                <p>Capacity: {minPlayers}-{maxPlayers}</p>
+                <p>Bots: {capabilities.botsAllowed ? 'Allowed' : 'Not available'}</p>
                 <p>Host control: {isOwner ? 'You are the host' : 'Waiting for the host'}</p>
               </div>
               {loadingSession && <div className="arcade-status arcade-status--info" role="status">Loading room state...</div>}

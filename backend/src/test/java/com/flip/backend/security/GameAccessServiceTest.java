@@ -3,6 +3,8 @@ package com.flip.backend.security;
 import com.flip.backend.api.dto.LobbyDtos.PlayerStartInfo;
 import com.flip.backend.persistence.GameEntity;
 import com.flip.backend.persistence.GameRepository;
+import com.flip.backend.persistence.GamePlayerEntity;
+import com.flip.backend.persistence.GamePlayerRepository;
 import com.flip.backend.persistence.SessionEntity;
 import com.flip.backend.persistence.SessionMemberEntity;
 import com.flip.backend.persistence.SessionMemberRepository;
@@ -43,6 +45,33 @@ class GameAccessServiceTest {
 
         assertThrows(AccessDeniedException.class,
                 () -> fixture.access.requirePlayer(fixture.authentication, "game-1"));
+    }
+
+    @Test
+    void restoresPlayerIdentityFromPersistentSeatMappingsAfterMemoryLoss() {
+        var users = mock(UserRepository.class);
+        var sessions = mock(SessionRepository.class);
+        var members = mock(SessionMemberRepository.class);
+        var games = mock(GameRepository.class);
+        var persistentPlayers = mock(GamePlayerRepository.class);
+        var authentication = mock(Authentication.class);
+        var user = UserEntity.builder().id(7L).email("alice@example.com").nickname("Alice").build();
+        var member = SessionMemberEntity.builder().sessionId("session-1").userId(7L).nickname("Alice").build();
+        var game = GameEntity.builder().id("game-1").sessionId("session-1").build();
+
+        when(authentication.isAuthenticated()).thenReturn(true);
+        when(authentication.getName()).thenReturn("alice@example.com");
+        when(users.findByEmailIgnoreCase("alice@example.com")).thenReturn(Optional.of(user));
+        when(games.findById("game-1")).thenReturn(Optional.of(game));
+        when(members.findBySessionIdAndUserId("session-1", 7L)).thenReturn(Optional.of(member));
+        when(persistentPlayers.findByGameIdOrderBySeatIndexAsc("game-1")).thenReturn(List.of(
+                GamePlayerEntity.builder().gameId("game-1").userId(7L).playerId("P1").seatIndex(0).build(),
+                GamePlayerEntity.builder().gameId("game-1").userId(8L).playerId("P2").seatIndex(1).build()
+        ));
+
+        var access = new GameAccessService(users, sessions, members, games, new GamePlayerRegistry(), persistentPlayers);
+        assertEquals("P1", access.requirePlayer(authentication, "game-1"));
+        assertEquals("P1", access.playerIdForUser("game-1", 7L));
     }
 
     private Fixture fixture() {

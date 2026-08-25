@@ -63,6 +63,52 @@ export const dvcFixture = {
   ],
 };
 
+export const lasVegasFixture = {
+  schemaVersion: 1,
+  phase: 'WAITING_FOR_CHOICE',
+  stateVersion: 12,
+  internalRound: 2,
+  totalRounds: 3,
+  turnCount: 8,
+  viewerId: 'P1',
+  currentPlayerId: 'P1',
+  currentRoll: [
+    { face: 1, big: false },
+    { face: 1, big: true },
+    { face: 3, big: false },
+    { face: 5, big: false },
+  ],
+  players: Array.from({ length: 10 }, (_, index) => ({
+    playerId: `P${index + 1}`,
+    name: index === 3 ? 'LongNicknameThatNeedsTruncation' : index === 0 ? 'PixelPilot' : `Player ${index + 1}`,
+    seatIndex: index,
+    current: index === 0,
+    remainingRegularDice: Math.max(0, 6 - index),
+    bigDieRemaining: index % 3 !== 0,
+    remainingDice: Math.max(0, 6 - index) + (index % 3 !== 0 ? 1 : 0),
+    chips: 2 + (index % 4),
+    moneyCardCount: index % 5,
+    moneyCards: index === 0 ? [80_000, 50_000] : null,
+    cashTotal: index === 0 ? 130_000 : null,
+    totalAssets: index === 0 ? 150_000 : null,
+    presentedTotal: index === 4 ? 210_000 : null,
+  })),
+  casinos: Array.from({ length: 6 }, (_, index) => ({
+    number: index + 1,
+    bonuses: [100_000 - index * 10_000, 70_000 - index * 5_000],
+    placements: [
+      { playerId: `P${(index % 10) + 1}`, regularDice: 2, bigDie: false, influence: 2 },
+      { playerId: `P${((index + 2) % 10) + 1}`, regularDice: 1, bigDie: true, influence: 3 },
+    ],
+  })),
+  events: [
+    { sequence: 9, type: 'PLACE_DICE', actorId: 'P4', casinoNumber: 6, text: 'Player 4 placed dice at casino 6' },
+    { sequence: 10, type: 'CASINO_JACKPOT', actorId: 'P5', casinoNumber: 6, text: 'Player 5 won casino 6 jackpot' },
+    { sequence: 11, type: 'ROUND_STARTED', actorId: 'P1', casinoNumber: null, text: 'Casino round 2 started' },
+  ],
+  results: [],
+};
+
 export const dashboardFixture = {
   me: { nickname: 'PixelPilot' },
 };
@@ -76,6 +122,7 @@ export const lobbyFixture = {
     gameType: 'UNO',
     maxPlayers: 10,
     ownerId: 'host-1',
+    capabilities: { minPlayers: 2, maxPlayers: 10, botsAllowed: true, seriesAllowed: true, internalRounds: 1 },
   },
   players: Array.from({ length: 10 }, (_, index) => ({
     name: index === 0 ? 'PixelPilot' : index === 3 ? 'LongNicknameThatNeedsTruncation' : index > 7 ? `Bot ${index - 7}` : `Player ${index + 1}`,

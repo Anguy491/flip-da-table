@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc" shape-rendering="crispEdges">
+  <title id="title">Geometric casino dice</title>
+  <desc id="desc">An original abstract arrangement of pixel dice, casino lanes, and prize cards.</desc>
+  <rect width="640" height="360" fill="#071b1d"/>
+  <path fill="#0c3b38" d="M0 40h640v280H0z"/>
+  <path fill="#164f49" d="M0 84h640v8H0zm0 88h640v8H0zm0 88h640v8H0z"/>
+  <g stroke="#fff4c2" stroke-width="8">
+    <path fill="#ffcc4d" d="M76 76h128v128H76z"/>
+    <path fill="#ff5f6d" d="M248 132h152v152H248z"/>
+    <path fill="#28d7c0" d="M438 66h120v120H438z"/>
+  </g>
+  <g fill="#071b1d">
+    <path d="M104 104h24v24h-24zm48 48h24v24h-24z"/>
+    <path d="M278 162h24v24h-24zm44 44h24v24h-24zm44 44h24v24h-24z"/>
+    <path d="M462 90h20v20h-20zm52 0h20v20h-20zm-52 52h20v20h-20zm52 0h20v20h-20z"/>
+  </g>
+  <path fill="#fff4c2" d="M54 300h532v12H54z"/>
+  <path fill="#ffcc4d" d="M112 326h416v8H112z"/>
+</svg>

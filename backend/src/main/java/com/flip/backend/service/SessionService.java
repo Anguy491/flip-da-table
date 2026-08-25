@@ -3,6 +3,7 @@ package com.flip.backend.service;
 import com.flip.backend.api.dto.SessionDtos.*;
 import com.flip.backend.api.dto.LobbyDtos.*;
 import com.flip.backend.persistence.*;
+import com.flip.backend.service.game.GameCapabilities;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,6 +30,11 @@ public class SessionService {
     public CreateSessionResponse create(CreateSessionRequest req) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         var user = users.findByEmail(auth.getName()).orElseThrow();
+
+        GameCapabilities capabilities = GameCapabilities.forGameType(req.gameType());
+        if (req.maxPlayers() < capabilities.minPlayers() || req.maxPlayers() > capabilities.maxPlayers()) {
+            throw new IllegalArgumentException("room capacity is outside game limits");
+        }
 
         String id = UUID.randomUUID().toString();
         var entity = SessionEntity.builder()
@@ -67,7 +73,10 @@ public class SessionService {
         var list = members.findBySessionId(sessionId).stream()
                 .map(member -> new LobbyPlayer(member.getUserId(), member.getNickname()))
                 .toList();
-        var view = new SessionView(session.getId(), session.getOwnerId(), session.getGameType(), session.getMaxPlayers(), list);
+        var view = new SessionView(
+                session.getId(), session.getOwnerId(), session.getGameType(), session.getMaxPlayers(), list,
+                GameCapabilities.forGameType(session.getGameType())
+        );
         messaging.convertAndSend("/topic/lobby/" + sessionId, view);
         return view;
     }

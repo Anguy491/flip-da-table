@@ -187,6 +187,12 @@ public class StompSecurityInterceptor implements ChannelInterceptor {
             String destinationPlayer = segments.get(3);
             if ("public-reveals".equals(destinationPlayer) || playerId.equals(destinationPlayer)) return;
         }
+        if (segments.size() == 4 && "topic".equals(segments.get(0)) && "las-vegas".equals(segments.get(1))) {
+            String gameId = segments.get(2);
+            String playerId = access.requirePlayer(authentication, gameId);
+            String destinationPlayer = segments.get(3);
+            if ("events".equals(destinationPlayer) || playerId.equals(destinationPlayer)) return;
+        }
         throw new AccessDeniedException("forbidden destination");
     }
 }

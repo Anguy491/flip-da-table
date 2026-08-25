@@ -216,15 +216,16 @@ export function ConnectionBadge({ state = 'connected' }) {
   return <ArcadeBadge tone={tones[state] || 'muted'}>{labels[state] || state}</ArcadeBadge>;
 }
 
-export function PlayerSeat({ name, index = 0, active = false, meta, badge, className = '' }) {
+export function PlayerSeat({ name, index = 0, active = false, meta, badge, children, className = '', ...props }) {
   return (
-    <article className={classes('arcade-seat', active && 'arcade-seat--active', className)} aria-current={active ? 'true' : undefined}>
+    <article className={classes('arcade-seat', active && 'arcade-seat--active', className)} aria-current={active ? 'true' : undefined} {...props}>
       <span className="arcade-seat__avatar" aria-hidden="true">P{index + 1}</span>
       <span className="min-w-0">
         <span className="arcade-seat__name" title={name}>{name}</span>
         {meta && <span className="arcade-seat__meta block">{meta}</span>}
       </span>
       {badge}
+      {children}
     </article>
   );
 }

@@ -133,13 +133,39 @@ describe('public and shared page states', () => {
     expect(LinkGoogleAccountApi).toHaveBeenCalledWith({ code: 'link-handoff', password: 'wrong-password' });
   });
 
-  it('keeps the dashboard focused on the two supported games and opens its join dialog', () => {
+  it('shows the three supported games and opens its join dialog', () => {
     renderPage(<Dashboard preview={dashboardFixture} />);
 
-    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    expect(screen.getByRole('radio', { name: /Las Vegas/i })).toBeVisible();
     expect(screen.queryByText(/Bounty/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Join code' }));
     expect(screen.getByRole('dialog', { name: 'Join a room' })).toBeVisible();
+  });
+
+  it('uses server capabilities to hide Las Vegas bots and series controls', () => {
+    renderPage(<Lobby preview={{
+      sessionId: 'VEGAS-ROOM',
+      myUserId: 'host-1',
+      rounds: 1,
+      connectionState: 'connected',
+      sessionInfo: {
+        gameType: 'LASVEGAS',
+        maxPlayers: 10,
+        ownerId: 'host-1',
+        capabilities: { minPlayers: 3, maxPlayers: 10, botsAllowed: false, seriesAllowed: false, internalRounds: 3 },
+      },
+      players: [
+        { name: 'P1', bot: false, ready: true },
+        { name: 'P2', bot: false, ready: true },
+        { name: 'P3', bot: false, ready: true },
+      ],
+    }} />);
+
+    expect(screen.queryByRole('button', { name: '+ Add bot' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Rounds' })).not.toBeInTheDocument();
+    expect(screen.getByText('1 platform game / 3 casino rounds')).toBeVisible();
+    expect(screen.getByText('Capacity: 3-10')).toBeVisible();
   });
 
   it('renders a maximum-capacity lobby and prevents an invalid start', () => {

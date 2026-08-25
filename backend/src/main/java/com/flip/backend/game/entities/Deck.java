@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 
 /**
  * Generic deck abstraction backed by a deque.
@@ -15,7 +16,19 @@ public abstract class Deck<C extends Card> {
 
 	private final Deque<C> drawPile = new ArrayDeque<>();
 	private final Deque<C> discardPile = new ArrayDeque<>();
-	private final SecureRandom random = new SecureRandom();
+	private final Random random;
+
+	protected Deck() {
+		this(new SecureRandom());
+	}
+
+	/**
+	 * Optional random source for deterministic game tests. Production decks use
+	 * {@link SecureRandom} through the no-argument constructor.
+	 */
+	protected Deck(Random random) {
+		this.random = Objects.requireNonNull(random, "random");
+	}
 
 	/**
 	 * Populate the deck with its initial set of cards.
@@ -63,6 +76,24 @@ public abstract class Deck<C extends Card> {
 	 */
 	public void putBottom(C card) {
 		if (card != null) drawPile.addLast(card);
+	}
+
+	/** Ordered top-to-bottom draw pile snapshot for aggregate persistence. */
+	protected final List<C> drawPileSnapshot() {
+		return List.copyOf(drawPile);
+	}
+
+	/** Ordered top-to-bottom discard pile snapshot for aggregate persistence. */
+	protected final List<C> discardPileSnapshot() {
+		return List.copyOf(discardPile);
+	}
+
+	/** Restore both piles without shuffling. */
+	protected final void restorePiles(List<C> drawCards, List<C> discardCards) {
+		drawPile.clear();
+		discardPile.clear();
+		if (drawCards != null) drawPile.addAll(drawCards);
+		if (discardCards != null) discardPile.addAll(discardCards);
 	}
 
 	/**

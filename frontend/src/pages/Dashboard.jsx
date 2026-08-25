@@ -14,6 +14,7 @@ import { createSession, joinSession } from '../api/sessions';
 import { getUserInfo, updateUserInfo } from '../api/user';
 import unoCover from '../assets/uno-arcade.svg';
 import dvcCover from '../assets/dvc-code.svg';
+import lasVegasCover from '../assets/las-vegas-dice.svg';
 
 const GAMES = [
   {
@@ -31,6 +32,14 @@ const GAMES = [
     players: '2-4 players',
     maxPlayers: 4,
     img: dvcCover,
+  },
+  {
+    gameType: 'LASVEGAS',
+    name: 'Las Vegas',
+    tagline: 'Roll every die. Read the table. Break every tie.',
+    players: '3-10 players',
+    maxPlayers: 10,
+    img: lasVegasCover,
   },
 ];
 
@@ -129,7 +138,7 @@ export default function Dashboard({ preview = null }) {
       <div className="arcade-dashboard-layout">
         <header className="arcade-dashboard-header">
           <div>
-            <p className="arcade-eyebrow">Main floor // two cabinets online</p>
+            <p className="arcade-eyebrow">Main floor // three cabinets online</p>
             <h1 className="arcade-title">Choose your table</h1>
             <p className="arcade-copy mt-3">Welcome back, <strong className="arcade-accent">{me?.nickname || 'player'}</strong>. Pick a game, open a room, and send the code.</p>
           </div>

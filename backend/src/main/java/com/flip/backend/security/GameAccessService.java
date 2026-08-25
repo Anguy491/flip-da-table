@@ -2,6 +2,8 @@ package com.flip.backend.security;
 
 import com.flip.backend.api.dto.LobbyDtos.PlayerStartInfo;
 import com.flip.backend.persistence.GameRepository;
+import com.flip.backend.persistence.GamePlayerEntity;
+import com.flip.backend.persistence.GamePlayerRepository;
 import com.flip.backend.persistence.SessionEntity;
 import com.flip.backend.persistence.SessionMemberEntity;
 import com.flip.backend.persistence.SessionMemberRepository;
@@ -9,8 +11,10 @@ import com.flip.backend.persistence.SessionRepository;
 import com.flip.backend.persistence.UserEntity;
 import com.flip.backend.persistence.UserRepository;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,7 +26,26 @@ public class GameAccessService {
     private final SessionMemberRepository members;
     private final GameRepository games;
     private final GamePlayerRegistry players;
+    private final GamePlayerRepository persistentPlayers;
 
+    @Autowired
+    public GameAccessService(
+            UserRepository users,
+            SessionRepository sessions,
+            SessionMemberRepository members,
+            GameRepository games,
+            GamePlayerRegistry players,
+            GamePlayerRepository persistentPlayers
+    ) {
+        this.users = users;
+        this.sessions = sessions;
+        this.members = members;
+        this.games = games;
+        this.players = players;
+        this.persistentPlayers = persistentPlayers;
+    }
+
+    /** Backwards-compatible constructor for focused unit tests without JPA mappings. */
     public GameAccessService(
             UserRepository users,
             SessionRepository sessions,
@@ -30,11 +53,7 @@ public class GameAccessService {
             GameRepository games,
             GamePlayerRegistry players
     ) {
-        this.users = users;
-        this.sessions = sessions;
-        this.members = members;
-        this.games = games;
-        this.players = players;
+        this(users, sessions, members, games, players, null);
     }
 
     public UserEntity requireUser(Authentication authentication) {
@@ -62,6 +81,7 @@ public class GameAccessService {
         var game = games.findById(gameId).orElseThrow(this::denied);
         members.findBySessionIdAndUserId(game.getSessionId(), user.getId()).orElseThrow(this::denied);
         String playerId = players.playerId(gameId, user.getId());
+        if (playerId == null) playerId = restorePlayerMapping(gameId, user.getId());
         if (playerId == null) throw denied();
         return playerId;
     }
@@ -78,10 +98,12 @@ public class GameAccessService {
 
     public String playerIdForUser(String gameId, Long userId) {
         String playerId = players.playerId(gameId, userId);
+        if (playerId == null) playerId = restorePlayerMapping(gameId, userId);
         if (playerId == null) throw denied();
         return playerId;
     }
 
+    @Transactional
     public void registerPlayers(
             String gameId,
             List<SessionMemberEntity> sessionMembers,
@@ -96,6 +118,28 @@ public class GameAccessService {
             mapping.put(sessionMembers.get(i).getUserId(), humanPlayers.get(i).playerId());
         }
         players.put(gameId, mapping);
+        if (persistentPlayers != null) {
+            var entities = new java.util.ArrayList<GamePlayerEntity>(sessionMembers.size());
+            for (int index = 0; index < sessionMembers.size(); index++) {
+                entities.add(GamePlayerEntity.builder()
+                        .gameId(gameId)
+                        .userId(sessionMembers.get(index).getUserId())
+                        .playerId(humanPlayers.get(index).playerId())
+                        .seatIndex(index)
+                        .build());
+            }
+            persistentPlayers.saveAll(entities);
+        }
+    }
+
+    private String restorePlayerMapping(String gameId, Long userId) {
+        if (persistentPlayers == null) return null;
+        var persisted = persistentPlayers.findByGameIdOrderBySeatIndexAsc(gameId);
+        if (persisted.isEmpty()) return null;
+        var mapping = new LinkedHashMap<Long, String>();
+        persisted.forEach(player -> mapping.put(player.getUserId(), player.getPlayerId()));
+        players.put(gameId, mapping);
+        return mapping.get(userId);
     }
 
     private AccessDeniedException denied() {

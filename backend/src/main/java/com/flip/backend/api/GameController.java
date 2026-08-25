@@ -10,6 +10,9 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +31,7 @@ public class GameController {
     }
 
     @PostMapping("/start")
+    @Transactional
     public ResponseEntity<StartGameResponse> startFirst(
             @PathVariable String sessionId,
             @Valid @RequestBody StartGameRequest req,
@@ -37,6 +41,7 @@ public class GameController {
     }
 
     @PostMapping("/start/next")
+    @Transactional
     public ResponseEntity<StartGameResponse> startNext(
         @PathVariable String sessionId,
         @Valid @RequestBody StartGameRequest req,
@@ -60,11 +65,16 @@ public class GameController {
                 : service.startFirst(session.getId(), authoritative);
 
         access.registerPlayers(started.gameId(), sessionMembers, started.players());
+        var launchMessages = new ArrayList<LaunchMessage>();
         for (var member : sessionMembers) {
             String playerId = access.playerIdForUser(started.gameId(), member.getUserId());
             var payload = responseFor(service, started, playerId);
-            messaging.convertAndSend("/topic/lobby/" + session.getId() + "/" + member.getUserId(), payload);
+            launchMessages.add(new LaunchMessage(
+                    "/topic/lobby/" + session.getId() + "/" + member.getUserId(),
+                    payload
+            ));
         }
+        afterCommit(() -> launchMessages.forEach(message -> messaging.convertAndSend(message.destination(), message.payload())));
         String ownerPlayerId = access.requirePlayer(authentication, started.gameId());
         return ResponseEntity.ok(responseFor(service, started, ownerPlayerId));
     }
@@ -99,4 +109,16 @@ public class GameController {
                 service.viewFor(started.gameId(), playerId)
         );
     }
+
+    private void afterCommit(Runnable callback) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            callback.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() { callback.run(); }
+        });
+    }
+
+    private record LaunchMessage(String destination, StartGameResponse payload) {}
 }

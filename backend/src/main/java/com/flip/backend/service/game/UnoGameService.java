@@ -17,6 +17,7 @@ public class UnoGameService extends GameService {
 	public UnoGameService(SessionRepository sessions, GameRepository games, UnoGameRegistry registry) { super(sessions, games); this.registry = registry; }
 
 	@Override public boolean supports(String gameType) { return "UNO".equalsIgnoreCase(gameType); }
+	@Override public GameCapabilities capabilities() { return GameCapabilities.forGameType("UNO"); }
 
 	@Override
 	protected boolean isFinished(String gameId) {

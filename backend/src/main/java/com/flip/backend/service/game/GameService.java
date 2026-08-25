@@ -25,6 +25,11 @@ public abstract class GameService {
     /** Return true if this service supports given gameType (normalized upper-case). */
     public abstract boolean supports(String gameType);
 
+    /** Server-authoritative lobby and lifecycle capabilities for this game. */
+    public GameCapabilities capabilities() {
+        return new GameCapabilities(2, 10, true, true, 1);
+    }
+
     /** Start first round for a session. */
     public abstract StartGameResponse startFirst(String sessionId, StartGameRequest req);
 
