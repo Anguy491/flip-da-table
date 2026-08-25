@@ -64,7 +64,7 @@ export const dvcFixture = {
 };
 
 export const lasVegasFixture = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   phase: 'WAITING_FOR_CHOICE',
   stateVersion: 12,
   internalRound: 2,
@@ -79,13 +79,14 @@ export const lasVegasFixture = {
     { face: 5, big: false },
   ],
   players: Array.from({ length: 10 }, (_, index) => ({
-    playerId: `P${index + 1}`,
-    name: index === 3 ? 'LongNicknameThatNeedsTruncation' : index === 0 ? 'PixelPilot' : `Player ${index + 1}`,
+    playerId: index === 9 ? 'BOT1' : `P${index + 1}`,
+    name: index === 9 ? 'Bot 1' : index === 3 ? 'LongNicknameThatNeedsTruncation' : index === 0 ? 'PixelPilot' : `Player ${index + 1}`,
+    bot: index === 9,
     seatIndex: index,
     current: index === 0,
-    remainingRegularDice: Math.max(0, 6 - index),
-    bigDieRemaining: index % 3 !== 0,
-    remainingDice: Math.max(0, 6 - index) + (index % 3 !== 0 ? 1 : 0),
+    remainingRegularDice: index === 9 ? 3 : Math.max(0, 6 - index),
+    bigDieRemaining: index === 9 || index % 3 !== 0,
+    remainingDice: index === 9 ? 4 : Math.max(0, 6 - index) + (index % 3 !== 0 ? 1 : 0),
     chips: 2 + (index % 4),
     moneyCardCount: index % 5,
     moneyCards: index === 0 ? [80_000, 50_000] : null,

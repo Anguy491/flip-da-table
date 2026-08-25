@@ -29,12 +29,19 @@ import static org.mockito.Mockito.when;
 
 class LasVegasGameServiceTest {
     @Test
-    void exposesFixedCapabilitiesAndRejectsSeriesBotsAndInvalidCounts() {
+    void exposesBotCapabilitiesAndRejectsSeriesAllBotsAndInvalidCounts() {
         Fixture fixture = fixture();
-        assertEquals(new GameCapabilities(3, 10, false, false, 3), fixture.service.capabilities());
+        assertEquals(new GameCapabilities(3, 10, true, false, 3), fixture.service.capabilities());
         assertThrows(IllegalArgumentException.class, () -> fixture.service.startFirst("session", request(2, 1, false)));
         assertThrows(IllegalArgumentException.class, () -> fixture.service.startFirst("session", request(3, 2, false)));
-        assertThrows(IllegalArgumentException.class, () -> fixture.service.startFirst("session", request(3, 1, true)));
+        var botsAllowed = fixture.service.startFirst("session", oneHumanTwoBotsRequest());
+        assertEquals(List.of("P1", "BOT1", "BOT2"),
+                botsAllowed.players().stream().map(player -> player.playerId()).toList());
+        assertEquals(List.of(false, true, true),
+                botsAllowed.players().stream().map(player -> player.bot()).toList());
+        assertEquals("Bot 1", botsAllowed.players().get(1).name());
+        assertEquals("Bot 2", botsAllowed.players().get(2).name());
+        assertThrows(IllegalArgumentException.class, () -> fixture().service.startFirst("session", allBotsRequest()));
         assertThrows(IllegalArgumentException.class, () -> fixture.service.startFirst("session", request(11, 1, false)));
         assertThrows(IllegalArgumentException.class, () -> fixture.service.startNext("session", request(3, 1, false)));
     }
@@ -50,7 +57,7 @@ class LasVegasGameServiceTest {
         assertEquals(List.of("P1", "P2", "P3"), response.players().stream().map(player -> player.playerId()).toList());
         GameEntity persisted = fixture.entities.get(response.gameId());
         assertNotNull(persisted.getStateJson());
-        assertTrue(persisted.getStateJson().contains("\"schemaVersion\":1"));
+        assertTrue(persisted.getStateJson().contains("\"schemaVersion\":2"));
         assertEquals("RUNNING", fixture.session.getState());
     }
 
@@ -60,6 +67,22 @@ class LasVegasGameServiceTest {
             players.add(new PlayerSpec("Player " + index, bot && index == count, true));
         }
         return new StartGameRequest(rounds, players);
+    }
+
+    private static StartGameRequest allBotsRequest() {
+        return new StartGameRequest(1, List.of(
+                new PlayerSpec("Bot 1", true, true),
+                new PlayerSpec("Bot 2", true, true),
+                new PlayerSpec("Bot 3", true, true)
+        ));
+    }
+
+    private static StartGameRequest oneHumanTwoBotsRequest() {
+        return new StartGameRequest(1, List.of(
+                new PlayerSpec("client supplied bot name", true, true),
+                new PlayerSpec("Human host", false, true),
+                new PlayerSpec("another bot name", true, true)
+        ));
     }
 
     private static Fixture fixture() {

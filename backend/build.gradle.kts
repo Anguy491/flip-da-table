@@ -54,4 +54,8 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.11.5")
 }
 
-tasks.withType<Test> { useJUnitPlatform() }
+tasks.withType<Test> {
+    useJUnitPlatform()
+    systemProperty("app.las-vegas.bot.step-delay-ms", "0")
+    systemProperty("app.las-vegas.bot.recovery-interval-ms", "3600000")
+}

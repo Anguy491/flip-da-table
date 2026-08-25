@@ -44,7 +44,7 @@ export default function Lobby({ preview = null }) {
   const capabilities = sessionInfo?.capabilities || {
     minPlayers: gameType === 'DAVINCI' || gameType === 'UNO' ? 2 : gameType === 'LASVEGAS' ? 3 : 2,
     maxPlayers: sessionInfo?.maxPlayers || 10,
-    botsAllowed: gameType !== 'LASVEGAS',
+    botsAllowed: true,
     seriesAllowed: gameType !== 'LASVEGAS',
     internalRounds: gameType === 'LASVEGAS' ? 3 : 1,
   };
@@ -82,7 +82,12 @@ export default function Lobby({ preview = null }) {
 
   const addBot = () => {
     if (!capabilities.botsAllowed || playerCount >= maxPlayers) return;
-    setPlayers((current) => [...current, { name: `Bot ${current.filter((player) => player.bot).length + 1}`, bot: true, ready: true }]);
+    setPlayers((current) => {
+      const usedNames = new Set(current.filter((player) => player.bot).map((player) => player.name));
+      let botNumber = 1;
+      while (usedNames.has(`Bot ${botNumber}`)) botNumber++;
+      return [...current, { name: `Bot ${botNumber}`, bot: true, ready: true }];
+    });
   };
 
   const updatePlayer = (index, patch) => {

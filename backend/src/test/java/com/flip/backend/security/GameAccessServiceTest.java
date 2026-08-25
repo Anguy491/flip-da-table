@@ -39,6 +39,24 @@ class GameAccessServiceTest {
     }
 
     @Test
+    void neverMapsAnAuthenticatedHumanToABotSeat() {
+        Fixture fixture = fixture();
+        fixture.access.registerPlayers(
+                "game-1",
+                List.of(fixture.member),
+                List.of(
+                        new PlayerStartInfo("P1", "Alice", false, true),
+                        new PlayerStartInfo("BOT1", "Bot 1", true, true),
+                        new PlayerStartInfo("BOT2", "Bot 2", true, true)
+                )
+        );
+
+        assertEquals("P1", fixture.access.requirePlayer(fixture.authentication, "game-1"));
+        assertThrows(AccessDeniedException.class,
+                () -> fixture.access.requireClaimedPlayer(fixture.authentication, "game-1", "BOT1"));
+    }
+
+    @Test
     void rejectsAnAuthenticatedUserWhoIsNotAGameSessionMember() {
         Fixture fixture = fixture();
         when(fixture.members.findBySessionIdAndUserId("session-1", fixture.user.getId())).thenReturn(Optional.empty());

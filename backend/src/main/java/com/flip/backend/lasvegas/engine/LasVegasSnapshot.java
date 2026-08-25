@@ -25,6 +25,7 @@ public record LasVegasSnapshot(
     public record PlayerState(
             String playerId,
             String name,
+            boolean bot,
             int chips,
             int remainingRegularDice,
             boolean bigDieRemaining,

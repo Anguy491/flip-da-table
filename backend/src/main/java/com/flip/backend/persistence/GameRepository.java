@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface GameRepository extends JpaRepository<GameEntity, String> {
@@ -16,6 +17,8 @@ public interface GameRepository extends JpaRepository<GameEntity, String> {
     Optional<GameEntity> findTopBySessionIdOrderByRoundIndexDesc(String sessionId);
 
     Optional<GameEntity> findTopBySessionIdAndStateInOrderByRoundIndexDesc(String sessionId, Collection<String> states);
+
+    List<GameEntity> findByGameTypeIgnoreCaseAndState(String gameType, String state);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select g from GameEntity g where g.id = :id")

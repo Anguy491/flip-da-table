@@ -32,7 +32,7 @@ function Die({ face, big = false, seatIndex = 0, count, label }) {
 function phaseMessage(view, isMyTurn, currentPlayer) {
   if (view.phase === 'FINISHED') return 'The final casino has settled. All assets are now public.';
   if (view.phase === 'RESOLVING') return 'The house is resolving ties and paying the six casinos.';
-  if (!isMyTurn) return `${currentPlayer?.name || 'Another player'} is taking their turn.`;
+  if (!isMyTurn) return `${currentPlayer?.name || 'Another player'}${currentPlayer?.bot ? ' (CPU)' : ''} is taking their turn.`;
   if (view.phase === 'WAITING_FOR_ROLL') return 'Your turn: roll every remaining die.';
   return 'Choose one rolled face and place every matching die, or spend one chip to skip.';
 }
@@ -125,7 +125,9 @@ export default function LasVegasGameView({
             index={player.seatIndex}
             active={player.current}
             meta={`${player.remainingDice} dice // ${player.chips} chips // ${player.moneyCardCount} cards`}
-            badge={player.playerId === playerId ? <ArcadeBadge tone="success">You</ArcadeBadge> : undefined}
+            badge={player.playerId === playerId
+              ? <ArcadeBadge tone="success">You</ArcadeBadge>
+              : player.bot ? <ArcadeBadge tone="muted">CPU</ArcadeBadge> : undefined}
           >
             <span className="vegas-seat__assets">
               {player.totalAssets != null ? `Mine ${money(player.totalAssets)}` : player.presentedTotal != null ? `Revealed ${money(player.presentedTotal)}` : 'Assets hidden'}

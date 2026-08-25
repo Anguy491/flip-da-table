@@ -172,6 +172,35 @@ describe('deterministic game views', () => {
     expect(screen.getByText(/Player 2 is taking their turn/i)).toBeVisible();
   });
 
+  it('labels a Las Vegas bot turn as CPU and keeps human actions locked', () => {
+    const view = {
+      ...lasVegasFixture,
+      currentPlayerId: 'BOT1',
+      players: lasVegasFixture.players.map((player) => ({
+        ...player,
+        current: player.playerId === 'BOT1',
+      })),
+    };
+    render(
+      <LasVegasGameView
+        sessionId="VEGAS-ROOM"
+        gameId="game-1"
+        view={view}
+        playerId="P1"
+        connectionState="connected"
+        onPlace={vi.fn()}
+        onSkip={vi.fn()}
+        onToggleAssets={vi.fn()}
+        onRefresh={vi.fn()}
+        onLeave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('CPU')).toBeVisible();
+    expect(screen.getByText(/Bot 1 \(CPU\) is taking their turn/i)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Place all 1s' })).toBeDisabled();
+  });
+
   it('shows Las Vegas roll, reconnecting, busy, and error states', () => {
     const onRoll = vi.fn();
     render(
@@ -220,7 +249,7 @@ describe('deterministic game views', () => {
     );
 
     expect(screen.getAllByText('#1 WIN')).toHaveLength(2);
-    expect(screen.getAllByText('Player 10').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Bot 1').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Open final scoreboard' })).toBeEnabled();
   });
 });

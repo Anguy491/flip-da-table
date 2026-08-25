@@ -28,6 +28,7 @@ public final class LasVegasView {
     public record PlayerView(
             String playerId,
             String name,
+            boolean bot,
             int seatIndex,
             boolean current,
             int remainingRegularDice,

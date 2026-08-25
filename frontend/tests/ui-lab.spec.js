@@ -91,6 +91,54 @@ test('Las Vegas keeps keyboard focus, reduced motion, and 200% zoom usable', asy
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test('Las Vegas visibly identifies a bot turn and locks human actions', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/__ui-lab?screen=vegas&state=bot');
+  await expect(page.getByText(/Bot 1 \(CPU\) is taking their turn/i)).toBeVisible();
+  await expect(page.getByText('CPU', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Place all 1s' })).toBeDisabled();
+  const textState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
+  expect(textState.currentPlayerId).toBe('BOT1');
+  expect(textState.players.find((player) => player.playerId === 'BOT1').bot).toBe(true);
+});
+
+test('one human and two Las Vegas bots show separate roll and placement broadcasts', async ({ page }) => {
+  await page.goto('/__ui-lab?screen=vegas&state=bot-sequence');
+  await page.waitForFunction(() => typeof window.render_game_to_text === 'function'
+    && typeof window.advance_las_vegas_bot_fixture === 'function');
+  const tableState = () => page.evaluate(() => JSON.parse(window.render_game_to_text()));
+  const advance = () => page.evaluate(() => window.advance_las_vegas_bot_fixture());
+
+  await expect.poll(async () => (await tableState()).players.map((player) => player.playerId)).toEqual(['P1', 'BOT1', 'BOT2']);
+  await expect.poll(async () => `${(await tableState()).currentPlayerId}:${(await tableState()).mode}`).toBe('BOT1:WAITING_FOR_ROLL');
+
+  await advance();
+  await expect.poll(async () => {
+    const state = await tableState();
+    return `${state.currentPlayerId}:${state.mode}:${state.currentRoll.length}`;
+  }).toBe('BOT1:WAITING_FOR_CHOICE:3');
+
+  await advance();
+  await expect.poll(async () => `${(await tableState()).currentPlayerId}:${(await tableState()).mode}`).toBe('BOT2:WAITING_FOR_ROLL');
+  await expect.poll(async () => (await tableState()).casinos[0].placements[0].playerId).toBe('BOT1');
+
+  await advance();
+  await expect.poll(async () => {
+    const state = await tableState();
+    return `${state.currentPlayerId}:${state.mode}:${state.currentRoll.length}`;
+  }).toBe('BOT2:WAITING_FOR_CHOICE:2');
+
+  await advance();
+  await expect.poll(async () => `${(await tableState()).currentPlayerId}:${(await tableState()).mode}`).toBe('P1:WAITING_FOR_ROLL');
+});
+
+test('Las Vegas phone portrait has no horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/__ui-lab?screen=vegas&state=bot');
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
 test('dialog traps focus and closes with Escape', async ({ page }) => {
   await page.goto('/__ui-lab?screen=components');
   await page.getByRole('button', { name: 'Open dialog' }).click();

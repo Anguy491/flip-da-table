@@ -1,5 +1,7 @@
 package com.flip.backend.lasvegas.engine;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.flip.backend.api.dto.LobbyDtos.PlayerStartInfo;
 import com.flip.backend.lasvegas.LasVegasPresentationService;
 import com.flip.backend.lasvegas.engine.phase.LasVegasRuntimePhase;
@@ -20,12 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LasVegasRuntimePhaseTest {
     @Test
-    void validatesPlayerLimitsAndBots() {
+    void validatesPlayerLimitsAndPreservesBots() {
         assertThrows(IllegalArgumentException.class, () -> LasVegasRuntimePhase.newGame(players(2), new ZeroRandom()));
         assertThrows(IllegalArgumentException.class, () -> LasVegasRuntimePhase.newGame(players(11), new ZeroRandom()));
         var withBot = new ArrayList<>(players(3));
         withBot.set(2, new PlayerStartInfo("BOT1", "Bot", true, true));
-        assertThrows(IllegalArgumentException.class, () -> LasVegasRuntimePhase.newGame(withBot, new ZeroRandom()));
+        var botGame = LasVegasRuntimePhase.newGame(withBot, new ZeroRandom());
+        assertTrue(botGame.buildView("P1", Map.of()).players().get(2).bot());
 
         assertEquals(3, LasVegasRuntimePhase.newGame(players(3), new ZeroRandom()).playerIds().size());
         assertEquals(10, LasVegasRuntimePhase.newGame(players(10), new ZeroRandom()).playerIds().size());
@@ -153,6 +156,37 @@ class LasVegasRuntimePhaseTest {
     }
 
     @Test
+    void botRollIntermediateStateRestoresWithTheSameGuardedChoiceTicket() {
+        var runtime = LasVegasRuntimePhase.newGame(List.of(
+                new PlayerStartInfo("BOT1", "Bot 1", true, true),
+                new PlayerStartInfo("P1", "Player 1", false, true),
+                new PlayerStartInfo("BOT2", "Bot 2", true, true)
+        ), new ZeroRandom());
+        runtime.applyCommand("BOT1", new LasVegasRuntimePhase.Command(0, "ROLL_DICE", null));
+
+        var restored = LasVegasRuntimePhase.restore(runtime.snapshot(), new ZeroRandom());
+
+        assertEquals(LasVegasRuntimePhase.State.WAITING_FOR_CHOICE, restored.state());
+        assertTrue(restored.currentPlayerIsBot());
+        assertEquals(runtime.buildView("P1", Map.of()).currentRoll(), restored.buildView("P1", Map.of()).currentRoll());
+        assertEquals(runtime.botTicket("game-1"), restored.botTicket("game-1"));
+    }
+
+    @Test
+    void schemaOneWithoutBotFlagsRestoresAsHumansAndUpgradesOnSave() throws Exception {
+        var mapper = new ObjectMapper().findAndRegisterModules();
+        var codec = new LasVegasSnapshotCodec(mapper);
+        ObjectNode json = (ObjectNode) mapper.readTree(codec.encode(runtime(3)));
+        json.put("schemaVersion", 1);
+        json.withArray("players").forEach(player -> ((ObjectNode) player).remove("bot"));
+
+        var restored = LasVegasRuntimePhase.restore(codec.decode(json.toString()), new ZeroRandom());
+
+        assertEquals(2, restored.snapshot().schemaVersion());
+        assertTrue(restored.buildView("P1", Map.of()).players().stream().noneMatch(player -> player.bot()));
+    }
+
+    @Test
     void aSingleEligiblePlayerTakesOnlyTheJackpotAndReturnsTheSecondPrizeToDeckBottom() {
         LasVegasSnapshot base = resolvingSnapshot();
         var casinos = new ArrayList<>(base.casinos());
@@ -190,15 +224,15 @@ class LasVegasRuntimePhaseTest {
     @Test
     void finalRankingUsesCardPlusChipCountBeforeSharingVictory() {
         var players = List.of(
-                new LasVegasSnapshot.PlayerState("P1", "Player 1", 0, 0, false, List.of(100_000)),
-                new LasVegasSnapshot.PlayerState("P2", "Player 2", 2, 0, false, List.of(80_000)),
-                new LasVegasSnapshot.PlayerState("P3", "Player 3", 0, 0, false, List.of(60_000))
+                new LasVegasSnapshot.PlayerState("P1", "Player 1", false, 0, 0, false, List.of(100_000)),
+                new LasVegasSnapshot.PlayerState("P2", "Player 2", false, 2, 0, false, List.of(80_000)),
+                new LasVegasSnapshot.PlayerState("P3", "Player 3", false, 0, 0, false, List.of(60_000))
         );
         var casinos = java.util.stream.IntStream.rangeClosed(1, 6)
                 .mapToObj(number -> new LasVegasSnapshot.CasinoState(number, 40_000, 30_000, List.of(), null))
                 .toList();
         var runtime = LasVegasRuntimePhase.restore(new LasVegasSnapshot(
-                1, 3, "RESOLVING", 10, 20, 0, "P1", "P1",
+                2, 3, "RESOLVING", 10, 20, 0, "P1", "P1",
                 players, List.of(30_000), casinos, List.of(), List.of(), List.of()
         ), new ZeroRandom());
 
@@ -235,10 +269,10 @@ class LasVegasRuntimePhaseTest {
 
     private static LasVegasSnapshot resolvingSnapshot() {
         var playerStates = List.of(
-                new LasVegasSnapshot.PlayerState("P1", "Player 1", 2, 0, false, List.of()),
-                new LasVegasSnapshot.PlayerState("P2", "Player 2", 2, 0, false, List.of()),
-                new LasVegasSnapshot.PlayerState("P3", "Player 3", 2, 0, false, List.of()),
-                new LasVegasSnapshot.PlayerState("P4", "Player 4", 2, 0, false, List.of())
+                new LasVegasSnapshot.PlayerState("P1", "Player 1", false, 2, 0, false, List.of()),
+                new LasVegasSnapshot.PlayerState("P2", "Player 2", false, 2, 0, false, List.of()),
+                new LasVegasSnapshot.PlayerState("P3", "Player 3", false, 2, 0, false, List.of()),
+                new LasVegasSnapshot.PlayerState("P4", "Player 4", false, 2, 0, false, List.of())
         );
         var casinos = new ArrayList<LasVegasSnapshot.CasinoState>();
         casinos.add(new LasVegasSnapshot.CasinoState(1, 100_000, 30_000, List.of(
@@ -251,7 +285,7 @@ class LasVegasRuntimePhaseTest {
             casinos.add(new LasVegasSnapshot.CasinoState(number, 40_000, 30_000, List.of(), null));
         }
         return new LasVegasSnapshot(
-                1, 1, "RESOLVING", 4, 7, 0, "P1", "P1",
+                2, 1, "RESOLVING", 4, 7, 0, "P1", "P1",
                 playerStates,
                 List.of(40_000, 50_000, 60_000),
                 casinos,

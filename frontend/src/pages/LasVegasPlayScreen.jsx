@@ -22,6 +22,33 @@ export default function LasVegasPlayScreen() {
     if (!token) navigate('/login', { replace: true });
   }, [navigate, token]);
 
+  useEffect(() => {
+    window.render_game_to_text = () => JSON.stringify({
+      coordinateSystem: 'DOM table; casinos are numbered 1 through 6 and player seats follow seatIndex order',
+      mode: vegas.view?.phase || 'LOADING',
+      stateVersion: vegas.view?.stateVersion ?? null,
+      round: vegas.view?.internalRound ?? null,
+      currentPlayerId: vegas.view?.currentPlayerId ?? null,
+      viewerId: vegas.playerId,
+      currentRoll: vegas.view?.currentRoll || [],
+      players: (vegas.view?.players || []).map((player) => ({
+        playerId: player.playerId,
+        name: player.name,
+        bot: Boolean(player.bot),
+        seatIndex: player.seatIndex,
+        remainingDice: player.remainingDice,
+        chips: player.chips,
+        current: player.current,
+      })),
+      casinos: (vegas.view?.casinos || []).map((casino) => ({
+        number: casino.number,
+        bonuses: casino.bonuses,
+        placements: casino.placements,
+      })),
+    });
+    return () => { delete window.render_game_to_text; };
+  }, [vegas.playerId, vegas.view]);
+
   return (
     <PageContainer theme="vegas" game>
       <LasVegasGameView

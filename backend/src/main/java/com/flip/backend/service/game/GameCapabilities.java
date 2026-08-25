@@ -19,7 +19,7 @@ public record GameCapabilities(
         return switch (normalized) {
             case "UNO" -> new GameCapabilities(2, 10, true, true, 1);
             case "DAVINCI" -> new GameCapabilities(2, 4, true, true, 1);
-            case "LASVEGAS" -> new GameCapabilities(3, 10, false, false, 3);
+            case "LASVEGAS" -> new GameCapabilities(3, 10, true, false, 3);
             default -> throw new IllegalArgumentException("unsupported game type");
         };
     }

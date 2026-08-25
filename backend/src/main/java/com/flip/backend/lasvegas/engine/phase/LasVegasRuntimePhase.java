@@ -3,6 +3,8 @@ package com.flip.backend.lasvegas.engine.phase;
 import com.flip.backend.api.dto.LobbyDtos.PlayerStartInfo;
 import com.flip.backend.game.engine.event.EventQueue;
 import com.flip.backend.game.engine.phase.RuntimePhase;
+import com.flip.backend.lasvegas.bot.LasVegasBotStrategy;
+import com.flip.backend.lasvegas.bot.LasVegasBotTicket;
 import com.flip.backend.lasvegas.engine.LasVegasSnapshot;
 import com.flip.backend.lasvegas.engine.event.EndGameEvent;
 import com.flip.backend.lasvegas.engine.event.PlaceDiceEvent;
@@ -39,7 +41,7 @@ import java.util.Set;
 
 /** Event-driven aggregate for all three casino rounds in one platform game. */
 public final class LasVegasRuntimePhase extends RuntimePhase {
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
     public static final int TOTAL_ROUNDS = 3;
 
     public enum State {
@@ -87,12 +89,8 @@ public final class LasVegasRuntimePhase extends RuntimePhase {
         if (playerInfos.size() < 3 || playerInfos.size() > 10) {
             throw new IllegalArgumentException("Las Vegas requires 3-10 players");
         }
-        if (playerInfos.stream().anyMatch(PlayerStartInfo::bot)) {
-            throw new IllegalArgumentException("Las Vegas does not allow bots");
-        }
-
         var players = playerInfos.stream()
-                .map(info -> new LasVegasPlayer(info.playerId(), info.name()))
+                .map(info -> new LasVegasPlayer(info.playerId(), info.name(), info.bot()))
                 .toList();
         var board = new LasVegasBoard(players);
         board.moveToPlayer(players.get(random.nextInt(players.size())).getId());
@@ -115,12 +113,12 @@ public final class LasVegasRuntimePhase extends RuntimePhase {
     }
 
     public static LasVegasRuntimePhase restore(LasVegasSnapshot snapshot, Random random) {
-        if (snapshot == null || snapshot.schemaVersion() != SCHEMA_VERSION) {
+        if (snapshot == null || snapshot.schemaVersion() < 1 || snapshot.schemaVersion() > SCHEMA_VERSION) {
             throw new IllegalArgumentException("unsupported Las Vegas snapshot schema");
         }
         var players = new ArrayList<LasVegasPlayer>();
         for (var playerState : snapshot.players()) {
-            var player = new LasVegasPlayer(playerState.playerId(), playerState.name());
+            var player = new LasVegasPlayer(playerState.playerId(), playerState.name(), playerState.bot());
             player.restore(
                     playerState.chips(),
                     playerState.remainingRegularDice(),
@@ -387,6 +385,7 @@ public final class LasVegasRuntimePhase extends RuntimePhase {
             playerViews.add(new PlayerView(
                     player.getId(),
                     player.name(),
+                    player.isBot(),
                     index,
                     player.getId().equals(board.currentPlayer().getId()),
                     player.remainingRegularDice(),
@@ -435,6 +434,7 @@ public final class LasVegasRuntimePhase extends RuntimePhase {
         var playerStates = board.seats().stream().map(player -> new LasVegasSnapshot.PlayerState(
                 player.getId(),
                 player.name(),
+                player.isBot(),
                 player.chips(),
                 player.remainingRegularDice(),
                 player.bigDieRemaining(),
@@ -487,6 +487,54 @@ public final class LasVegasRuntimePhase extends RuntimePhase {
     public synchronized State state() { return state; }
     public synchronized int internalRound() { return internalRound; }
     public synchronized LasVegasEndingPhase endingPhase() { return endingPhase; }
+
+    public synchronized String currentPlayerId() { return board.currentPlayer().getId(); }
+
+    public synchronized boolean currentPlayerIsBot() { return board.currentPlayer().isBot(); }
+
+    /** Public-information-only projection used by the server-side bot strategy. */
+    public synchronized LasVegasBotStrategy.TurnState botTurnState() {
+        LasVegasPlayer bot = board.currentPlayer();
+        if (!bot.isBot()) throw new IllegalStateException("current player is not a bot");
+        var casinoStates = casinos.stream().map(casino -> new LasVegasBotStrategy.CasinoState(
+                casino.number(),
+                casino.bonuses().stream().map(LasVegasMoneyCard::amount).toList(),
+                casino.placements().entrySet().stream().map(entry -> new LasVegasBotStrategy.PlacementState(
+                        entry.getKey(), entry.getValue().influence()
+                )).toList()
+        )).toList();
+        var playerStates = board.seats().stream().map(player -> new LasVegasBotStrategy.PlayerState(
+                player.getId(), player.remainingDiceCount(), player.chips()
+        )).toList();
+        return new LasVegasBotStrategy.TurnState(
+                bot.getId(),
+                bot.chips(),
+                currentRoll.stream().map(roll -> new LasVegasBotStrategy.DieState(roll.face(), roll.big())).toList(),
+                casinoStates,
+                playerStates
+        );
+    }
+
+    public synchronized LasVegasBotTicket botTicket(String gameId) {
+        if (state == State.FINISHED || !board.currentPlayer().isBot()) return null;
+        if (state != State.WAITING_FOR_ROLL && state != State.WAITING_FOR_CHOICE) return null;
+        return new LasVegasBotTicket(gameId, stateVersion, state, board.currentPlayer().getId());
+    }
+
+    public synchronized boolean isLegalBotDecision(LasVegasBotStrategy.Decision decision) {
+        if (decision == null || !board.currentPlayer().isBot()) return false;
+        LasVegasPlayer bot = board.currentPlayer();
+        return switch (decision.type()) {
+            case "PLACE_DICE" -> decision.face() != null && canPlace(bot, decision.face());
+            case "SKIP_TURN" -> decision.face() == null && canSkip(bot);
+            default -> false;
+        };
+    }
+
+    public synchronized int lowestLegalFace() {
+        return currentRoll.stream().mapToInt(LasVegasDieRoll::face).min()
+                .orElseThrow(() -> new IllegalStateException("current roll is empty"));
+    }
 
     private LasVegasPlayer player(String playerId) {
         return board.seats().stream()

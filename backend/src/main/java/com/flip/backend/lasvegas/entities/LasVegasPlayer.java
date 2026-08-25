@@ -16,7 +16,11 @@ public final class LasVegasPlayer extends Player {
     private final List<LasVegasMoneyCard> moneyCards = new ArrayList<>();
 
     public LasVegasPlayer(String id, String name) {
-        super(id, false);
+        this(id, name, false);
+    }
+
+    public LasVegasPlayer(String id, String name, boolean bot) {
+        super(id, bot);
         this.name = Objects.requireNonNull(name, "name");
     }
 

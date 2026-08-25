@@ -61,7 +61,7 @@ class LasVegasRestartIntegrationTest {
     @Autowired LasVegasGameService service;
 
     @Test
-    void restoresDeckPlayersIdentityAndCurrentChoiceFromPostgresAfterCacheLoss() {
+    void restoresDeckHumanIdentityAndBotCurrentChoiceFromPostgresAfterCacheLoss() {
         var userEntities = new ArrayList<UserEntity>();
         for (int index = 1; index <= 3; index++) {
             userEntities.add(users.save(UserEntity.builder()
@@ -93,12 +93,19 @@ class LasVegasRestartIntegrationTest {
         var start = new LasVegasStartPhase(List.of(
                 new PlayerStartInfo("P1", "Player 1", false, true),
                 new PlayerStartInfo("P2", "Player 2", false, true),
-                new PlayerStartInfo("P3", "Player 3", false, true)
+                new PlayerStartInfo("P3", "Player 3", false, true),
+                new PlayerStartInfo("BOT1", "Bot 1", true, true)
         ), new ZeroRandom());
         start.enter();
         LasVegasRuntimePhase runtime = start.transit();
         runtime.drainPublicEvents();
         runtime.applyCommand("P1", new LasVegasRuntimePhase.Command(0, "ROLL_DICE", null));
+        runtime.applyCommand("P1", new LasVegasRuntimePhase.Command(1, "PLACE_DICE", 1));
+        runtime.applyCommand("P2", new LasVegasRuntimePhase.Command(2, "ROLL_DICE", null));
+        runtime.applyCommand("P2", new LasVegasRuntimePhase.Command(3, "PLACE_DICE", 1));
+        runtime.applyCommand("P3", new LasVegasRuntimePhase.Command(4, "ROLL_DICE", null));
+        runtime.applyCommand("P3", new LasVegasRuntimePhase.Command(5, "PLACE_DICE", 1));
+        runtime.applyCommand("BOT1", new LasVegasRuntimePhase.Command(6, "ROLL_DICE", null));
         LasVegasSnapshot expected = runtime.snapshot();
 
         String gameId = sessionId + ":LASVEGAS:r1";
@@ -127,6 +134,9 @@ class LasVegasRestartIntegrationTest {
         assertEquals(expected, restored.snapshot());
         assertEquals("WAITING_FOR_CHOICE", restored.buildView("P1", java.util.Map.of()).phase());
         assertEquals(8, restored.buildView("P1", java.util.Map.of()).currentRoll().size());
+        assertEquals("BOT1", restored.currentPlayerId());
+        assertEquals("BOT1", restored.botTicket(gameId).botId());
+        assertEquals(7, restored.botTicket(gameId).expectedVersion());
 
         var access = new GameAccessService(users, sessions, members, games, new GamePlayerRegistry(), gamePlayers);
         Authentication authentication = mock(Authentication.class);

@@ -61,3 +61,7 @@ app:
       timeout-ms: ${APP_REALTIME_SSE_TIMEOUT_MS:1800000}
       max-per-player: ${APP_REALTIME_SSE_MAX_PER_PLAYER:3}
       max-per-game: ${APP_REALTIME_SSE_MAX_PER_GAME:32}
+  las-vegas:
+    bot:
+      step-delay-ms: ${APP_LAS_VEGAS_BOT_STEP_DELAY_MS:800}
+      recovery-interval-ms: ${APP_LAS_VEGAS_BOT_RECOVERY_INTERVAL_MS:5000}

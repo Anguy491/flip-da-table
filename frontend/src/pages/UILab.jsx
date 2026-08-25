@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageContainer from '../components/PageContainer';
 import {
@@ -45,9 +45,72 @@ export default function UILab() {
   const screen = params.get('screen') || 'components';
   const wildMode = params.get('state') === 'wild';
   const dvcSettledMode = params.get('state') === 'settled';
+  const vegasBotMode = params.get('state') === 'bot';
+  const vegasBotSequenceMode = params.get('state') === 'bot-sequence';
   const [dialogOpen, setDialogOpen] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(wildMode);
+  const [vegasBotStep, setVegasBotStep] = useState(0);
   const theme = screen === 'uno' ? 'uno' : screen === 'dvc' ? 'dvc' : screen === 'vegas' ? 'vegas' : 'neutral';
+  const vegasView = useMemo(() => {
+    if (vegasBotSequenceMode) {
+      const states = [
+        { currentPlayerId: 'BOT1', phase: 'WAITING_FOR_ROLL', currentRoll: [] },
+        { currentPlayerId: 'BOT1', phase: 'WAITING_FOR_CHOICE', currentRoll: [{ face: 1, big: false }, { face: 1, big: true }, { face: 3, big: false }] },
+        { currentPlayerId: 'BOT2', phase: 'WAITING_FOR_ROLL', currentRoll: [] },
+        { currentPlayerId: 'BOT2', phase: 'WAITING_FOR_CHOICE', currentRoll: [{ face: 2, big: false }, { face: 4, big: false }] },
+        { currentPlayerId: 'P1', phase: 'WAITING_FOR_ROLL', currentRoll: [] },
+      ];
+      const state = states[vegasBotStep];
+      const players = [
+        { ...lasVegasFixture.players[0], playerId: 'P1', name: 'PixelPilot', bot: false, seatIndex: 0 },
+        { ...lasVegasFixture.players[9], playerId: 'BOT1', name: 'Bot 1', bot: true, seatIndex: 1 },
+        { ...lasVegasFixture.players[9], playerId: 'BOT2', name: 'Bot 2', bot: true, seatIndex: 2 },
+      ].map((player) => ({ ...player, current: player.playerId === state.currentPlayerId }));
+      return {
+        ...lasVegasFixture,
+        ...state,
+        stateVersion: 20 + vegasBotStep,
+        turnCount: lasVegasFixture.turnCount + (vegasBotStep >= 2 ? 1 : 0),
+        players,
+        casinos: lasVegasFixture.casinos.map((casino) => ({
+          ...casino,
+          placements: casino.number === 1 && vegasBotStep >= 2
+            ? [{ playerId: 'BOT1', regularDice: 1, bigDie: true, influence: 3 }]
+            : [],
+        })),
+      };
+    }
+    return vegasBotMode ? {
+      ...lasVegasFixture,
+      currentPlayerId: 'BOT1',
+      players: lasVegasFixture.players.map((player) => ({
+        ...player,
+        current: player.playerId === 'BOT1',
+      })),
+    } : lasVegasFixture;
+  }, [vegasBotMode, vegasBotSequenceMode, vegasBotStep]);
+
+  useEffect(() => {
+    if (screen !== 'vegas') return undefined;
+    window.render_game_to_text = () => JSON.stringify({
+      coordinateSystem: 'DOM table; casinos 1-6 and seats ordered by seatIndex',
+      mode: vegasView.phase,
+      stateVersion: vegasView.stateVersion,
+      currentPlayerId: vegasView.currentPlayerId,
+      currentRoll: vegasView.currentRoll,
+      players: vegasView.players.map(({ playerId, name, bot, current, remainingDice, chips }) => ({
+        playerId, name, bot, current, remainingDice, chips,
+      })),
+      casinos: vegasView.casinos,
+    });
+    if (vegasBotSequenceMode) {
+      window.advance_las_vegas_bot_fixture = () => setVegasBotStep((step) => Math.min(step + 1, 4));
+    }
+    return () => {
+      delete window.render_game_to_text;
+      delete window.advance_las_vegas_bot_fixture;
+    };
+  }, [screen, vegasBotSequenceMode, vegasView]);
 
   if (screen === 'login') return <Login previewCapabilities={authPreviewCapabilities} />;
   if (screen === 'register') return <Register previewCapabilities={authPreviewCapabilities} />;
@@ -117,7 +180,7 @@ export default function UILab() {
         <LasVegasGameView
           sessionId="VEGAS-10-SEATS"
           gameId="LASVEGAS-DEMO-01"
-          view={lasVegasFixture}
+          view={vegasView}
           playerId="P1"
           connectionState="connected"
           loading={false}
