@@ -1,7 +1,9 @@
-import { useRef } from 'react';
+/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- The button-free scrollable seat rail needs a keyboard target. */
+import { useState } from 'react';
 import {
   ArcadeBadge,
   ArcadeButton,
+  ArcadeDialog,
   ArcadePanel,
   ArcadeToolbar,
   ConnectionBadge,
@@ -15,7 +17,7 @@ function money(amount) {
   return amount == null ? 'Hidden' : `$${Number(amount).toLocaleString('en-US')}`;
 }
 
-function Die({ face, big = false, seatIndex = 0, count, label }) {
+function Die({ face, big = false, seatIndex = 0, count, label, showOwner = true }) {
   return (
     <span
       className={`vegas-die ${big ? 'vegas-die--big' : ''}`}
@@ -24,7 +26,7 @@ function Die({ face, big = false, seatIndex = 0, count, label }) {
       aria-label={label || `${big ? 'Big die' : 'Die'} showing ${face}`}
     >
       <span className="vegas-die__face" aria-hidden="true">{face}</span>
-      <span className="vegas-die__owner" aria-hidden="true">P{seatIndex + 1}{big ? ' ×2' : count ? ` ×${count}` : ''}</span>
+      {showOwner && <span className="vegas-die__owner" aria-hidden="true">P{seatIndex + 1}{big ? ' ×2' : count ? ` ×${count}` : ''}</span>}
     </span>
   );
 }
@@ -38,7 +40,6 @@ function phaseMessage(view, isMyTurn, currentPlayer) {
 }
 
 export default function LasVegasGameView({
-  sessionId,
   gameId,
   view,
   playerId,
@@ -56,7 +57,7 @@ export default function LasVegasGameView({
   onLeave,
   onSummary,
 }) {
-  const seatTrackRef = useRef(null);
+  const [selectedCasinoNumber, setSelectedCasinoNumber] = useState(null);
   const players = view?.players || [];
   const me = players.find((player) => player.playerId === playerId);
   const currentPlayer = players.find((player) => player.playerId === view?.currentPlayerId);
@@ -64,6 +65,7 @@ export default function LasVegasGameView({
   const legalFaces = [...new Set((view?.currentRoll || []).map((die) => die.face))].sort((left, right) => left - right);
   const settlementEvents = publicEvents.filter((event) => ['CASINO_JACKPOT', 'CASINO_SECOND_PRIZE'].includes(event.type));
   const highlightedCasino = settlementEvents.at(-1)?.casinoNumber;
+  const selectedCasino = view?.casinos.find((casino) => casino.number === selectedCasinoNumber);
 
   if (!view) {
     return (
@@ -90,58 +92,13 @@ export default function LasVegasGameView({
 
   return (
     <div className="arcade-game-shell vegas-game">
-      <ArcadeToolbar>
+      <ArcadeToolbar className="arcade-toolbar--actions-only">
         <ToolbarGroup>
           <ConnectionBadge state={connectionState} />
-          <span className="arcade-code" title={sessionId}>Room {sessionId}</span>
-          <ArcadeBadge>Round {view.internalRound}/{view.totalRounds}</ArcadeBadge>
-          <ArcadeBadge tone="muted">v{view.stateVersion}</ArcadeBadge>
-        </ToolbarGroup>
-        <ToolbarGroup>
           <ArcadeButton size="small" variant="ghost" loading={loading} onClick={onRefresh}>Sync</ArcadeButton>
-          {view.phase !== 'FINISHED' && (
-            <ArcadeButton size="small" variant={assetsVisible ? 'secondary' : 'ghost'} loading={sending} onClick={() => onToggleAssets(!assetsVisible)}>
-              {assetsVisible ? 'Hide total assets' : 'Reveal total assets'}
-            </ArcadeButton>
-          )}
           <ArcadeButton size="small" variant="ghost" onClick={onLeave}>Leave table</ArcadeButton>
         </ToolbarGroup>
       </ArcadeToolbar>
-
-      <section ref={seatTrackRef} className="vegas-seat-track" aria-label="Player seats">
-        <ArcadeButton
-          className="vegas-seat-scroll"
-          variant="ghost"
-          size="small"
-          aria-label="Scroll player seats left"
-          onClick={() => seatTrackRef.current?.scrollBy({ left: -360, behavior: 'smooth' })}
-        >Prev seats</ArcadeButton>
-        {players.map((player) => (
-          <PlayerSeat
-            key={player.playerId}
-            className="vegas-seat"
-            data-seat={player.seatIndex + 1}
-            name={player.name}
-            index={player.seatIndex}
-            active={player.current}
-            meta={`${player.remainingDice} dice // ${player.chips} chips // ${player.moneyCardCount} cards`}
-            badge={player.playerId === playerId
-              ? <ArcadeBadge tone="success">You</ArcadeBadge>
-              : player.bot ? <ArcadeBadge tone="muted">CPU</ArcadeBadge> : undefined}
-          >
-            <span className="vegas-seat__assets">
-              {player.totalAssets != null ? `Mine ${money(player.totalAssets)}` : player.presentedTotal != null ? `Revealed ${money(player.presentedTotal)}` : 'Assets hidden'}
-            </span>
-          </PlayerSeat>
-        ))}
-        <ArcadeButton
-          className="vegas-seat-scroll"
-          variant="ghost"
-          size="small"
-          aria-label="Scroll player seats right"
-          onClick={() => seatTrackRef.current?.scrollBy({ left: 360, behavior: 'smooth' })}
-        >Next seats</ArcadeButton>
-      </section>
 
       <StatusBanner live tone={view.phase === 'FINISHED' ? 'success' : isMyTurn ? 'warning' : 'info'}>
         {phaseMessage(view, isMyTurn, currentPlayer)}
@@ -158,84 +115,138 @@ export default function LasVegasGameView({
         </div>
       )}
 
-      <section className="vegas-casino-grid" aria-label="Six casinos">
-        {view.casinos.map((casino) => (
-          <ArcadePanel
-            key={casino.number}
-            padded={false}
-            className={`vegas-casino ${highlightedCasino === casino.number ? 'vegas-casino--settling' : ''}`}
-            aria-label={`Casino ${casino.number}`}
-          >
-            <header className="vegas-casino__header">
-              <div>
-                <p className="arcade-eyebrow">Casino</p>
-                <h2 className="vegas-casino__number">{casino.number}</h2>
-              </div>
-              <div className="vegas-casino__bonuses" aria-label="Public prizes">
-                {casino.bonuses.map((bonus, index) => (
-                  <span key={`${bonus}-${index}`} className="vegas-money-card">{index === 0 ? '1ST' : '2ND'} {money(bonus)}</span>
-                ))}
-              </div>
-            </header>
-            <div className="vegas-casino__players">
-              {casino.placements.length ? casino.placements.map((placement) => {
-                const player = players.find((candidate) => candidate.playerId === placement.playerId);
-                return (
-                  <div className="vegas-influence" data-seat={(player?.seatIndex || 0) + 1} key={placement.playerId}>
-                    <span className="vegas-influence__name">P{(player?.seatIndex || 0) + 1} {player?.name}</span>
-                    <span className="vegas-influence__dice">
-                      {placement.regularDice > 0 && <Die face={casino.number} seatIndex={player?.seatIndex || 0} count={placement.regularDice} label={`${player?.name} has ${placement.regularDice} regular dice at casino ${casino.number}`} />}
-                      {placement.bigDie && <Die face={casino.number} big seatIndex={player?.seatIndex || 0} label={`${player?.name} has a big die worth two at casino ${casino.number}`} />}
-                    </span>
-                    <ArcadeBadge tone="muted">Power {placement.influence}</ArcadeBadge>
+      <div className="vegas-table-layout">
+        <section className="vegas-seat-track" aria-label="Player seats" tabIndex={0}>
+          {players.map((player) => (
+            <PlayerSeat
+              key={player.playerId}
+              className="vegas-seat"
+              data-seat={player.seatIndex + 1}
+              name={player.name}
+              index={player.seatIndex}
+              active={player.current}
+              meta={`${player.remainingDice} dice // ${player.chips} chips`}
+              badge={player.playerId === playerId
+                ? <ArcadeBadge tone="success">You</ArcadeBadge>
+                : player.bot ? <ArcadeBadge tone="muted">CPU</ArcadeBadge> : undefined}
+            >
+              <span className="vegas-seat__assets">
+                {player.totalAssets != null ? `Mine ${money(player.totalAssets)}` : player.presentedTotal != null ? `Revealed ${money(player.presentedTotal)}` : 'Assets hidden'}
+              </span>
+            </PlayerSeat>
+          ))}
+        </section>
+
+        <section className="vegas-casino-grid" aria-label="Six casinos">
+          {view.casinos.map((casino) => {
+            const previewPlacements = casino.placements.length > 2
+              ? casino.placements.slice(0, 1)
+              : casino.placements;
+            const hiddenPlacementCount = casino.placements.length - previewPlacements.length;
+            const openCasino = () => setSelectedCasinoNumber(casino.number);
+
+            return (
+              <ArcadePanel
+                as="article"
+                key={casino.number}
+                padded={false}
+                className={`vegas-casino ${highlightedCasino === casino.number ? 'vegas-casino--settling' : ''}`}
+                role="button"
+                tabIndex={0}
+                aria-haspopup="dialog"
+                aria-expanded={selectedCasinoNumber === casino.number}
+                aria-label={`Open Casino ${casino.number} details, ${casino.placements.length} players`}
+                onClick={openCasino}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  openCasino();
+                }}
+              >
+                <header className="vegas-casino__header">
+                  <div>
+                    <p className="arcade-eyebrow">Casino</p>
+                    <h2 className="vegas-casino__number">{casino.number}</h2>
                   </div>
-                );
-              }) : <p className="vegas-casino__empty">No dice placed</p>}
+                  <div className="vegas-casino__bonuses" aria-label="Public prizes">
+                    {casino.bonuses.map((bonus, index) => (
+                      <span key={`${bonus}-${index}`} className="vegas-money-card">{index === 0 ? '1ST' : '2ND'} {money(bonus)}</span>
+                    ))}
+                  </div>
+                </header>
+                <div className="vegas-casino__players">
+                  {previewPlacements.length ? previewPlacements.map((placement) => {
+                    const player = players.find((candidate) => candidate.playerId === placement.playerId);
+                    return (
+                      <div className="vegas-influence" data-seat={(player?.seatIndex || 0) + 1} key={placement.playerId}>
+                        <span className="vegas-influence__name">P{(player?.seatIndex || 0) + 1} {player?.name}</span>
+                        <span className="vegas-influence__dice">
+                          {placement.regularDice > 0 && <Die face={casino.number} seatIndex={player?.seatIndex || 0} count={placement.regularDice} showOwner={false} label={`${player?.name} has ${placement.regularDice} regular dice at casino ${casino.number}`} />}
+                          {placement.bigDie && <Die face={casino.number} big seatIndex={player?.seatIndex || 0} showOwner={false} label={`${player?.name} has a big die worth two at casino ${casino.number}`} />}
+                        </span>
+                        <ArcadeBadge tone="muted">Power {placement.influence}</ArcadeBadge>
+                      </div>
+                    );
+                  }) : <p className="vegas-casino__empty">No dice placed</p>}
+                  {hiddenPlacementCount > 0 && (
+                    <p className="vegas-casino__more">+{hiddenPlacementCount} more players // open details</p>
+                  )}
+                </div>
+              </ArcadePanel>
+            );
+          })}
+        </section>
+
+        <aside className="vegas-side-column" aria-label="Table controls and event logs">
+          <ArcadePanel className="vegas-console" aria-labelledby="vegas-actions-title">
+            <div className="vegas-console__header">
+              <div>
+                <p className="arcade-eyebrow">Action console</p>
+                <h2 id="vegas-actions-title" className="text-xl font-bold">{isMyTurn ? 'Your move' : 'Table locked'}</h2>
+              </div>
+              {view.phase !== 'FINISHED' && (
+                <ArcadeButton size="small" variant={assetsVisible ? 'secondary' : 'ghost'} loading={sending} onClick={() => onToggleAssets(!assetsVisible)}>
+                  {assetsVisible ? 'Hide total assets' : 'Reveal total assets'}
+                </ArcadeButton>
+              )}
             </div>
+
+            {view.phase === 'WAITING_FOR_ROLL' && (
+              <ArcadeButton block className="mt-5" loading={sending} disabled={!isMyTurn} onClick={onRoll}>Roll {me?.remainingDice || 0} dice</ArcadeButton>
+            )}
+
+            {view.phase === 'WAITING_FOR_CHOICE' && (
+              <>
+                <div className="vegas-current-roll" aria-label="Current public roll">
+                  {view.currentRoll.map((die, index) => <Die key={`${die.face}-${die.big}-${index}`} {...die} seatIndex={currentPlayer?.seatIndex || 0} />)}
+                </div>
+                <div className="vegas-face-actions" aria-label="Legal casino choices">
+                  {legalFaces.map((face) => (
+                    <ArcadeButton key={face} loading={sending} disabled={!isMyTurn} onClick={() => onPlace(face)}>Place all {face}s</ArcadeButton>
+                  ))}
+                </div>
+                <ArcadeButton block variant="secondary" className="mt-3" loading={sending} disabled={!isMyTurn || !me?.chips} onClick={onSkip}>
+                  Spend 1 chip to skip
+                </ArcadeButton>
+              </>
+            )}
+
+            {view.phase === 'FINISHED' && <ArcadeButton block className="mt-5" onClick={onSummary}>Open final scoreboard</ArcadeButton>}
           </ArcadePanel>
-        ))}
-      </section>
 
-      <div className="vegas-bottom-grid">
-        <ArcadePanel className="vegas-console" aria-labelledby="vegas-actions-title">
-          <p className="arcade-eyebrow">Action console</p>
-          <h2 id="vegas-actions-title" className="text-xl font-bold">{isMyTurn ? 'Your move' : 'Table locked'}</h2>
-
-          {view.phase === 'WAITING_FOR_ROLL' && (
-            <ArcadeButton block className="mt-5" loading={sending} disabled={!isMyTurn} onClick={onRoll}>Roll {me?.remainingDice || 0} dice</ArcadeButton>
-          )}
-
-          {view.phase === 'WAITING_FOR_CHOICE' && (
-            <>
-              <div className="vegas-current-roll" aria-label="Current public roll">
-                {view.currentRoll.map((die, index) => <Die key={`${die.face}-${die.big}-${index}`} {...die} seatIndex={currentPlayer?.seatIndex || 0} />)}
-              </div>
-              <div className="vegas-face-actions" aria-label="Legal casino choices">
-                {legalFaces.map((face) => (
-                  <ArcadeButton key={face} loading={sending} disabled={!isMyTurn} onClick={() => onPlace(face)}>Place all {face}s</ArcadeButton>
+          <details className="vegas-event-panel" open>
+            <summary>Event logs ({view.events.length})</summary>
+            <div role="log" aria-label="Las Vegas event record">
+              <ol className="vegas-event-log">
+                {[...view.events].reverse().map((event) => (
+                  <li key={event.sequence}>
+                    <span className="arcade-code">#{event.sequence}</span> {event.text}
+                  </li>
                 ))}
-              </div>
-              <ArcadeButton block variant="secondary" className="mt-3" loading={sending} disabled={!isMyTurn || !me?.chips} onClick={onSkip}>
-                Spend 1 chip to skip
-              </ArcadeButton>
-            </>
-          )}
-
-          {view.phase === 'FINISHED' && <ArcadeButton block className="mt-5" onClick={onSummary}>Open final scoreboard</ArcadeButton>}
-        </ArcadePanel>
-
-        <details className="vegas-event-panel" open>
-          <summary>Event record ({view.events.length})</summary>
-          <div role="log" aria-label="Las Vegas event record">
-            <ol className="vegas-event-log">
-              {[...view.events].reverse().map((event) => (
-                <li key={event.sequence}>
-                  <span className="arcade-code">#{event.sequence}</span> {event.text}
-                </li>
-              ))}
-            </ol>
-          </div>
-        </details>
+              </ol>
+            </div>
+          </details>
+        </aside>
       </div>
 
       {view.phase === 'FINISHED' && (
@@ -245,6 +256,53 @@ export default function LasVegasGameView({
           <Scoreboard columns={resultColumns} rows={view.results} getRowKey={(row) => row.playerId} />
         </ArcadePanel>
       )}
+
+      <ArcadeDialog
+        open={Boolean(selectedCasino)}
+        wide
+        title={selectedCasino ? `Casino ${selectedCasino.number} details` : 'Casino details'}
+        eyebrow={selectedCasino ? `${selectedCasino.placements.length} players // all dice and influence` : undefined}
+        closeLabel="Close"
+        onClose={() => setSelectedCasinoNumber(null)}
+      >
+        {selectedCasino && (
+          <div className="vegas-casino-detail">
+            {selectedCasino.placements.length ? selectedCasino.placements.map((placement) => {
+              const player = players.find((candidate) => candidate.playerId === placement.playerId);
+              const playerName = player?.name || placement.playerId;
+              const seatIndex = player?.seatIndex || 0;
+              return (
+                <section className="vegas-casino-detail__player" data-seat={seatIndex + 1} key={placement.playerId}>
+                  <header className="vegas-casino-detail__header">
+                    <h3>P{seatIndex + 1} {playerName}</h3>
+                    <ArcadeBadge tone="muted">Power {placement.influence}</ArcadeBadge>
+                  </header>
+                  <div className="vegas-casino-detail__dice" aria-label={`${playerName}'s dice at casino ${selectedCasino.number}`}>
+                    {Array.from({ length: placement.regularDice }, (_, index) => (
+                      <Die
+                        key={`regular-${index}`}
+                        face={selectedCasino.number}
+                        seatIndex={seatIndex}
+                        showOwner={false}
+                        label={`${playerName} regular die ${index + 1} at casino ${selectedCasino.number}`}
+                      />
+                    ))}
+                    {placement.bigDie && (
+                      <Die
+                        big
+                        face={selectedCasino.number}
+                        seatIndex={seatIndex}
+                        showOwner={false}
+                        label={`${playerName} big die worth two at casino ${selectedCasino.number}`}
+                      />
+                    )}
+                  </div>
+                </section>
+              );
+            }) : <p className="vegas-casino-detail__empty">No player has placed dice at this casino.</p>}
+          </div>
+        )}
+      </ArcadeDialog>
 
       <span className="sr-only">Game ID {gameId}</span>
     </div>

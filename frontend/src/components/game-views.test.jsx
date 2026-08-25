@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import UnoGameView from './uno/UnoGameView';
 import DvcGameView from './dvc/DvcGameView';
@@ -117,7 +117,7 @@ describe('deterministic game views', () => {
 
   it('renders ten distinguishable Las Vegas seats and only legal face actions', () => {
     const onPlace = vi.fn();
-    render(
+    const { container } = render(
       <LasVegasGameView
         sessionId="VEGAS-ROOM"
         gameId="game-1"
@@ -133,6 +133,21 @@ describe('deterministic game views', () => {
     );
 
     expect(screen.getAllByRole('article')).toHaveLength(10);
+    expect(screen.queryByText('Room VEGAS-ROOM')).not.toBeInTheDocument();
+    expect(screen.queryByText('Round 2/3')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Scroll player seats/i })).not.toBeInTheDocument();
+    expect([...container.querySelectorAll('.arcade-seat__meta')].every((meta) => !meta.textContent.includes('cards'))).toBe(true);
+    const toolbar = container.querySelector('.arcade-toolbar');
+    const consolePanel = container.querySelector('.vegas-console');
+    const revealAssets = screen.getByRole('button', { name: 'Reveal total assets' });
+    expect(toolbar).toHaveClass('arcade-toolbar--actions-only');
+    expect(toolbar).not.toContainElement(revealAssets);
+    expect(consolePanel).toContainElement(revealAssets);
+    expect(container.querySelector('.vegas-table-layout > .vegas-seat-track')).toBeInTheDocument();
+    expect(container.querySelector('.vegas-table-layout > .vegas-casino-grid')).toBeInTheDocument();
+    expect(container.querySelector('.vegas-table-layout > .vegas-side-column')).toBeInTheDocument();
+    expect(container.querySelectorAll('.vegas-casino .vegas-die__owner')).toHaveLength(0);
+    expect(container.querySelectorAll('.vegas-console .vegas-die__owner').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Place all 1s' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Place all 3s' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Place all 2s' })).not.toBeInTheDocument();
@@ -140,6 +155,51 @@ describe('deterministic game views', () => {
     expect(onPlace).toHaveBeenCalledWith(5);
     expect(screen.getAllByRole('img', { name: /big die worth two/i }).length).toBeGreaterThan(0);
     expect(screen.getByText('Revealed $210,000')).toBeVisible();
+  });
+
+  it('opens a keyboard-accessible casino dialog with every player die and influence', async () => {
+    const crowdedPlacements = lasVegasFixture.players.slice(0, 5).map((player, index) => ({
+      playerId: player.playerId,
+      regularDice: index + 1,
+      bigDie: index % 2 === 0,
+      influence: index + 1 + (index % 2 === 0 ? 2 : 0),
+    }));
+    const view = {
+      ...lasVegasFixture,
+      casinos: lasVegasFixture.casinos.map((casino) => casino.number === 1
+        ? { ...casino, placements: crowdedPlacements }
+        : casino),
+    };
+    const { container } = render(
+      <LasVegasGameView
+        gameId="game-1"
+        view={view}
+        playerId="P1"
+        connectionState="connected"
+        onPlace={vi.fn()}
+        onSkip={vi.fn()}
+        onToggleAssets={vi.fn()}
+        onRefresh={vi.fn()}
+        onLeave={vi.fn()}
+      />,
+    );
+
+    const casino = screen.getByRole('button', { name: 'Open Casino 1 details, 5 players' });
+    expect(casino.querySelectorAll('.vegas-influence')).toHaveLength(1);
+    expect(within(casino).getByText('+4 more players // open details')).toBeVisible();
+
+    casino.focus();
+    fireEvent.keyDown(casino, { key: 'Enter' });
+
+    const dialog = screen.getByRole('dialog', { name: 'Casino 1 details' });
+    expect(within(dialog).getAllByRole('img')).toHaveLength(18);
+    expect(within(dialog).getAllByText(/^Power /)).toHaveLength(5);
+    expect(within(dialog).getByText('P5 Player 5')).toBeVisible();
+    expect(container.querySelectorAll('.vegas-casino-detail__player')).toHaveLength(5);
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close dialog' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Casino 1 details' })).not.toBeInTheDocument());
+    expect(casino).toHaveFocus();
   });
 
   it('disables Las Vegas actions outside the viewer turn and when chips are exhausted', () => {

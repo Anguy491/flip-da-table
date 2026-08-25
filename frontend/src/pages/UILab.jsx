@@ -47,6 +47,7 @@ export default function UILab() {
   const dvcSettledMode = params.get('state') === 'settled';
   const vegasBotMode = params.get('state') === 'bot';
   const vegasBotSequenceMode = params.get('state') === 'bot-sequence';
+  const vegasCrowdedMode = params.get('state') === 'crowded';
   const [dialogOpen, setDialogOpen] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(wildMode);
   const [vegasBotStep, setVegasBotStep] = useState(0);
@@ -80,6 +81,22 @@ export default function UILab() {
         })),
       };
     }
+    if (vegasCrowdedMode) {
+      return {
+        ...lasVegasFixture,
+        casinos: lasVegasFixture.casinos.map((casino) => casino.number === 1
+          ? {
+            ...casino,
+            placements: lasVegasFixture.players.slice(0, 8).map((player, index) => ({
+              playerId: player.playerId,
+              regularDice: (index % 3) + 1,
+              bigDie: index % 2 === 0,
+              influence: (index % 3) + 1 + (index % 2 === 0 ? 2 : 0),
+            })),
+          }
+          : casino),
+      };
+    }
     return vegasBotMode ? {
       ...lasVegasFixture,
       currentPlayerId: 'BOT1',
@@ -88,7 +105,7 @@ export default function UILab() {
         current: player.playerId === 'BOT1',
       })),
     } : lasVegasFixture;
-  }, [vegasBotMode, vegasBotSequenceMode, vegasBotStep]);
+  }, [vegasBotMode, vegasBotSequenceMode, vegasBotStep, vegasCrowdedMode]);
 
   useEffect(() => {
     if (screen !== 'vegas') return undefined;
