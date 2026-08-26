@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex -- The button-free scrollable seat rail needs a keyboard target. */
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArcadeBadge,
   ArcadeButton,
@@ -12,23 +12,25 @@ import {
   StatusBanner,
   ToolbarGroup,
 } from '../arcade/ArcadeUI';
+import LasVegasDie from './LasVegasDie';
+import RollRevealDialog from './RollRevealDialog';
 
 function money(amount) {
   return amount == null ? 'Hidden' : `$${Number(amount).toLocaleString('en-US')}`;
 }
 
-function Die({ face, big = false, seatIndex = 0, count, label, showOwner = true }) {
-  return (
-    <span
-      className={`vegas-die ${big ? 'vegas-die--big' : ''}`}
-      data-seat={seatIndex + 1}
-      role="img"
-      aria-label={label || `${big ? 'Big die' : 'Die'} showing ${face}`}
-    >
-      <span className="vegas-die__face" aria-hidden="true">{face}</span>
-      {showOwner && <span className="vegas-die__owner" aria-hidden="true">P{seatIndex + 1}{big ? ' ×2' : count ? ` ×${count}` : ''}</span>}
-    </span>
-  );
+function pendingDiceFor(player) {
+  const regularDice = Number.isInteger(player?.remainingRegularDice)
+    ? player.remainingRegularDice
+    : Math.max(0, (player?.remainingDice || 0) - (player?.bigDieRemaining ? 1 : 0));
+  return [
+    ...Array.from({ length: regularDice }, () => ({ face: null, big: false })),
+    ...(player?.bigDieRemaining ? [{ face: null, big: true }] : []),
+  ];
+}
+
+function diceSignature(dice = []) {
+  return dice.map((die) => `${die.face}:${Boolean(die.big)}`).join('|');
 }
 
 function phaseMessage(view, isMyTurn, currentPlayer) {
@@ -58,6 +60,12 @@ export default function LasVegasGameView({
   onSummary,
 }) {
   const [selectedCasinoNumber, setSelectedCasinoNumber] = useState(null);
+  const [rollReveal, setRollReveal] = useState(null);
+  const rollSequenceRef = useRef(0);
+  const showRollButtonRef = useRef(null);
+  const actionConsoleRef = useRef(null);
+  const focusShowAfterHideRef = useRef(false);
+  const focusConsoleAfterActionRef = useRef(false);
   const players = view?.players || [];
   const me = players.find((player) => player.playerId === playerId);
   const currentPlayer = players.find((player) => player.playerId === view?.currentPlayerId);
@@ -66,6 +74,195 @@ export default function LasVegasGameView({
   const settlementEvents = publicEvents.filter((event) => ['CASINO_JACKPOT', 'CASINO_SECOND_PRIZE'].includes(event.type));
   const highlightedCasino = settlementEvents.at(-1)?.casinoNumber;
   const selectedCasino = view?.casinos.find((casino) => casino.number === selectedCasinoNumber);
+
+  const startRollReveal = useCallback(() => {
+    if (!view || !me || !isMyTurn || sending || view.phase !== 'WAITING_FOR_ROLL') return;
+    rollSequenceRef.current += 1;
+    setRollReveal({
+      id: rollSequenceRef.current,
+      actorId: view.currentPlayerId,
+      playerName: me.name,
+      seatIndex: me.seatIndex || 0,
+      pendingDice: pendingDiceFor(me),
+      resultDice: null,
+      resultVersion: null,
+      phase: 'waiting-result',
+      visible: true,
+      pendingAction: null,
+      submittedVersion: null,
+      requestStarted: false,
+      actionError: '',
+      errorAtOpen: error,
+    });
+    onRoll?.();
+  }, [error, isMyTurn, me, onRoll, sending, view]);
+
+  useEffect(() => {
+    if (!rollReveal || rollReveal.resultDice?.length) return;
+    if (view?.phase === 'WAITING_FOR_CHOICE'
+      && view.currentPlayerId === rollReveal.actorId
+      && view.currentRoll?.length) {
+      setRollReveal((current) => current ? {
+        ...current,
+        resultDice: view.currentRoll.map((die) => ({ ...die })),
+        resultVersion: view.stateVersion,
+        phase: 'revealing',
+      } : current);
+      return;
+    }
+    const rollStillPending = view?.phase === 'WAITING_FOR_ROLL'
+      && view.currentPlayerId === rollReveal.actorId;
+    if (!rollStillPending) setRollReveal(null);
+  }, [rollReveal, view?.currentPlayerId, view?.currentRoll, view?.phase, view?.stateVersion]);
+
+  useEffect(() => {
+    if (!rollReveal?.resultDice?.length) return;
+    const sameChoice = view?.phase === 'WAITING_FOR_CHOICE'
+      && view.currentPlayerId === rollReveal.actorId
+      && view.currentRoll?.length;
+    const baselineVersion = rollReveal.pendingAction
+      ? rollReveal.submittedVersion
+      : rollReveal.resultVersion;
+    const versionAdvanced = baselineVersion == null
+      || view?.stateVersion == null
+      || Number(view.stateVersion) > Number(baselineVersion);
+    if (!sameChoice) {
+      if (!versionAdvanced) return;
+      if (rollReveal.pendingAction) focusConsoleAfterActionRef.current = true;
+      setRollReveal(null);
+      return;
+    }
+    if (versionAdvanced && diceSignature(view.currentRoll) !== diceSignature(rollReveal.resultDice)) {
+      setRollReveal((current) => current ? {
+        ...current,
+        resultDice: view.currentRoll.map((die) => ({ ...die })),
+        resultVersion: view.stateVersion,
+        phase: 'ready',
+        pendingAction: null,
+        submittedVersion: null,
+        requestStarted: false,
+      } : current);
+    }
+  }, [rollReveal, view?.currentPlayerId, view?.currentRoll, view?.phase, view?.stateVersion]);
+
+  useEffect(() => {
+    if (!rollReveal) return;
+    if (!rollReveal.resultDice?.length && error && error !== rollReveal.errorAtOpen) {
+      setRollReveal(null);
+      return;
+    }
+    if (rollReveal.resultDice?.length
+      && rollReveal.pendingAction
+      && error
+      && error !== rollReveal.errorAtSubmit) {
+      setRollReveal((current) => current ? {
+        ...current,
+        pendingAction: null,
+        submittedVersion: null,
+        requestStarted: false,
+        actionError: error,
+        errorAtSubmit: error,
+      } : current);
+    }
+  }, [error, rollReveal]);
+
+  useEffect(() => {
+    if (!rollReveal?.pendingAction && !rollReveal?.resultDice?.length) {
+      if (rollReveal && sending && !rollReveal.requestStarted) {
+        setRollReveal((current) => current ? { ...current, requestStarted: true } : current);
+      } else if (rollReveal?.requestStarted && !sending && view?.phase === 'WAITING_FOR_ROLL') {
+        setRollReveal(null);
+      }
+      return;
+    }
+    if (!rollReveal?.pendingAction) return;
+    if (sending && !rollReveal.requestStarted) {
+      setRollReveal((current) => current ? { ...current, requestStarted: true } : current);
+    } else if (!sending && rollReveal.requestStarted
+      && view?.phase === 'WAITING_FOR_CHOICE'
+      && view.currentPlayerId === rollReveal.actorId) {
+      setRollReveal((current) => current ? {
+        ...current,
+        pendingAction: null,
+        submittedVersion: null,
+        requestStarted: false,
+        actionError: error || 'The casino did not advance. Please try again.',
+      } : current);
+    }
+  }, [error, rollReveal, sending, view?.currentPlayerId, view?.phase]);
+
+  useEffect(() => {
+    if (rollReveal?.visible || !focusShowAfterHideRef.current) return undefined;
+    focusShowAfterHideRef.current = false;
+    const frame = window.requestAnimationFrame(() => showRollButtonRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [rollReveal?.visible]);
+
+  useEffect(() => {
+    if (rollReveal || !focusConsoleAfterActionRef.current) return undefined;
+    focusConsoleAfterActionRef.current = false;
+    const frame = window.requestAnimationFrame(() => actionConsoleRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [rollReveal]);
+
+  const finishRollReveal = useCallback(() => {
+    setRollReveal((current) => current ? { ...current, phase: 'ready' } : current);
+  }, []);
+
+  const hideRollReveal = useCallback(() => {
+    focusShowAfterHideRef.current = true;
+    setRollReveal((current) => current?.phase === 'ready' ? { ...current, visible: false } : current);
+  }, []);
+
+  const showRollReveal = useCallback(() => {
+    if (!view || !me || !isMyTurn || view.phase !== 'WAITING_FOR_CHOICE' || !view.currentRoll?.length) return;
+    setRollReveal((current) => {
+      if (current) return { ...current, visible: true };
+      rollSequenceRef.current += 1;
+      return {
+        id: rollSequenceRef.current,
+        actorId: view.currentPlayerId,
+        playerName: me.name,
+        seatIndex: me.seatIndex || 0,
+        pendingDice: view.currentRoll.map((die) => ({ ...die })),
+        resultDice: view.currentRoll.map((die) => ({ ...die })),
+        resultVersion: view.stateVersion,
+        phase: 'ready',
+        visible: true,
+        pendingAction: null,
+        submittedVersion: null,
+        requestStarted: false,
+        actionError: '',
+        errorAtOpen: error,
+      };
+    });
+  }, [error, isMyTurn, me, view]);
+
+  const placeFromReveal = useCallback((face) => {
+    if (!rollReveal || rollReveal.phase !== 'ready' || rollReveal.pendingAction || sending) return;
+    setRollReveal((current) => current ? {
+      ...current,
+      pendingAction: `place-${face}`,
+      submittedVersion: view?.stateVersion,
+      requestStarted: false,
+      actionError: '',
+      errorAtSubmit: error,
+    } : current);
+    onPlace?.(face);
+  }, [error, onPlace, rollReveal, sending, view?.stateVersion]);
+
+  const skipFromReveal = useCallback(() => {
+    if (!rollReveal || rollReveal.phase !== 'ready' || rollReveal.pendingAction || sending || !me?.chips) return;
+    setRollReveal((current) => current ? {
+      ...current,
+      pendingAction: 'skip',
+      submittedVersion: view?.stateVersion,
+      requestStarted: false,
+      actionError: '',
+      errorAtSubmit: error,
+    } : current);
+    onSkip?.();
+  }, [error, me?.chips, onSkip, rollReveal, sending, view?.stateVersion]);
 
   if (!view) {
     return (
@@ -181,8 +378,8 @@ export default function LasVegasGameView({
                       <div className="vegas-influence" data-seat={(player?.seatIndex || 0) + 1} key={placement.playerId}>
                         <span className="vegas-influence__name">P{(player?.seatIndex || 0) + 1} {player?.name}</span>
                         <span className="vegas-influence__dice">
-                          {placement.regularDice > 0 && <Die face={casino.number} seatIndex={player?.seatIndex || 0} count={placement.regularDice} showOwner={false} label={`${player?.name} has ${placement.regularDice} regular dice at casino ${casino.number}`} />}
-                          {placement.bigDie && <Die face={casino.number} big seatIndex={player?.seatIndex || 0} showOwner={false} label={`${player?.name} has a big die worth two at casino ${casino.number}`} />}
+                          {placement.regularDice > 0 && <LasVegasDie face={casino.number} seatIndex={player?.seatIndex || 0} count={placement.regularDice} showOwner={false} label={`${player?.name} has ${placement.regularDice} regular dice at casino ${casino.number}`} />}
+                          {placement.bigDie && <LasVegasDie face={casino.number} big seatIndex={player?.seatIndex || 0} showOwner={false} label={`${player?.name} has a big die worth two at casino ${casino.number}`} />}
                         </span>
                         <ArcadeBadge tone="muted">Power {placement.influence}</ArcadeBadge>
                       </div>
@@ -202,7 +399,7 @@ export default function LasVegasGameView({
             <div className="vegas-console__header">
               <div>
                 <p className="arcade-eyebrow">Action console</p>
-                <h2 id="vegas-actions-title" className="text-xl font-bold">{isMyTurn ? 'Your move' : 'Table locked'}</h2>
+                <h2 ref={actionConsoleRef} id="vegas-actions-title" className="text-xl font-bold" tabIndex={-1}>{isMyTurn ? 'Your move' : 'Table locked'}</h2>
               </div>
               {view.phase !== 'FINISHED' && (
                 <ArcadeButton size="small" variant={assetsVisible ? 'secondary' : 'ghost'} loading={sending} onClick={() => onToggleAssets(!assetsVisible)}>
@@ -212,23 +409,18 @@ export default function LasVegasGameView({
             </div>
 
             {view.phase === 'WAITING_FOR_ROLL' && (
-              <ArcadeButton block className="mt-5" loading={sending} disabled={!isMyTurn} onClick={onRoll}>Roll {me?.remainingDice || 0} dice</ArcadeButton>
+              <ArcadeButton id="vegas-roll-button" block className="mt-5" loading={sending} disabled={!isMyTurn} onClick={startRollReveal}>Roll {me?.remainingDice || 0} dice</ArcadeButton>
             )}
 
-            {view.phase === 'WAITING_FOR_CHOICE' && (
-              <>
-                <div className="vegas-current-roll" aria-label="Current public roll">
-                  {view.currentRoll.map((die, index) => <Die key={`${die.face}-${die.big}-${index}`} {...die} seatIndex={currentPlayer?.seatIndex || 0} />)}
-                </div>
-                <div className="vegas-face-actions" aria-label="Legal casino choices">
-                  {legalFaces.map((face) => (
-                    <ArcadeButton key={face} loading={sending} disabled={!isMyTurn} onClick={() => onPlace(face)}>Place all {face}s</ArcadeButton>
-                  ))}
-                </div>
-                <ArcadeButton block variant="secondary" className="mt-3" loading={sending} disabled={!isMyTurn || !me?.chips} onClick={onSkip}>
-                  Spend 1 chip to skip
-                </ArcadeButton>
-              </>
+            {view.phase === 'WAITING_FOR_CHOICE' && isMyTurn && (!rollReveal || !rollReveal.visible) && (
+              <ArcadeButton
+                ref={showRollButtonRef}
+                block
+                className="mt-5"
+                onClick={showRollReveal}
+              >
+                Show roll &amp; actions
+              </ArcadeButton>
             )}
 
             {view.phase === 'FINISHED' && <ArcadeButton block className="mt-5" onClick={onSummary}>Open final scoreboard</ArcadeButton>}
@@ -279,7 +471,7 @@ export default function LasVegasGameView({
                   </header>
                   <div className="vegas-casino-detail__dice" aria-label={`${playerName}'s dice at casino ${selectedCasino.number}`}>
                     {Array.from({ length: placement.regularDice }, (_, index) => (
-                      <Die
+                      <LasVegasDie
                         key={`regular-${index}`}
                         face={selectedCasino.number}
                         seatIndex={seatIndex}
@@ -288,7 +480,7 @@ export default function LasVegasGameView({
                       />
                     ))}
                     {placement.bigDie && (
-                      <Die
+                      <LasVegasDie
                         big
                         face={selectedCasino.number}
                         seatIndex={seatIndex}
@@ -303,6 +495,27 @@ export default function LasVegasGameView({
           </div>
         )}
       </ArcadeDialog>
+
+      {rollReveal && (
+        <RollRevealDialog
+          open={rollReveal.visible}
+          rollId={rollReveal.id}
+          phase={rollReveal.phase}
+          pendingDice={rollReveal.pendingDice}
+          resultDice={rollReveal.resultDice}
+          seatIndex={rollReveal.seatIndex}
+          playerName={rollReveal.playerName}
+          legalFaces={legalFaces}
+          chips={me?.chips || 0}
+          sending={sending}
+          pendingAction={rollReveal.pendingAction}
+          error={rollReveal.actionError}
+          onRevealComplete={finishRollReveal}
+          onHide={hideRollReveal}
+          onPlace={placeFromReveal}
+          onSkip={skipFromReveal}
+        />
+      )}
 
       <span className="sr-only">Game ID {gameId}</span>
     </div>

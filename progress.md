@@ -2,6 +2,18 @@ Original prompt: PLEASE IMPLEMENT THIS PLAN: LASVEGAS standard bot support with 
 
 ## Progress
 
+- 2026-08-26: New continuation request: move the LASVEGAS roll reveal out of the action console into a large centered modal, add an eight-die staggered spin/settle sequence, roulette motion, and original spark/metal-friction particles using Motion plus a lightweight Canvas layer.
+- 2026-08-26: Added Motion 13, a server-authoritative roll-reveal state, a non-dismissible centered arcade dialog, responsive eight-die roulette staging, left-to-right impacts, deterministic Canvas spark bursts, and a reduced-motion static reveal. Removed rolled dice from the action console and kept choices hidden until the reveal finishes.
+- 2026-08-26: Added a deterministic eight-die UI Lab roll fixture, component coverage, cross-browser modal/focus/reduced-motion checks, and refreshed the three intentional Las Vegas visual baselines. Manual desktop and 667x375 screenshot review confirmed centered placement, visible sparks, and no clipping.
+- 2026-08-26: Began the persistent-action continuation: replaced the roll artwork with six-faced CSS 3D cubes driven by the existing lazy Motion runtime, split bounce from cube rotation, and refactored the roll session so completion reveals in-dialog Place/Skip controls instead of closing the modal.
+- 2026-08-26: Added completed-roll recovery through Action Console Show, completion-only Hide/Escape, server-confirmed action dismissal, retry-in-place errors, explicit focus restoration, and updated deterministic UI Lab state/text hooks for the full flow.
+- 2026-08-26: Browser screenshot review caught and fixed an inherited infinite opacity repeat on non-reduced-motion dice. Final desktop, 667×375 landscape, and 390×844 portrait inspections show opaque multi-face cubes, all actions reachable, and no page overflow.
+- 2026-08-26: Persistent 3D roll continuation complete. Final Arcade UI audit, ESLint, 44 Vitest tests, production build, and 78 Playwright cases across Chromium, Firefox, and WebKit passed; intentional Vegas desktop/tablet/landscape visual baselines were refreshed.
+- 2026-08-26: Began the roll-pacing polish: widened inter-die spacing, strengthened the big die with a thicker two-tone hard border, and changed the reveal to spin for five seconds before settling one die per second from left to right.
+- 2026-08-26: Added fake-timer coverage for the exact 5-second lead and 1-second settle cadence. The focused 14-test Las Vegas component suite and Arcade UI audit pass.
+- 2026-08-26: Roll-pacing polish complete. Browser screenshots confirmed wider spacing, a visibly stronger big-die border, and progressive left-to-right locking; final ESLint, UI audit, 44 Vitest tests, production build, and 78 Playwright cases across Chromium, Firefox, and WebKit pass.
+- 2026-08-26: Shortened the initial roll spin from five seconds to three seconds while preserving the one-die-per-second left-to-right settle cadence; updated the exact timer boundary test accordingly.
+- 2026-08-26: The three-second spin adjustment is verified by browser screenshots, 44 Vitest tests, lint/UI audit/build, and the key persistent-roll Playwright case in Chromium, Firefox, and WebKit.
 - 2026-08-25: Began implementation from a clean worktree. Selected server-side strategy, transactional step tickets, and existing arcade UI primitives per the approved plan.
 - 2026-08-25: Added Bot identity propagation, schema-v2 snapshot output with v1 acceptance, a public-information-only deterministic strategy, and the first focused tests.
 - 2026-08-25: Added guarded transactional Bot steps, delayed scheduling, recovery scanning, per-step persistence/broadcasting, and Bot metrics. Local Gradle verification is pending because no JDK is currently installed/discoverable.
@@ -32,3 +44,5 @@ Original prompt: PLEASE IMPLEMENT THIS PLAN: LASVEGAS standard bot support with 
 - Frontend: ESLint passed; 41 Vitest tests passed; Arcade UI audit passed; production build passed.
 - Browser: 72 Playwright cases passed across Chromium, Firefox, and WebKit, including the 1-human/2-Bot sequence and 390×844, 667×375, 1024×768, and 1440×900 checks.
 - Patch: `git diff --check` passed.
+- 2026-08-26 continuation: Arcade UI audit, ESLint, 43 Vitest tests, production build, and 78 Playwright cases across Chromium, Firefox, and WebKit passed; `git diff --check` also passed.
+- 2026-08-26 persistent 3D continuation: Arcade UI audit and ESLint passed; 44 Vitest tests and 78 Playwright cases passed; production build and `git diff --check` passed.

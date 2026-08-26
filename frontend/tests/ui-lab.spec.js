@@ -91,12 +91,120 @@ test('Las Vegas keeps keyboard focus, reduced motion, and 200% zoom usable', asy
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test('Las Vegas keeps eight 3D dice and their actions in a persistent centered modal', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/__ui-lab?screen=vegas&state=roll');
+  await page.getByRole('button', { name: 'Roll 8 dice' }).click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('.vegas-roll-die-3d')).toHaveCount(8);
+  await expect(page.locator('.vegas-roll-cube__face')).toHaveCount(48);
+  await expect(page.locator('.vegas-current-roll')).toHaveCount(0);
+  await expect(page.locator('.vegas-console .vegas-die')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Hide dialog' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+
+  await expect.poll(async () => page.locator('.vegas-roll-cube').first().evaluate(
+    (element) => getComputedStyle(element).transform,
+  )).toMatch(/^matrix3d\(/);
+
+  await page.waitForTimeout(200);
+  const dialogBox = await dialog.boundingBox();
+  expect(dialogBox).not.toBeNull();
+  expect(Math.abs(dialogBox.x + dialogBox.width / 2 - 720)).toBeLessThanOrEqual(2);
+  expect(Math.abs(dialogBox.y + dialogBox.height / 2 - 450)).toBeLessThanOrEqual(2);
+
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  const severe = results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact));
+  expect(severe).toEqual([]);
+
+  await expect(page.getByRole('dialog', { name: 'Roll complete // choose a casino' })).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('.vegas-roll-dialog [data-result-face]')).toHaveCount(8);
+  await expect.poll(async () => page.locator('.vegas-roll-dialog [data-result-face]').evaluateAll(
+    (elements) => elements.map((element) => Number(element.dataset.resultFace)),
+  )).toEqual([6, 2, 5, 1, 4, 3, 6, 5]);
+  const dieGap = await page.locator('.vegas-roll-dice').evaluate(
+    (element) => Number.parseFloat(getComputedStyle(element).columnGap),
+  );
+  expect(dieGap).toBeGreaterThanOrEqual(12);
+  const bigDieBorder = await page.locator('.vegas-roll-die-3d--big .vegas-roll-cube__face').first().evaluate(
+    (element) => {
+      const styles = getComputedStyle(element);
+      return {
+        style: styles.borderTopStyle,
+        width: styles.borderTopWidth,
+        shadow: styles.boxShadow,
+      };
+    },
+  );
+  expect(bigDieBorder).toEqual(expect.objectContaining({ style: 'double', width: '6px' }));
+  expect(bigDieBorder.shadow).not.toBe('none');
+  await expect(page.getByRole('button', { name: 'Place all 6s' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Place all 1s' })).toBeFocused();
+  await expect(page.locator('.vegas-console').getByRole('button', { name: /Place all/i })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Hide dialog' }).click();
+  await expect(dialog).toHaveCount(0);
+  const showRoll = page.getByRole('button', { name: 'Show roll & actions' });
+  await expect(showRoll).toBeFocused();
+  await showRoll.click();
+  await expect(page.getByRole('dialog', { name: 'Roll complete // choose a casino' })).toBeVisible();
+  await expect(page.locator('.vegas-roll-dialog [data-result-face]')).toHaveCount(8);
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show roll & actions' }).click();
+  await page.getByRole('button', { name: 'Place all 6s' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Table locked' })).toBeFocused();
+  const textState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
+  expect(textState.rollDialogVisible).toBe(false);
+  expect(textState.currentPlayerId).toBe('P2');
+});
+
+test('Las Vegas roll reveal fits phone landscape and respects reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 667, height: 375 });
+  await page.goto('/__ui-lab?screen=vegas&state=roll');
+  await page.getByRole('button', { name: 'Roll 8 dice' }).click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  const dialogBox = await dialog.boundingBox();
+  expect(dialogBox).not.toBeNull();
+  expect(dialogBox.x).toBeGreaterThanOrEqual(0);
+  expect(dialogBox.y).toBeGreaterThanOrEqual(0);
+  expect(dialogBox.x + dialogBox.width).toBeLessThanOrEqual(667);
+  expect(dialogBox.y + dialogBox.height).toBeLessThanOrEqual(375);
+  await expect(page.locator('.vegas-roll-die-3d')).toHaveCount(8);
+  await expect(page.locator('.vegas-roll-cube__face')).toHaveCount(48);
+  const animationDuration = await page.locator('.vegas-roll-die-wrap').first().evaluate((element) => getComputedStyle(element).animationDuration);
+  expect(['0s', '0.001s']).toContain(animationDuration.split(',')[0]);
+
+  await expect(page.getByRole('dialog', { name: 'Roll complete // choose a casino' })).toBeVisible({ timeout: 1500 });
+  await expect(page.getByRole('button', { name: 'Spend 1 chip to skip' })).toBeVisible();
+  await page.getByRole('button', { name: 'Hide dialog' }).click();
+  await expect(page.getByRole('button', { name: 'Show roll & actions' })).toBeFocused();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Show roll & actions' }).click();
+  const portraitDialogBox = await page.getByRole('dialog').boundingBox();
+  expect(portraitDialogBox).not.toBeNull();
+  expect(portraitDialogBox.x).toBeGreaterThanOrEqual(0);
+  expect(portraitDialogBox.x + portraitDialogBox.width).toBeLessThanOrEqual(390);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
 test('Las Vegas visibly identifies a bot turn and locks human actions', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/__ui-lab?screen=vegas&state=bot');
   await expect(page.getByText(/Bot 1 \(CPU\) is taking their turn/i)).toBeVisible();
   await expect(page.getByText('CPU', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Place all 1s' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Place all 1s' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Show roll & actions' })).toHaveCount(0);
   const textState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
   expect(textState.currentPlayerId).toBe('BOT1');
   expect(textState.players.find((player) => player.playerId === 'BOT1').bot).toBe(true);

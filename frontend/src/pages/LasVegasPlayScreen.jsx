@@ -31,6 +31,8 @@ export default function LasVegasPlayScreen() {
       currentPlayerId: vegas.view?.currentPlayerId ?? null,
       viewerId: vegas.playerId,
       currentRoll: vegas.view?.currentRoll || [],
+      rollDialogVisible: Boolean(document.querySelector('.vegas-roll-dialog')),
+      rollDialogTitle: document.querySelector('.vegas-roll-dialog .arcade-title')?.textContent || null,
       players: (vegas.view?.players || []).map((player) => ({
         playerId: player.playerId,
         name: player.name,

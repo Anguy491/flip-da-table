@@ -801,8 +801,6 @@ a {
 .vegas-console { min-width: 0; }
 .vegas-console__header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
 .vegas-console__header .arcade-eyebrow { margin-bottom: var(--space-1); }
-.vegas-current-roll { display: flex; min-height: 74px; align-items: center; gap: var(--space-2); overflow-x: auto; margin-top: var(--space-4); border: var(--border-pixel) solid color-mix(in srgb, var(--text-muted) 42%, transparent); background: var(--vegas-ink); padding: var(--space-3); }
-.vegas-face-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(142px, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
 .vegas-event-panel { min-width: 0; border: var(--border-pixel) solid color-mix(in srgb, var(--text-muted) 55%, transparent); background: var(--surface-panel); box-shadow: var(--shadow-pixel); padding: var(--space-3); }
 .vegas-event-panel summary { min-height: 44px; display: flex; align-items: center; color: var(--vegas-gold); cursor: pointer; font-family: var(--font-display); font-size: 0.6rem; line-height: 1.5; text-transform: uppercase; }
 .vegas-event-log { max-height: 236px; overflow-y: auto; margin: var(--space-2) 0 0; padding: 0; list-style: none; font-size: 0.74rem; line-height: 1.5; }
@@ -813,6 +811,196 @@ a {
 .vegas-casino-detail__header h3 { overflow: hidden; margin: 0; color: var(--text-main); font-size: 0.84rem; text-overflow: ellipsis; white-space: nowrap; }
 .vegas-casino-detail__dice { min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
 .vegas-casino-detail__empty { grid-column: 1 / -1; min-height: 160px; display: grid; place-items: center; margin: 0; border: var(--border-pixel) dashed var(--text-muted); color: var(--text-muted); text-align: center; }
+
+.vegas-roll-dialog { width: min(100%, 900px); padding: clamp(16px, 3vw, 28px); }
+.vegas-roll-dialog .arcade-dialog__header { position: relative; z-index: 2; margin-bottom: var(--space-3); }
+.vegas-roll-dialog .arcade-title { color: var(--vegas-cream); text-shadow: 3px 3px 0 var(--shadow-ink); }
+.vegas-roll-stage {
+  position: relative;
+  isolation: isolate;
+  min-height: 330px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: var(--border-pixel) solid var(--vegas-gold);
+  background:
+    linear-gradient(color-mix(in srgb, var(--vegas-ink) 78%, transparent), color-mix(in srgb, var(--vegas-felt) 88%, transparent)),
+    repeating-linear-gradient(0deg, transparent 0 7px, color-mix(in srgb, var(--vegas-cream) 5%, transparent) 7px 8px);
+  box-shadow: var(--shadow-pixel);
+}
+.vegas-roll-stage::before,
+.vegas-roll-stage::after {
+  position: absolute;
+  z-index: 0;
+  inset: var(--space-3);
+  border: 1px dashed color-mix(in srgb, var(--vegas-gold) 52%, transparent);
+  content: "";
+  pointer-events: none;
+}
+.vegas-roll-stage::after { inset: var(--space-6); border-color: color-mix(in srgb, var(--vegas-coral) 36%, transparent); }
+.vegas-roll-wheel {
+  position: absolute;
+  z-index: 0;
+  width: min(62vw, 510px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 4px double var(--vegas-gold);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, transparent 0 28%, color-mix(in srgb, var(--vegas-ink) 92%, transparent) 29% 43%, transparent 44%),
+    repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--vegas-gold) 30%, transparent) 0 5deg, transparent 5deg 15deg);
+  box-shadow: var(--shadow-pixel);
+  opacity: 0.8;
+}
+.vegas-roll-wheel::before,
+.vegas-roll-wheel::after {
+  position: absolute;
+  border: var(--border-pixel) solid color-mix(in srgb, var(--vegas-cream) 64%, transparent);
+  border-radius: 50%;
+  content: "";
+}
+.vegas-roll-wheel::before { inset: 14%; border-style: dashed; }
+.vegas-roll-wheel::after { inset: 31%; border-color: var(--vegas-coral); }
+.vegas-roll-wheel__hub {
+  width: 34px;
+  height: 34px;
+  border: 4px double var(--vegas-cream);
+  border-radius: 50%;
+  background: var(--vegas-coral);
+  box-shadow: 4px 4px 0 var(--shadow-ink);
+}
+.vegas-roll-dice {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 2vw, 24px);
+  padding: var(--space-6);
+  perspective: 760px;
+}
+.vegas-roll-die-wrap {
+  position: relative;
+  flex: 0 1 auto;
+  display: grid;
+  place-items: center;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.vegas-roll-die-wrap::before {
+  position: absolute;
+  right: 8%;
+  bottom: -12px;
+  left: 8%;
+  height: 6px;
+  background: var(--shadow-ink);
+  content: "";
+  opacity: 0.72;
+  transform: skewX(-24deg);
+}
+.vegas-roll-die-wrap--settled { z-index: 3; }
+.vegas-roll-die-wrap--settled::after {
+  position: absolute;
+  inset: -8px;
+  border: var(--border-pixel) solid var(--vegas-cream);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  animation: vegas-roll-impact var(--motion-panel) steps(3, end) both;
+}
+.vegas-roll-die-3d {
+  --vegas-roll-die-size: clamp(46px, 5.1vw, 64px);
+  position: relative;
+  width: var(--vegas-roll-die-size);
+  height: var(--vegas-roll-die-size);
+  display: block;
+  transform-style: preserve-3d;
+}
+.vegas-roll-die-3d--big { --vegas-roll-die-size: clamp(56px, 6vw, 76px); }
+.vegas-roll-cube {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.vegas-roll-cube__face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  border: 3px solid var(--vegas-cream);
+  border-radius: var(--radius-pixel);
+  background: var(--vegas-player-color);
+  padding: 13%;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+.vegas-roll-die-3d--big .vegas-roll-cube__face {
+  border: 6px double var(--vegas-cream);
+  box-shadow:
+    inset 0 0 0 var(--border-pixel) var(--vegas-gold),
+    0 0 0 var(--border-pixel) var(--vegas-coral),
+    4px 4px 0 var(--shadow-ink);
+}
+.vegas-roll-cube__face--front { transform: translateZ(calc(var(--vegas-roll-die-size) / 2)); }
+.vegas-roll-cube__face--back { transform: rotateY(180deg) translateZ(calc(var(--vegas-roll-die-size) / 2)); }
+.vegas-roll-cube__face--right { transform: rotateY(90deg) translateZ(calc(var(--vegas-roll-die-size) / 2)); }
+.vegas-roll-cube__face--left { transform: rotateY(-90deg) translateZ(calc(var(--vegas-roll-die-size) / 2)); }
+.vegas-roll-cube__face--top { transform: rotateX(90deg) translateZ(calc(var(--vegas-roll-die-size) / 2)); }
+.vegas-roll-cube__face--bottom { transform: rotateX(-90deg) translateZ(calc(var(--vegas-roll-die-size) / 2)); }
+.vegas-roll-cube__pip-cell { display: grid; place-items: center; }
+.vegas-roll-cube__pip {
+  width: 68%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--vegas-ink);
+  box-shadow: 1px 1px 0 var(--vegas-cream);
+}
+.vegas-roll-sparks { position: absolute; z-index: 4; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.vegas-roll-friction {
+  position: absolute;
+  z-index: 1;
+  right: 9%;
+  bottom: 21%;
+  left: 9%;
+  height: 4px;
+  background: repeating-linear-gradient(90deg, var(--vegas-gold) 0 8px, transparent 8px 14px, var(--vegas-coral) 14px 18px, transparent 18px 26px);
+  box-shadow: var(--shadow-pixel);
+  opacity: 0.82;
+}
+.vegas-roll-caption {
+  min-height: 20px;
+  margin: var(--space-3) 0 0;
+  color: var(--vegas-gold);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.vegas-roll-controls {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  border-top: var(--border-pixel) solid color-mix(in srgb, var(--vegas-gold) 58%, transparent);
+  padding-top: var(--space-3);
+}
+.vegas-roll-face-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-2);
+}
+
+@keyframes vegas-roll-impact {
+  0% { opacity: 1; transform: scale(0.72); }
+  65% { opacity: 0.72; transform: scale(1.18); }
+  100% { opacity: 0; transform: scale(1.32); }
+}
 
 .dvc-board { display: grid; gap: 12px; }
 .dvc-opponents { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 10px; }
@@ -956,9 +1144,31 @@ a {
   .vegas-casino__empty { min-height: 72px; }
   .vegas-console { padding: 10px; }
   .vegas-event-log { max-height: 130px; }
-  .vegas-current-roll { min-height: 60px; margin-top: 8px; padding: 8px; }
   .vegas-die { width: 38px; height: 38px; }
   .vegas-die--big { width: 48px; height: 48px; }
+  .vegas-roll-dialog { max-height: calc(100vh - 16px); padding: var(--space-3); }
+  .vegas-roll-dialog .arcade-dialog__header { margin-bottom: var(--space-2); }
+  .vegas-roll-dialog .arcade-eyebrow { margin-bottom: var(--space-1); font-size: 0.46rem; }
+  .vegas-roll-dialog .arcade-title { font-size: clamp(0.82rem, 2.8vw, 1.1rem); }
+  .vegas-roll-stage { min-height: 100px; }
+  .vegas-roll-stage::before { inset: var(--space-2); }
+  .vegas-roll-stage::after { inset: var(--space-4); }
+  .vegas-roll-wheel { width: 150px; }
+  .vegas-roll-dice { gap: var(--space-2); padding: var(--space-2); perspective: 560px; }
+  .vegas-roll-die-3d { --vegas-roll-die-size: 30px; }
+  .vegas-roll-die-3d--big { --vegas-roll-die-size: 36px; }
+  .vegas-roll-caption { margin-top: var(--space-2); font-size: 0.62rem; }
+  .vegas-roll-controls { gap: var(--space-1); margin-top: var(--space-2); padding-top: var(--space-2); }
+  .vegas-roll-face-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1); }
+  .vegas-roll-controls .arcade-button { min-height: 36px; padding: 6px 8px; font-size: 0.5rem; }
+}
+
+@media (max-width: 620px) and (min-height: 461px) {
+  .vegas-roll-stage { min-height: 310px; }
+  .vegas-roll-wheel { width: 292px; }
+  .vegas-roll-dice { grid-template-columns: repeat(4, minmax(0, 1fr)); display: grid; justify-items: center; padding: var(--space-4); }
+  .vegas-roll-die-3d { --vegas-roll-die-size: 52px; }
+  .vegas-roll-die-3d--big { --vegas-roll-die-size: 62px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

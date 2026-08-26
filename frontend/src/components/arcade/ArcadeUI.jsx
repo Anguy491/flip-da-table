@@ -104,6 +104,7 @@ export function ArcadeDialog({
   closeLabel = 'Close',
   wide = false,
   initialFocusRef,
+  className = '',
 }) {
   const titleId = useId();
   const dialogRef = useRef(null);
@@ -151,7 +152,7 @@ export function ArcadeDialog({
     <div className="arcade-dialog-backdrop">
       <section
         ref={dialogRef}
-        className={classes('arcade-dialog', wide && 'arcade-dialog--wide')}
+        className={classes('arcade-dialog', wide && 'arcade-dialog--wide', className)}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

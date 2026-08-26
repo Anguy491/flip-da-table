@@ -48,11 +48,42 @@ export default function UILab() {
   const vegasBotMode = params.get('state') === 'bot';
   const vegasBotSequenceMode = params.get('state') === 'bot-sequence';
   const vegasCrowdedMode = params.get('state') === 'crowded';
+  const vegasRollMode = params.get('state') === 'roll';
   const [dialogOpen, setDialogOpen] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(wildMode);
   const [vegasBotStep, setVegasBotStep] = useState(0);
+  const [vegasRollStep, setVegasRollStep] = useState(0);
   const theme = screen === 'uno' ? 'uno' : screen === 'dvc' ? 'dvc' : screen === 'vegas' ? 'vegas' : 'neutral';
   const vegasView = useMemo(() => {
+    if (vegasRollMode) {
+      const currentRoll = [
+        { face: 6, big: false },
+        { face: 2, big: false },
+        { face: 5, big: false },
+        { face: 1, big: false },
+        { face: 4, big: false },
+        { face: 3, big: false },
+        { face: 6, big: false },
+        { face: 5, big: true },
+      ];
+      const rollAccepted = vegasRollStep >= 2;
+      return {
+        ...lasVegasFixture,
+        phase: vegasRollStep === 0 || rollAccepted ? 'WAITING_FOR_ROLL' : 'WAITING_FOR_CHOICE',
+        stateVersion: 40 + vegasRollStep,
+        currentPlayerId: rollAccepted ? 'P2' : 'P1',
+        currentRoll: vegasRollStep === 1 ? currentRoll : [],
+        players: lasVegasFixture.players.map((player) => player.playerId === 'P1'
+          ? {
+            ...player,
+            current: !rollAccepted,
+            remainingRegularDice: 7,
+            bigDieRemaining: true,
+            remainingDice: 8,
+          }
+          : { ...player, current: rollAccepted && player.playerId === 'P2' }),
+      };
+    }
     if (vegasBotSequenceMode) {
       const states = [
         { currentPlayerId: 'BOT1', phase: 'WAITING_FOR_ROLL', currentRoll: [] },
@@ -105,7 +136,7 @@ export default function UILab() {
         current: player.playerId === 'BOT1',
       })),
     } : lasVegasFixture;
-  }, [vegasBotMode, vegasBotSequenceMode, vegasBotStep, vegasCrowdedMode]);
+  }, [vegasBotMode, vegasBotSequenceMode, vegasBotStep, vegasCrowdedMode, vegasRollMode, vegasRollStep]);
 
   useEffect(() => {
     if (screen !== 'vegas') return undefined;
@@ -115,6 +146,8 @@ export default function UILab() {
       stateVersion: vegasView.stateVersion,
       currentPlayerId: vegasView.currentPlayerId,
       currentRoll: vegasView.currentRoll,
+      rollDialogVisible: Boolean(document.querySelector('.vegas-roll-dialog')),
+      rollDialogTitle: document.querySelector('.vegas-roll-dialog .arcade-title')?.textContent || null,
       players: vegasView.players.map(({ playerId, name, bot, current, remainingDice, chips }) => ({
         playerId, name, bot, current, remainingDice, chips,
       })),
@@ -211,9 +244,9 @@ export default function UILab() {
             amount: 100_000,
           }]}
           assetsVisible={false}
-          onRoll={() => {}}
-          onPlace={() => {}}
-          onSkip={() => {}}
+          onRoll={() => { if (vegasRollMode) setVegasRollStep(1); }}
+          onPlace={() => { if (vegasRollMode) setVegasRollStep(2); }}
+          onSkip={() => { if (vegasRollMode) setVegasRollStep(2); }}
           onToggleAssets={() => {}}
           onRefresh={() => {}}
           onLeave={() => {}}
