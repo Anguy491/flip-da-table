@@ -20,6 +20,7 @@ public record GameCapabilities(
             case "UNO" -> new GameCapabilities(2, 10, true, true, 1);
             case "DAVINCI" -> new GameCapabilities(2, 4, true, true, 1);
             case "LASVEGAS" -> new GameCapabilities(3, 10, true, false, 3);
+            case "CONQUERWESTEROS" -> new GameCapabilities(2, 6, false, false, 1);
             default -> throw new IllegalArgumentException("unsupported game type");
         };
     }

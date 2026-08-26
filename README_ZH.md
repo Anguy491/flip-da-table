@@ -2,13 +2,13 @@
 
 简体中文 | [English](README.md)
 
-一个基于 Spring Boot + React 的 UNO 与 Da Vinci Code 多人在线桌游平台。后端提供认证、会话、游戏运行时与实时通信；前端以仓库自有的霓虹 8-bit Arcade 设计系统统一登录、Lobby、两款游戏和结算页面。可通过 Docker Compose 部署 PostgreSQL、后端与 Nginx 前端。
+一个基于 Spring Boot + React 的多人在线桌游平台，现包含 UNO、Da Vinci Code、Las Vegas 与 Conquer Westeros。后端提供认证、会话、游戏运行时与实时通信；前端以仓库自有的霓虹 8-bit Arcade 设计系统统一登录、Lobby、四款游戏和结算页面。可通过 Docker Compose 部署 PostgreSQL、后端与 Nginx 前端。
 
 ## 技术栈概览
 - 后端：Spring Boot 3 (Web, Security, Data JPA, Validation, Actuator, WebSocket/SSE 用 Web 模块)、Flyway、JWT (jjwt)、Lombok
 - 数据库：PostgreSQL + Flyway 版本化迁移 (`backend/src/main/resources/db/migration`)
 - 前端：React 19、React Router v7、Vite、Tailwind CSS v4、仓库自有 Arcade 组件层
-- 实时更新：UNO 使用 SSE，Lobby 与 DVC 使用 WebSocket + STOMP
+- 实时更新：UNO 使用 SSE；Lobby、DVC、Las Vegas 与 Conquer Westeros 使用 WebSocket + STOMP
 - 构建与运行：Gradle (Java 17 toolchain), Vite；Docker 镜像 `anguy491/flip-backend` & `anguy491/flip-frontend`
 
 ## 项目目录结构（精简展示）
@@ -16,7 +16,7 @@
 backend/
   build.gradle.kts        # Gradle 配置 (Spring Boot 3 + Flyway + JWT 等依赖)
   src/main/java/com/flip/backend/
-    api/                  # REST + SSE 控制器 (Auth, Session, Game, Uno)
+    api/                  # REST 与实时通信控制器
     config/               # Spring 安全 / CORS / 序列化等配置 (如存在)
     game/                 # 通用游戏引擎抽象 (phase, event, board, player)
       engine/event/       # GameEvent, EventQueue
@@ -28,6 +28,7 @@ backend/
         event/            # UnoPlayCardEvent, UnoDrawCardEvent 等
         phase/            # UnoRuntimePhase (核心状态机)
         view/             # UnoView / UnoBoardView / UnoPlayerView (对前端的投影)
+    conquerwesteros/      # Conquer Westeros 目录、事件、阶段、快照与视图
   src/main/resources/
     application.yml       # Spring 配置 (可被环境变量覆盖)
     db/migration/         # Flyway SQL 迁移脚本
@@ -35,13 +36,14 @@ backend/
 frontend/
   package.json            # React/Vite/依赖版本
   src/
-    api/                  # fetch 封装 (auth, sessions, uno)
+    api/                  # 认证、会话与各游戏指令的 fetch 封装
     context/              # 全局 AuthContext
-    hooks/                # UNO / DVC 网络与状态容器
+    hooks/                # 各游戏的网络与状态容器
     components/           # 公共 Arcade UI 与纯展示游戏视图
       arcade/             # 设计系统基础组件
       uno/                # UNO 展示与交互组件
       dvc/                # Da Vinci Code 展示组件
+      conquerwesteros/    # Conquer Westeros 展示与交互组件
     pages/                # Login / Lobby / PlayScreen / 等页面
     assets/               # 图片资源
   vite.config.js          # 构建配置
@@ -59,19 +61,23 @@ docker-compose.yml        # 一键编排 Postgres + Backend + Frontend
   - `GET /api/games/uno/{gameId}/view?viewerId=...` 获取针对特定玩家视角的状态（自己的手牌包含在内，其他玩家只含数量）。
   - `POST /api/games/uno/{gameId}/commands` 发送指令，Body: `{ type, playerId, color?, value? }`，返回是否应用及新的视图。
   - `GET /api/games/uno/{gameId}/stream` SSE 推送通用视图（无私有手牌）。
+- Conquer Westeros 游戏接口：
+  - `GET /api/games/conquer-westeros/{gameId}/view` 获取已认证玩家视角。
+  - `POST /api/games/conquer-westeros/{gameId}/commands` 发送带版本保护的 `ROLL_DICE`、`COMPLETE_LINE` 或 `LOSE_DIE` 指令。
+  - `/topic/conquer-westeros/{gameId}/{playerId}` 推送私有视图，`/events` 推送公开动画与日志事件。
 - 迁移：`V001__init.sql` 起始到后续表（用户角色、sessions、games、state_json 等）。
 - 配置：`application.yml` 支持环境变量覆盖。Resend、Google、域名和分阶段发布步骤见 [`docs/AUTH_DEPLOYMENT.md`](docs/AUTH_DEPLOYMENT.md)。
 
 ## 前端概要
-- 路由页面：登录、注册、找回/重置密码、Google 回调与账号绑定、隐私政策、Dashboard、Lobby、UNO、DVC 与 SessionSummary。
+- 路由页面：登录、注册、找回/重置密码、Google 回调与账号绑定、隐私政策、Dashboard、Lobby、四款游戏与 SessionSummary。
 - `context/AuthContext.jsx` 管理登录 token；`src/api/*.js` 隔离请求，保持既有 REST/SSE/WebSocket 协议兼容。
-- `useUnoGame`、`useDVCGame` 负责网络与状态；`UnoGameView`、`DvcGameView` 是可由 fixtures 独立渲染的纯展示层。
+- 各游戏 hook 负责网络与状态，确定性的视图组件可由 fixtures 独立渲染和测试。
 - `src/styles/tokens.css` 是主题数值的唯一来源，`src/styles/arcade.css` 负责公共组件和响应式规则。
 - 开发环境可访问 `/__ui-lab`；生产构建不会包含该路由及其 fixtures。
 
 ## 8-bit Arcade 设计系统
 
-全站使用深色街机柜外壳，并按 neutral、UNO、DVC 三种语义上下文切换强调色。Press Start 2P 只用于标题、数字和短标签，正文统一使用 Inter；组件采用 2px 像素边框、4px 硬阴影、黄色可见焦点、短动效和 reduced-motion 降级。
+全站使用深色街机柜外壳，并按 neutral 与各游戏语义上下文切换强调色；Conquer Westeros 保持 neutral 外壳并使用原创像素几何纹章。Press Start 2P 只用于标题、数字和短标签，正文统一使用 Inter；组件采用 2px 像素边框、4px 硬阴影、黄色可见焦点、短动效和 reduced-motion 降级。
 
 仓库级设计 skill 位于 `.agents/skills/flip-da-table-arcade-ui/`，包含视觉语言、组件配方、页面蓝图、无障碍验收、来源许可证、原创视觉板和 UI 审计脚本。视觉上参考 Retro Design System 与 NES.css，但不直接引入二者。
 

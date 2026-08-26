@@ -15,6 +15,7 @@ import { getUserInfo, updateUserInfo } from '../api/user';
 import unoCover from '../assets/uno-arcade.svg';
 import dvcCover from '../assets/dvc-code.svg';
 import lasVegasCover from '../assets/las-vegas-dice.svg';
+import conquerWesterosCover from '../assets/conquer-westeros.svg';
 
 const GAMES = [
   {
@@ -40,6 +41,14 @@ const GAMES = [
     players: '3-10 players',
     maxPlayers: 10,
     img: lasVegasCover,
+  },
+  {
+    gameType: 'CONQUERWESTEROS',
+    name: 'Conquer Westeros',
+    tagline: 'Roll seven dice. Break the lines. Hold the throne.',
+    players: '2-6 players',
+    maxPlayers: 6,
+    img: conquerWesterosCover,
   },
 ];
 
@@ -138,7 +147,7 @@ export default function Dashboard({ preview = null }) {
       <div className="arcade-dashboard-layout">
         <header className="arcade-dashboard-header">
           <div>
-            <p className="arcade-eyebrow">Main floor // three cabinets online</p>
+            <p className="arcade-eyebrow">Main floor // four cabinets online</p>
             <h1 className="arcade-title">Choose your table</h1>
             <p className="arcade-copy mt-3">Welcome back, <strong className="arcade-accent">{me?.nickname || 'player'}</strong>. Pick a game, open a room, and send the code.</p>
           </div>

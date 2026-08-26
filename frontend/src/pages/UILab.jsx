@@ -16,6 +16,7 @@ import UnoGameView from '../components/uno/UnoGameView';
 import ChooseColorModal from '../components/uno/ChooseColorModal';
 import DvcGameView from '../components/dvc/DvcGameView';
 import LasVegasGameView from '../components/lasvegas/LasVegasGameView';
+import ConquerWesterosGameView from '../components/conquerwesteros/ConquerWesterosGameView';
 import Login from './Login';
 import Register from './Register';
 import Dashboard from './Dashboard';
@@ -26,6 +27,7 @@ import ResetPassword from './ResetPassword';
 import Privacy from './Privacy';
 import {
   dashboardFixture,
+  conquerWesterosFixture,
   dvcFixture,
   lobbyFixture,
   lasVegasFixture,
@@ -49,6 +51,7 @@ export default function UILab() {
   const vegasBotSequenceMode = params.get('state') === 'bot-sequence';
   const vegasCrowdedMode = params.get('state') === 'crowded';
   const vegasRollMode = params.get('state') === 'roll';
+  const conquerState = params.get('state') || 'unlocked-target';
   const [dialogOpen, setDialogOpen] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(wildMode);
   const [vegasBotStep, setVegasBotStep] = useState(0);
@@ -137,6 +140,71 @@ export default function UILab() {
       })),
     } : lasVegasFixture;
   }, [vegasBotMode, vegasBotSequenceMode, vegasBotStep, vegasCrowdedMode, vegasRollMode, vegasRollStep]);
+  const conquerView = useMemo(() => {
+    const base = conquerWesterosFixture;
+    if (conquerState === 'waiting-to-roll') return {
+      ...base,
+      phase: 'WAITING_FOR_ROLL',
+      currentRoll: [],
+      legalActions: { ...base.legalActions, canRoll: true, canCompleteLine: false, canLoseDie: false, legalDieIds: [] },
+    };
+    if (conquerState === 'partial-siege') {
+      const card = base.strongholds.find((item) => item.id === 'T05');
+      return {
+        ...base,
+        stateVersion: 9,
+        currentRoll: base.currentRoll.filter((die) => die.dieId >= 2),
+        attempt: {
+          targetId: 'T05', targetOwnerId: null, stealing: false, completedLineIds: ['L1'], lostDieIds: [], committedDieIds: [0, 1],
+          requiredLines: card.lines.map((line) => ({ ...line, completed: line.id === 'L1' })),
+        },
+      };
+    }
+    if (conquerState === 'double-crown') {
+      const card = base.strongholds.find((item) => item.id === 'T10');
+      const stealLine = { id: 'STEAL_CROWN', type: 'STEAL_CROWN', threshold: null, symbols: ['CROWN'], display: 'Crown', completed: false, special: true };
+      return {
+        ...base,
+        stateVersion: 11,
+        currentRoll: base.currentRoll.filter((die) => [4, 5, 6].includes(die.dieId)),
+        attempt: {
+          targetId: 'T10', targetOwnerId: 'P2', stealing: true, completedLineIds: ['L1', 'L2'], lostDieIds: [], committedDieIds: [0, 1, 2, 3],
+          requiredLines: [...card.lines.map((line) => ({ ...line, completed: ['L1', 'L2'].includes(line.id) })), stealLine],
+        },
+        strongholds: base.strongholds.map((item) => item.id === 'T10'
+          ? { ...item, stealCrownRequired: true, lines: [...item.lines, stealLine] }
+          : item),
+        legalActions: { ...base.legalActions, legalDieIds: [4, 5, 6] },
+      };
+    }
+    if (conquerState === 'clan-locked') return {
+      ...base,
+      strongholds: base.strongholds.map((item) => item.id === 'T13'
+        ? { ...item, ownerId: 'P1', central: false, locked: true }
+        : item),
+      players: base.players.map((player) => player.playerId === 'P1' ? {
+        ...player,
+        completedClans: [{ name: 'Arryn', score: 3, strongholdIds: ['T13'] }],
+        strongholdCount: 1,
+        completedClanCount: 1,
+        clanScore: 3,
+        totalScore: 3,
+      } : player),
+      legalActions: { ...base.legalActions, legalTargetIds: base.legalActions.legalTargetIds.filter((id) => id !== 'T13') },
+    };
+    if (conquerState === 'finished') return {
+      ...base,
+      phase: 'FINISHED',
+      currentRoll: [],
+      legalActions: { canRoll: false, canCompleteLine: false, canLoseDie: false, legalTargetIds: [], legalDieIds: [] },
+      results: [
+        { playerId: 'P2', name: 'CipherFox', rank: 1, totalScore: 18, faceUpScore: 8, clanScore: 9, thronePoint: 1, strongholdCount: 7, completedClanCount: 2, winner: true },
+        { playerId: 'P1', name: 'PixelPilot', rank: 2, totalScore: 14, faceUpScore: 4, clanScore: 10, thronePoint: 0, strongholdCount: 5, completedClanCount: 1, winner: false },
+        { playerId: 'P3', name: 'LongNicknameThatNeedsTruncation', rank: 3, totalScore: 6, faceUpScore: 6, clanScore: 0, thronePoint: 0, strongholdCount: 2, completedClanCount: 0, winner: false },
+      ],
+    };
+    return base;
+  }, [conquerState]);
 
   useEffect(() => {
     if (screen !== 'vegas') return undefined;
@@ -161,6 +229,23 @@ export default function UILab() {
       delete window.advance_las_vegas_bot_fixture;
     };
   }, [screen, vegasBotSequenceMode, vegasView]);
+
+  useEffect(() => {
+    if (screen !== 'conquer') return undefined;
+    window.render_game_to_text = () => JSON.stringify({
+      coordinateSystem: 'DOM war table; strongholds T01-T14 and stable dice D1-D7',
+      fixtureState: conquerState,
+      mode: conquerView.phase,
+      stateVersion: conquerView.stateVersion,
+      currentPlayerId: conquerView.currentPlayerId,
+      ironThroneHolderId: conquerView.ironThroneHolderId,
+      currentRoll: conquerView.currentRoll,
+      attempt: conquerView.attempt,
+      players: conquerView.players,
+      strongholds: conquerView.strongholds,
+    });
+    return () => { delete window.render_game_to_text; };
+  }, [conquerState, conquerView, screen]);
 
   if (screen === 'login') return <Login previewCapabilities={authPreviewCapabilities} />;
   if (screen === 'register') return <Register previewCapabilities={authPreviewCapabilities} />;
@@ -248,6 +333,24 @@ export default function UILab() {
           onPlace={() => { if (vegasRollMode) setVegasRollStep(2); }}
           onSkip={() => { if (vegasRollMode) setVegasRollStep(2); }}
           onToggleAssets={() => {}}
+          onRefresh={() => {}}
+          onLeave={() => {}}
+          onSummary={() => {}}
+        />
+      )}
+
+      {screen === 'conquer' && (
+        <ConquerWesterosGameView
+          view={['loading', 'error'].includes(conquerState) ? null : conquerView}
+          playerId="P1"
+          connectionState={conquerState === 'reconnecting' ? 'reconnecting' : 'connected'}
+          loading={conquerState === 'loading'}
+          sending={false}
+          error={conquerState === 'error' ? 'The campaign snapshot could not be loaded.' : ''}
+          publicEvents={[]}
+          onRoll={() => {}}
+          onCompleteLine={() => {}}
+          onLoseDie={() => {}}
           onRefresh={() => {}}
           onLeave={() => {}}
           onSummary={() => {}}

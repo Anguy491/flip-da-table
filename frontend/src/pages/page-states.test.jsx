@@ -11,6 +11,7 @@ import ForgotPassword from './ForgotPassword';
 import ResetPassword from './ResetPassword';
 import GoogleAuthCallback from './GoogleAuthCallback';
 import { dashboardFixture, lobbyFixture, summaryFixture } from '../dev/fixtures';
+import { startFirstGame } from '../api/sessions';
 import {
   ExchangeGoogleCodeApi,
   ForgotPasswordApi,
@@ -33,6 +34,15 @@ vi.mock('../api/auth', () => ({
   ResetPasswordApi: vi.fn(),
   ExchangeGoogleCodeApi: vi.fn(() => Promise.resolve({ token: 'application-token' })),
   LinkGoogleAccountApi: vi.fn(),
+}));
+
+vi.mock('../api/sessions', () => ({
+  createSession: vi.fn(),
+  joinSession: vi.fn(),
+  getSession: vi.fn(),
+  getLatestGame: vi.fn(),
+  startFirstGame: vi.fn(),
+  startNextGame: vi.fn(),
 }));
 
 function renderPage(page, token = 'preview-token', setToken = vi.fn()) {
@@ -133,11 +143,12 @@ describe('public and shared page states', () => {
     expect(LinkGoogleAccountApi).toHaveBeenCalledWith({ code: 'link-handoff', password: 'wrong-password' });
   });
 
-  it('shows the three supported games and opens its join dialog', () => {
+  it('shows the four supported games and opens its join dialog', () => {
     renderPage(<Dashboard preview={dashboardFixture} />);
 
-    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
     expect(screen.getByRole('radio', { name: /Las Vegas/i })).toBeVisible();
+    expect(screen.getByRole('radio', { name: /Conquer Westeros/i })).toBeVisible();
     expect(screen.queryByText(/Bounty/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Join code' }));
     expect(screen.getByRole('dialog', { name: 'Join a room' })).toBeVisible();
@@ -170,6 +181,55 @@ describe('public and shared page states', () => {
     expect(screen.getByRole('button', { name: 'Start game' })).toBeEnabled();
   });
 
+  it('shows the host-only Conquer Westeros campaign choice without bot or series controls', () => {
+    renderPage(<Lobby preview={{
+      sessionId: 'WESTEROS-ROOM',
+      myUserId: 'host-1',
+      rounds: 1,
+      connectionState: 'connected',
+      sessionInfo: {
+        gameType: 'CONQUERWESTEROS',
+        maxPlayers: 6,
+        ownerId: 'host-1',
+        capabilities: { minPlayers: 2, maxPlayers: 6, botsAllowed: false, seriesAllowed: false, internalRounds: 1 },
+      },
+      players: [
+        { name: 'P1', bot: false, ready: true },
+        { name: 'P2', bot: false, ready: true },
+      ],
+    }} />);
+
+    expect(screen.getByRole('combobox')).toHaveValue('WAR_OF_FIVE_KINGS');
+    expect(screen.queryByRole('combobox', { name: 'Rounds' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '+ Add bot' })).not.toBeInTheDocument();
+    expect(screen.getByText('1 room / 1 complete campaign')).toBeVisible();
+    expect(screen.getByText('Capacity: 2-6')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Start game' })).toBeEnabled();
+  });
+
+  it('submits the selected Conquer Westeros campaign as a start option', async () => {
+    startFirstGame.mockResolvedValueOnce({ gameId: 'war-1', roundIndex: 1, myPlayerId: 'P1', players: [], view: {} });
+    renderPage(<Lobby preview={{
+      sessionId: 'WESTEROS-ROOM',
+      myUserId: 'host-1',
+      rounds: 1,
+      connectionState: 'connected',
+      sessionInfo: {
+        gameType: 'CONQUERWESTEROS', maxPlayers: 6, ownerId: 'host-1',
+        capabilities: { minPlayers: 2, maxPlayers: 6, botsAllowed: false, seriesAllowed: false, internalRounds: 1 },
+      },
+      players: [{ name: 'P1', bot: false, ready: true }, { name: 'P2', bot: false, ready: true }],
+    }} />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'DANCE_OF_THE_DRAGONS' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Start game' }));
+
+    await waitFor(() => expect(startFirstGame).toHaveBeenCalledWith('WESTEROS-ROOM', {
+      rounds: 1,
+      players: [{ name: 'P1', bot: false, ready: true }, { name: 'P2', bot: false, ready: true }],
+      options: { campaign: 'DANCE_OF_THE_DRAGONS' },
+    }, 'preview-token'));
+  });
+
   it('renders a maximum-capacity lobby and prevents an invalid start', () => {
     renderPage(<Lobby preview={lobbyFixture} />);
 
@@ -186,5 +246,23 @@ describe('public and shared page states', () => {
     expect(screen.getAllByText('2')).toHaveLength(2);
     expect(screen.getAllByText('LongNicknameThatNeedsTruncation')).toHaveLength(2);
     expect(screen.getByText('Bot 1: 1')).toBeVisible();
+  });
+
+  it('renders Conquer Westeros tie-break fields in the session summary', () => {
+    renderPage(<SessionSummary previewData={{
+      gameType: 'CONQUERWESTEROS',
+      totalRounds: 1,
+      campaignName: 'War of the Five Kings',
+      conquerResults: [
+        { playerId: 'P1', name: 'PixelPilot', rank: 1, totalScore: 17, thronePoint: 1, strongholdCount: 7, completedClanCount: 2, winner: true },
+        { playerId: 'P2', name: 'CipherFox', rank: 2, totalScore: 16, thronePoint: 0, strongholdCount: 7, completedClanCount: 2, winner: false },
+      ],
+    }} previewSessionId="WESTEROS-ROOM" />);
+
+    expect(screen.getByText('War of the Five Kings')).toBeVisible();
+    expect(screen.getByText('#1 WIN')).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: 'Throne' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: 'Holds' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: 'Clans' })).toBeVisible();
   });
 });

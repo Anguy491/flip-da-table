@@ -15,6 +15,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -76,7 +77,7 @@ class GameControllerAuthorizationTest {
                         new PlayerSpec("Mallory", false, true),
                         new PlayerSpec("Forged victim", false, true),
                         new PlayerSpec("Attacker bot name", true, true)
-                )),
+                ), Map.of("campaign", "WAR_OF_FIVE_KINGS")),
                 authentication
         );
 
@@ -84,6 +85,7 @@ class GameControllerAuthorizationTest {
         verify(service).startFirst(eq("session-1"), requestCaptor.capture());
         assertEquals(List.of("Alice", "Bob", "Bot 1"),
                 requestCaptor.getValue().players().stream().map(PlayerSpec::name).toList());
+        assertEquals(Map.of("campaign", "WAR_OF_FIVE_KINGS"), requestCaptor.getValue().options());
         assertEquals("P1_ALICE", response.getBody().myPlayerId());
         assertEquals("view-for-P1_ALICE", response.getBody().view());
         verify(access).registerPlayers("game-1", List.of(alice, bob), startedPlayers);

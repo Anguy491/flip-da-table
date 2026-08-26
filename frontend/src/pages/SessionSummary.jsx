@@ -32,12 +32,21 @@ export default function SessionSummary({ previewData = null, previewSessionId = 
     let active = true;
     getLatestGame(sessionid, token)
       .then((latest) => {
-        if (!active || latest.gameType !== 'LASVEGAS' || latest.view?.phase !== 'FINISHED') return;
-        setData({
-          gameType: 'LASVEGAS',
-          totalRounds: latest.view.totalRounds,
-          vegasResults: latest.view.results || [],
-        });
+        if (!active || latest.view?.phase !== 'FINISHED') return;
+        if (latest.gameType === 'LASVEGAS') {
+          setData({
+            gameType: 'LASVEGAS',
+            totalRounds: latest.view.totalRounds,
+            vegasResults: latest.view.results || [],
+          });
+        } else if (latest.gameType === 'CONQUERWESTEROS') {
+          setData({
+            gameType: 'CONQUERWESTEROS',
+            totalRounds: 1,
+            campaignName: latest.view.campaignName,
+            conquerResults: latest.view.results || [],
+          });
+        }
       })
       .catch(() => {});
     return () => { active = false; };
@@ -67,6 +76,7 @@ export default function SessionSummary({ previewData = null, previewSessionId = 
   }
 
   const isLasVegas = data.gameType === 'LASVEGAS';
+  const isConquerWesteros = data.gameType === 'CONQUERWESTEROS';
   const topThree = ranking.slice(0, 3);
   const podium = [topThree[1], topThree[0], topThree[2]];
   const placement = ['second', 'first', 'third'];
@@ -83,7 +93,7 @@ export default function SessionSummary({ previewData = null, previewSessionId = 
   }));
 
   return (
-    <PageContainer theme={data.gameType === 'DAVINCI' ? 'dvc' : isLasVegas ? 'vegas' : 'uno'}>
+    <PageContainer theme={data.gameType === 'DAVINCI' ? 'dvc' : isLasVegas ? 'vegas' : isConquerWesteros ? 'neutral' : 'uno'}>
       <div className="arcade-dashboard-layout">
         <header className="arcade-dashboard-header">
           <div>
@@ -91,7 +101,7 @@ export default function SessionSummary({ previewData = null, previewSessionId = 
             <h1 className="arcade-title">Final scoreboard</h1>
             <p className="arcade-copy mt-3">Session <span className="arcade-code arcade-accent">{sessionid}</span></p>
           </div>
-          <ArcadeBadge tone="success">{isLasVegas ? `${data.totalRounds} casino rounds` : `${data.totalRounds} games`}</ArcadeBadge>
+          <ArcadeBadge tone="success">{isLasVegas ? `${data.totalRounds} casino rounds` : isConquerWesteros ? data.campaignName : `${data.totalRounds} games`}</ArcadeBadge>
         </header>
 
         {isLasVegas && (
@@ -115,7 +125,28 @@ export default function SessionSummary({ previewData = null, previewSessionId = 
           </ArcadePanel>
         )}
 
-        {!isLasVegas && podium.some(Boolean) && (
+        {isConquerWesteros && (
+          <ArcadePanel aria-labelledby="conquer-summary-title">
+            <p className="arcade-eyebrow">Final campaign // ties share rank</p>
+            <h2 id="conquer-summary-title" className="text-xl font-bold mb-5">
+              {(data.conquerResults || []).filter((player) => player.winner).map((player) => player.name).join(' & ') || 'Final standings'}
+            </h2>
+            <Scoreboard
+              columns={[
+                { key: 'rank', label: 'Rank', render: (row) => `#${row.rank}${row.winner ? ' WIN' : ''}` },
+                { key: 'name', label: 'Player' },
+                { key: 'totalScore', label: 'VP' },
+                { key: 'thronePoint', label: 'Throne' },
+                { key: 'strongholdCount', label: 'Holds' },
+                { key: 'completedClanCount', label: 'Clans' },
+              ]}
+              rows={data.conquerResults || []}
+              getRowKey={(row) => row.playerId}
+            />
+          </ArcadePanel>
+        )}
+
+        {!isLasVegas && !isConquerWesteros && podium.some(Boolean) && (
           <ArcadePanel aria-labelledby="podium-title">
             <p className="arcade-eyebrow">Top players</p>
             <h2 id="podium-title" className="text-xl font-bold">Cabinet champions</h2>
@@ -132,13 +163,13 @@ export default function SessionSummary({ previewData = null, previewSessionId = 
           </ArcadePanel>
         )}
 
-        {!isLasVegas && <ArcadePanel aria-labelledby="rounds-title">
+        {!isLasVegas && !isConquerWesteros && <ArcadePanel aria-labelledby="rounds-title">
           <p className="arcade-eyebrow">Round archive</p>
           <h2 id="rounds-title" className="text-xl font-bold mb-5">Game results</h2>
           <Scoreboard columns={columns} rows={rows} getRowKey={(row) => row.round} />
         </ArcadePanel>}
 
-        {!isLasVegas && ranking.length > 3 && (
+        {!isLasVegas && !isConquerWesteros && ranking.length > 3 && (
           <ArcadePanel quiet>
             <p className="arcade-eyebrow">Remaining players</p>
             <div className="arcade-actions">

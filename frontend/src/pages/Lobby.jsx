@@ -35,6 +35,7 @@ export default function Lobby({ preview = null }) {
   const [sessionInfo, setSessionInfo] = useState(preview?.sessionInfo || null);
   const [loadingSession, setLoadingSession] = useState(!preview);
   const [rounds, setRounds] = useState(preview?.rounds || 1);
+  const [campaign, setCampaign] = useState(preview?.campaign || 'WAR_OF_FIVE_KINGS');
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -42,10 +43,10 @@ export default function Lobby({ preview = null }) {
 
   const gameType = sessionInfo?.gameType?.toUpperCase();
   const capabilities = sessionInfo?.capabilities || {
-    minPlayers: gameType === 'DAVINCI' || gameType === 'UNO' ? 2 : gameType === 'LASVEGAS' ? 3 : 2,
+    minPlayers: gameType === 'DAVINCI' || gameType === 'UNO' || gameType === 'CONQUERWESTEROS' ? 2 : gameType === 'LASVEGAS' ? 3 : 2,
     maxPlayers: sessionInfo?.maxPlayers || 10,
-    botsAllowed: true,
-    seriesAllowed: gameType !== 'LASVEGAS',
+    botsAllowed: gameType !== 'CONQUERWESTEROS',
+    seriesAllowed: !['LASVEGAS', 'CONQUERWESTEROS'].includes(gameType),
     internalRounds: gameType === 'LASVEGAS' ? 3 : 1,
   };
   const minPlayers = capabilities.minPlayers;
@@ -109,7 +110,9 @@ export default function Lobby({ preview = null }) {
       ? `/unoplayscreen/${sessionid}`
       : gameType === 'LASVEGAS'
         ? `/lasvegasplayscreen/${sessionid}`
-        : `/dvcplayscreen/${sessionid}`;
+        : gameType === 'CONQUERWESTEROS'
+          ? `/conquerwesterosplayscreen/${sessionid}`
+          : `/dvcplayscreen/${sessionid}`;
     navigate(route, { state: { gameId: payload.gameId, roundIndex: payload.roundIndex, myPlayerId: payload.myPlayerId, players: payload.players, view: payload.view, totalRounds, results: [] } });
   }, [gameType, navigate, rounds, sessionid]);
 
@@ -118,7 +121,8 @@ export default function Lobby({ preview = null }) {
     setStarting(true);
     setError('');
     try {
-      const response = await startFirstGame(sessionid, { rounds, players }, token);
+      const options = gameType === 'CONQUERWESTEROS' ? { campaign } : {};
+      const response = await startFirstGame(sessionid, { rounds, players, options }, token);
       enterGame(response, rounds);
     } catch (requestError) {
       setError(requestError.message || 'Failed to start the game.');
@@ -233,13 +237,27 @@ export default function Lobby({ preview = null }) {
             <p className="arcade-eyebrow">Room console</p>
             <h2 id="room-console-title" className="text-xl font-bold">Match setup</h2>
             <div className="arcade-form-stack mt-6">
+              {gameType === 'CONQUERWESTEROS' && (
+                <ArcadeSelect
+                  label="Campaign"
+                  hint={isOwner ? 'The campaign locks when the game starts.' : 'The host chooses the campaign.'}
+                  value={campaign}
+                  disabled={!isOwner}
+                  onChange={(event) => setCampaign(event.target.value)}
+                >
+                  <option value="WAR_OF_FIVE_KINGS">War of the Five Kings</option>
+                  <option value="DANCE_OF_THE_DRAGONS">Dance of the Dragons</option>
+                </ArcadeSelect>
+              )}
               {capabilities.seriesAllowed ? (
                 <ArcadeSelect label="Rounds" value={rounds} onChange={(event) => setRounds(Number(event.target.value))}>
                   {Array.from({ length: 10 }, (_, index) => index + 1).map((round) => <option key={round} value={round}>{round}</option>)}
                 </ArcadeSelect>
               ) : (
                 <div className="arcade-status arcade-status--info" role="status">
-                  1 platform game / {capabilities.internalRounds} casino rounds
+                  {gameType === 'LASVEGAS'
+                    ? `1 platform game / ${capabilities.internalRounds} casino rounds`
+                    : '1 room / 1 complete campaign'}
                 </div>
               )}
               <div className="arcade-copy text-sm">

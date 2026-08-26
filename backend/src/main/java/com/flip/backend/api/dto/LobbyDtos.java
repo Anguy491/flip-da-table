@@ -3,6 +3,7 @@ package com.flip.backend.api.dto;
 import jakarta.validation.constraints.*;
 import com.flip.backend.service.game.GameCapabilities;
 import java.util.List;
+import java.util.Map;
 
 public class LobbyDtos {
     // For now we use Object for polymorphic game view payload (UnoView, DVCView, etc.)
@@ -14,8 +15,17 @@ public class LobbyDtos {
 
     public record StartGameRequest(
         @Min(1) @Max(10) int rounds,
-        @Size(min=1, max=10) List<PlayerSpec> players
-    ) {}
+        @Size(min=1, max=10) List<PlayerSpec> players,
+        Map<String, String> options
+    ) {
+        public StartGameRequest {
+            options = options == null ? Map.of() : Map.copyOf(options);
+        }
+
+        public StartGameRequest(int rounds, List<PlayerSpec> players) {
+            this(rounds, players, Map.of());
+        }
+    }
 
     /** Player info returned when a game starts (e.g. UNO). */
     public record PlayerStartInfo(

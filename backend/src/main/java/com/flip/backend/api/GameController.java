@@ -97,7 +97,7 @@ public class GameController {
         for (int i = 1; i <= requestedBots; i++) {
             players.add(new PlayerSpec("Bot " + i, true, true));
         }
-        return new StartGameRequest(requested.rounds(), List.copyOf(players));
+        return new StartGameRequest(requested.rounds(), List.copyOf(players), requested.options());
     }
 
     private StartGameResponse responseFor(GameService service, StartGameResponse started, String playerId) {

@@ -13,6 +13,7 @@ const screens = [
   { name: 'uno', desktop: { width: 1440, height: 900 }, mobile: { width: 667, height: 375 } },
   { name: 'dvc', desktop: { width: 1440, height: 900 }, mobile: { width: 667, height: 375 } },
   { name: 'vegas', desktop: { width: 1440, height: 900 }, mobile: { width: 667, height: 375 } },
+  { name: 'conquer', desktop: { width: 1440, height: 900 }, mobile: { width: 667, height: 375 } },
   { name: 'summary', desktop: { width: 1440, height: 900 }, mobile: { width: 390, height: 844 } },
 ];
 
@@ -47,15 +48,45 @@ test('ordinary mobile layout has no page overflow', async ({ page }) => {
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-for (const game of ['uno', 'dvc', 'vegas']) {
+for (const game of ['uno', 'dvc', 'vegas', 'conquer']) {
   test(`${game} phone landscape keeps controls reachable`, async ({ page }) => {
     await page.setViewportSize({ width: 667, height: 375 });
     await page.goto(`/__ui-lab?screen=${game}`);
-    await expect(page.getByRole('button', { name: /leave table/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /leave table|exit/i })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });
 }
+
+for (const state of ['loading', 'error', 'waiting-to-roll', 'unlocked-target', 'partial-siege', 'double-crown', 'clan-locked', 'reconnecting', 'finished']) {
+  test(`Conquer Westeros ${state} fixture remains usable`, async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto(`/__ui-lab?screen=conquer&state=${state}`);
+    await expect(page.locator('main')).toBeVisible();
+    if (!['loading', 'error'].includes(state)) await expect(page.locator('.cw-card')).toHaveCount(14);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+}
+
+test('Conquer Westeros supports keyboard focus, reduced motion, 200% zoom, and phone portrait', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/__ui-lab?screen=conquer&state=unlocked-target');
+  const firstTarget = page.locator('.cw-card:not(:disabled)').first();
+  await firstTarget.focus();
+  await expect(firstTarget).toBeFocused();
+  const transitionDuration = await firstTarget.evaluate((element) => getComputedStyle(element).transitionDuration);
+  expect(['0s', '0.001s']).toContain(transitionDuration.split(',')[0]);
+  await page.evaluate(() => { document.body.style.zoom = '2'; });
+  let overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  await page.evaluate(() => { document.body.style.removeProperty('zoom'); });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
 
 test('Las Vegas tablet keeps a two-column casino grid @visual', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1024, height: 768 });

@@ -54,6 +54,19 @@ class StompSecurityInterceptorTest {
     }
 
     @Test
+    void restrictsConquerWesterosPrivateViewsAndAllowsMemberEventTopic() {
+        Fixture fixture = fixture();
+        when(fixture.access.requirePlayer(fixture.authentication, "war-1")).thenReturn("P1");
+
+        assertDoesNotThrow(() -> fixture.interceptor.preSend(
+                subscribe("/topic/conquer-westeros/war-1/P1", fixture.authentication), fixture.channel));
+        assertDoesNotThrow(() -> fixture.interceptor.preSend(
+                subscribe("/topic/conquer-westeros/war-1/events", fixture.authentication), fixture.channel));
+        assertThrows(AccessDeniedException.class, () -> fixture.interceptor.preSend(
+                subscribe("/topic/conquer-westeros/war-1/P2", fixture.authentication), fixture.channel));
+    }
+
+    @Test
     void allowsMemberLobbyTopicsButRejectsAnotherUsersPrivateLaunchTopic() {
         Fixture fixture = fixture();
         when(fixture.access.requireUserId(fixture.authentication)).thenReturn(7L);

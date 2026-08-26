@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="title desc">
+  <title id="title">Conquer Westeros abstract arcade cover</title>
+  <desc id="desc">An original pixel castle, geometric banners, seven dice, and a throne silhouette.</desc>
+  <rect width="640" height="400" fill="#070914"/>
+  <path fill="#11152b" stroke="#24f5d6" stroke-width="8" d="M80 332V180h56v-44h48v44h72v-72h48v72h72v-44h48v44h56v152z"/>
+  <path fill="#20284b" stroke="#ffd84a" stroke-width="8" d="M274 332V220h92v112M298 332v-72h44v72"/>
+  <path fill="#ff3eb5" d="M96 76h76v76H96z"/>
+  <path fill="#070914" d="m134 88 12 20 22 6-16 16 4 22-22-10-22 10 4-22-16-16 22-6z"/>
+  <path fill="#ffd84a" d="M468 76h76v76h-76z"/>
+  <path fill="#070914" d="m506 88 24 20-8 34h-32l-8-34z"/>
+  <g fill="#f7f7e8" stroke="#070914" stroke-width="5">
+    <rect x="54" y="272" width="48" height="48"/><rect x="538" y="272" width="48" height="48"/>
+    <rect x="112" y="292" width="48" height="48"/><rect x="480" y="292" width="48" height="48"/>
+    <rect x="170" y="312" width="48" height="48"/><rect x="422" y="312" width="48" height="48"/>
+    <rect x="296" y="68" width="48" height="48"/>
+  </g>
+  <g fill="#070914">
+    <path d="M70 286h16v16H70zM554 286h16v16h-16zM128 308h16v16h-16zM496 308h16v16h-16z"/>
+    <path d="M180 326h12v12h-12zM196 342h12v12h-12zM432 326h12v12h-12zM448 342h12v12h-12z"/>
+    <path d="m320 76 14 28h-28z"/>
+  </g>
+</svg>

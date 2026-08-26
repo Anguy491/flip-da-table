@@ -7,6 +7,7 @@ import Lobby from './pages/Lobby';
 import UnoPlayScreen from './pages/UnoPlayScreen';
 import DVCPlayScreen from './pages/DVCPlayScreen';
 import LasVegasPlayScreen from './pages/LasVegasPlayScreen';
+import ConquerWesterosPlayScreen from './pages/ConquerWesterosPlayScreen';
 import SessionSummary from './pages/SessionSummary';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -31,6 +32,7 @@ function App() {
         <Route path="/unoplayscreen/:sessionid" element={<UnoPlayScreen />} />
         <Route path="/dvcplayscreen/:sessionid" element={<DVCPlayScreen />} />
         <Route path="/lasvegasplayscreen/:sessionid" element={<LasVegasPlayScreen />} />
+        <Route path="/conquerwesterosplayscreen/:sessionid" element={<ConquerWesterosPlayScreen />} />
         <Route path="/sessionsum/:sessionid" element={<SessionSummary />} />
         {UILab && <Route path="/__ui-lab" element={<Suspense fallback={<div>Loading UI Lab...</div>}><UILab /></Suspense>} />}
       </Routes>

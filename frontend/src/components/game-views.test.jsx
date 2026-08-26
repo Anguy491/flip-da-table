@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import UnoGameView from './uno/UnoGameView';
 import DvcGameView from './dvc/DvcGameView';
 import LasVegasGameView from './lasvegas/LasVegasGameView';
+import ConquerWesterosGameView from './conquerwesteros/ConquerWesterosGameView';
 import ChooseColorModal from './uno/ChooseColorModal';
-import { dvcFixture, lasVegasFixture, unoFixture } from '../dev/fixtures';
+import { conquerWesterosFixture, dvcFixture, lasVegasFixture, unoFixture } from '../dev/fixtures';
 
 describe('deterministic game views', () => {
   it('shows a playable UNO hand and the maximum player rail', () => {
@@ -471,5 +472,63 @@ describe('deterministic game views', () => {
     expect(screen.getAllByText('#1 WIN')).toHaveLength(2);
     expect(screen.getAllByText('Bot 1').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Open final scoreboard' })).toBeEnabled();
+  });
+
+  it('selects a Conquer Westeros target, exact line, and military dice with native buttons', () => {
+    const onCompleteLine = vi.fn();
+    const onLoseDie = vi.fn();
+    const { container } = render(
+      <ConquerWesterosGameView
+        view={conquerWesterosFixture}
+        playerId="P1"
+        connectionState="connected"
+        onCompleteLine={onCompleteLine}
+        onLoseDie={onLoseDie}
+        onRefresh={vi.fn()}
+        onLeave={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelectorAll('.cw-card')).toHaveLength(14);
+    expect(container.querySelectorAll('.cw-die')).toHaveLength(7);
+    fireEvent.click(screen.getByText('Highgarden').closest('button'));
+    fireEvent.click(screen.getByRole('button', { name: /L1Military ≥ 5Open/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Die 1: Military 3' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Die 2: Military 2' }));
+    expect(screen.getByRole('button', { name: 'Complete line' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Complete line' }));
+    expect(onCompleteLine).toHaveBeenCalledWith('T05', 'L1', [0, 1]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Die 1: Military 3' }));
+    expect(screen.getByRole('button', { name: 'Lose selected die' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Lose selected die' }));
+    expect(onLoseDie).toHaveBeenCalledWith(1);
+  });
+
+  it('shows separate printed and steal Crown lines and locks clan card backs', () => {
+    const kingsLanding = conquerWesterosFixture.strongholds.find((card) => card.id === 'T10');
+    const stealLine = { id: 'STEAL_CROWN', type: 'STEAL_CROWN', threshold: null, symbols: ['CROWN'], display: 'Crown', completed: false, special: true };
+    const view = {
+      ...conquerWesterosFixture,
+      attempt: {
+        targetId: 'T10', targetOwnerId: 'P2', stealing: true, completedLineIds: ['L1', 'L2'], lostDieIds: [], committedDieIds: [0, 1, 2, 3],
+        requiredLines: [...kingsLanding.lines, stealLine],
+      },
+      strongholds: conquerWesterosFixture.strongholds.map((card) => card.id === 'T10'
+        ? { ...card, stealCrownRequired: true, lines: [...card.lines, stealLine] }
+        : card.id === 'T13' ? { ...card, ownerId: 'P1', central: false, locked: true } : card),
+      players: conquerWesterosFixture.players.map((player) => player.playerId === 'P1'
+        ? { ...player, completedClans: [{ name: 'Arryn', score: 3, strongholdIds: ['T13'] }] }
+        : player),
+    };
+    const { container } = render(
+      <ConquerWesterosGameView view={view} playerId="P1" connectionState="connected" onLeave={vi.fn()} />,
+    );
+
+    const battleLines = within(container.querySelector('.cw-lines'));
+    expect(battleLines.getByRole('button', { name: /L3CrownOpen/i })).toBeVisible();
+    expect(battleLines.getByRole('button', { name: /STEALCrownOpen/i })).toBeVisible();
+    expect(container.querySelector('.cw-card--locked')).toHaveTextContent('Clan secured');
+    expect(container.querySelector('.cw-card--locked')).toHaveTextContent('1 stronghold locked');
   });
 });

@@ -110,6 +110,76 @@ export const lasVegasFixture = {
   results: [],
 };
 
+const conquerTemplates = [
+  { id: 'T01', points: 1, lines: [{ id: 'L1', type: 'MILITARY', threshold: 5, symbols: [], display: 'Military ≥ 5' }] },
+  { id: 'T02', points: 1, lines: [{ id: 'L1', type: 'MILITARY', threshold: 7, symbols: [], display: 'Military ≥ 7' }] },
+  { id: 'T03', points: 1, lines: [{ id: 'L1', type: 'SYMBOLS', threshold: null, symbols: ['RAVEN', 'KNIGHT'], display: 'Raven + Knight' }] },
+  { id: 'T04', points: 1, lines: [{ id: 'L1', type: 'SYMBOLS', threshold: null, symbols: ['CROWN', 'KNIGHT'], display: 'Crown + Knight' }] },
+  { id: 'T05', points: 2, lines: [{ id: 'L1', type: 'MILITARY', threshold: 5, symbols: [], display: 'Military ≥ 5' }, { id: 'L2', type: 'SYMBOLS', threshold: null, symbols: ['RAVEN', 'KNIGHT'], display: 'Raven + Knight' }] },
+  { id: 'T06', points: 2, lines: [{ id: 'L1', type: 'MILITARY', threshold: 3, symbols: [], display: 'Military ≥ 3' }, { id: 'L2', type: 'SYMBOLS', threshold: null, symbols: ['RAVEN', 'RAVEN'], display: 'Raven + Raven' }] },
+  { id: 'T07', points: 2, lines: [{ id: 'L1', type: 'MILITARY', threshold: 3, symbols: [], display: 'Military ≥ 3' }, { id: 'L2', type: 'SYMBOLS', threshold: null, symbols: ['KNIGHT', 'KNIGHT'], display: 'Knight + Knight' }] },
+  { id: 'T08', points: 2, lines: [{ id: 'L1', type: 'MILITARY', threshold: 8, symbols: [], display: 'Military ≥ 8' }, { id: 'L2', type: 'SYMBOLS', threshold: null, symbols: ['CROWN'], display: 'Crown' }] },
+  { id: 'T09', points: 2, lines: [{ id: 'L1', type: 'MILITARY', threshold: 2, symbols: [], display: 'Military ≥ 2' }, { id: 'L2', type: 'SYMBOLS', threshold: null, symbols: ['RAVEN', 'RAVEN'], display: 'Raven + Raven' }, { id: 'L3', type: 'SYMBOLS', threshold: null, symbols: ['KNIGHT'], display: 'Knight' }] },
+  { id: 'T10', points: 2, lines: [{ id: 'L1', type: 'MILITARY', threshold: 4, symbols: [], display: 'Military ≥ 4' }, { id: 'L2', type: 'SYMBOLS', threshold: null, symbols: ['RAVEN', 'KNIGHT'], display: 'Raven + Knight' }, { id: 'L3', type: 'SYMBOLS', threshold: null, symbols: ['CROWN'], display: 'Crown' }] },
+  { id: 'T11', points: 3, lines: [{ id: 'L1', type: 'MILITARY', threshold: 6, symbols: [], display: 'Military ≥ 6' }, { id: 'L2', type: 'SYMBOLS', threshold: null, symbols: ['RAVEN', 'KNIGHT'], display: 'Raven + Knight' }] },
+  { id: 'T12', points: 3, lines: [{ id: 'L1', type: 'MILITARY', threshold: 6, symbols: [], display: 'Military ≥ 6' }, { id: 'L2', type: 'SYMBOLS', threshold: null, symbols: ['RAVEN', 'RAVEN'], display: 'Raven + Raven' }] },
+  { id: 'T13', points: 3, lines: [{ id: 'L1', type: 'MILITARY', threshold: 5, symbols: [], display: 'Military ≥ 5' }, { id: 'L2', type: 'SYMBOLS', threshold: null, symbols: ['RAVEN', 'RAVEN'], display: 'Raven + Raven' }, { id: 'L3', type: 'SYMBOLS', threshold: null, symbols: ['KNIGHT'], display: 'Knight' }] },
+  { id: 'T14', points: 4, lines: [{ id: 'L1', type: 'MILITARY', threshold: 6, symbols: [], display: 'Military ≥ 6' }, { id: 'L2', type: 'SYMBOLS', threshold: null, symbols: ['RAVEN', 'RAVEN'], display: 'Raven + Raven' }, { id: 'L3', type: 'SYMBOLS', threshold: null, symbols: ['KNIGHT'], display: 'Knight' }] },
+];
+
+const conquerNames = [
+  ['White Harbor', 'Stark–Tully Alliance'], ['Moat Cailin', 'Stark–Tully Alliance'],
+  ['Harrenhal', 'Lannister Royalists'], ['Ten Towers', 'Greyjoy'], ['Highgarden', 'Tyrell'],
+  ['Riverrun', 'Stark–Tully Alliance'], ['Pyke', 'Greyjoy'], ['Dragonstone', 'Baratheon'],
+  ['Oldtown', 'Tyrell'], ["King's Landing", 'Lannister Royalists'], ['Winterfell', 'Stark–Tully Alliance'],
+  ['Casterly Rock', 'Lannister Royalists'], ['The Eyrie', 'Arryn'], ["Storm's End", 'Baratheon'],
+];
+
+export const conquerWesterosFixture = {
+  schemaVersion: 1,
+  phase: 'WAITING_FOR_DECISION',
+  stateVersion: 8,
+  campaign: 'WAR_OF_FIVE_KINGS',
+  campaignName: 'War of the Five Kings',
+  turnCount: 3,
+  viewerId: 'P1',
+  currentPlayerId: 'P1',
+  ironThroneHolderId: 'P2',
+  currentRoll: [
+    { dieId: 0, face: 'MILITARY_3', militaryStrength: 3, display: 'Military 3' },
+    { dieId: 1, face: 'MILITARY_2', militaryStrength: 2, display: 'Military 2' },
+    { dieId: 2, face: 'RAVEN', militaryStrength: 0, display: 'Raven' },
+    { dieId: 3, face: 'KNIGHT', militaryStrength: 0, display: 'Knight' },
+    { dieId: 4, face: 'CROWN', militaryStrength: 0, display: 'Crown' },
+    { dieId: 5, face: 'RAVEN', militaryStrength: 0, display: 'Raven' },
+    { dieId: 6, face: 'MILITARY_1', militaryStrength: 1, display: 'Military 1' },
+  ],
+  attempt: { targetId: null, targetOwnerId: null, stealing: false, completedLineIds: [], lostDieIds: [], committedDieIds: [], requiredLines: [] },
+  players: [
+    { playerId: 'P1', name: 'PixelPilot', seatIndex: 0, current: true, holdsThrone: false, faceUpStrongholds: [], completedClans: [], strongholdCount: 0, completedClanCount: 0, faceUpScore: 0, clanScore: 0, totalScore: 0 },
+    { playerId: 'P2', name: 'CipherFox', seatIndex: 1, current: false, holdsThrone: true, faceUpStrongholds: ['T10'], completedClans: [], strongholdCount: 1, completedClanCount: 0, faceUpScore: 2, clanScore: 0, totalScore: 3 },
+    { playerId: 'P3', name: 'LongNicknameThatNeedsTruncation', seatIndex: 2, current: false, holdsThrone: false, faceUpStrongholds: [], completedClans: [], strongholdCount: 0, completedClanCount: 0, faceUpScore: 0, clanScore: 0, totalScore: 0 },
+  ],
+  strongholds: conquerTemplates.map((template, index) => ({
+    ...template,
+    name: conquerNames[index][0],
+    clan: conquerNames[index][1],
+    kingsLanding: template.id === 'T10',
+    ownerId: template.id === 'T10' ? 'P2' : null,
+    central: template.id !== 'T10',
+    locked: false,
+    stealCrownRequired: false,
+    lines: template.lines.map((line) => ({ ...line, completed: false, special: false })),
+  })),
+  legalActions: { canRoll: false, canCompleteLine: true, canLoseDie: true, legalTargetIds: conquerTemplates.map((item) => item.id), legalDieIds: [0, 1, 2, 3, 4, 5, 6] },
+  events: [
+    { sequence: 1, type: 'GAME_STARTED', actorId: null, targetId: null, text: 'War of the Five Kings began' },
+    { sequence: 7, type: 'TURN_STARTED', actorId: 'P1', targetId: null, text: 'PixelPilot is ready to roll' },
+    { sequence: 8, type: 'ROLL_DICE', actorId: 'P1', targetId: null, text: 'PixelPilot rolled 7 dice' },
+  ],
+  results: [],
+};
+
 export const dashboardFixture = {
   me: { nickname: 'PixelPilot' },
 };
