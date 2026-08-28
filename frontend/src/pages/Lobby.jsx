@@ -247,6 +247,8 @@ export default function Lobby({ preview = null }) {
                 >
                   <option value="WAR_OF_FIVE_KINGS">War of the Five Kings</option>
                   <option value="DANCE_OF_THE_DRAGONS">Dance of the Dragons</option>
+                  <option value="WAR_OF_THE_USURPER">War of the Usurper</option>
+                  <option value="AEGONS_CONQUEST">Aegon's Conquest</option>
                 </ArcadeSelect>
               )}
               {capabilities.seriesAllowed ? (

@@ -2,6 +2,10 @@ Original prompt: PLEASE IMPLEMENT THIS PLAN: LASVEGAS standard bot support with 
 
 ## Progress
 
+- 2026-08-28: Added the approved `AEGONS_CONQUEST` Conquer Westeros campaign on top of the existing Usurper work: 14 shared-template strongholds, six conquest-era factions, Aegonfort throne handling, lobby/UI Lab selection, complete map coordinates, and the expanded four-campaign Chinese rules catalog. Browser overlap inspection tuned the campaign-specific Maidenpool marker to `(67,56)` without changing older campaign layouts.
+- 2026-08-28: Aegon's Conquest verification complete. All 215 backend tests passed through the active Colima/Testcontainers socket with zero skips; all 57 Vitest tests, Arcade UI audit, ESLint, production build, and 138 Playwright cases passed. The web-game client confirmed the conquest fixture text state and a visually correct four-line Aegonfort steal dialog with no console errors.
+- 2026-08-28: Added the approved `WAR_OF_THE_USURPER` Conquer Westeros campaign with 14 shared-template strongholds, six historical factions, King's Landing throne handling, lobby selection, deterministic UI Lab data, complete map coordinates, and the expanded 42-card Chinese rules catalog.
+- 2026-08-28: War of the Usurper verification complete. Visual review moved Ruby Ford to `(55,53)` to eliminate its token overlap with Stoney Sept. All 212 backend tests passed with PostgreSQL/Testcontainers and zero skips, all 57 Vitest tests passed, Arcade UI audit/ESLint/production build passed, and all 135 Playwright cases passed across Chromium, Firefox, and WebKit.
 - 2026-08-28: Began the approved Conquer Westeros single-map UI continuation: keep the toolbar, move player/Throne/Tips/Log/Roll Dice/Results into the map shell, consolidate mutually exclusive dialogs, and preserve all server-authoritative game interfaces.
 - 2026-08-28: Replaced the always-visible seat rail, side panels, status stack, siege console, and final-ranking panel with pinned map docks, a bottom Roll Dice launcher, map-local alerts, and dedicated player/Throne/Tips/Log/siege/results dialogs. Added responsive single-viewport styling while keeping stronghold coordinates and selection behavior unchanged.
 - 2026-08-28: Updated deterministic component coverage for every new dock dialog, target-to-siege flow, CPU lockout, focus restoration, and auto/reopen final ranking. Focused Conquer Westeros suite passes 21 tests; ESLint and Arcade UI audit pass.
@@ -48,6 +52,7 @@ Original prompt: PLEASE IMPLEMENT THIS PLAN: LASVEGAS standard bot support with 
 
 ## Final verification
 
+- 2026-08-28 Aegon's Conquest: 215 backend tests with PostgreSQL/Testcontainers and zero skips; 57 Vitest tests; Arcade UI audit; ESLint; production build; 138 Playwright cases across Chromium, Firefox, and WebKit; web-game text/screenshot inspection; and `git diff --check` passed.
 - 2026-08-28 Conquer Westeros single-map continuation: Arcade UI audit, ESLint, 57 Vitest tests, production build, 132 Playwright cases across Chromium/Firefox/WebKit, web-game text/screenshot inspection, and `git diff --check` passed.
 - Backend: 174 tests passed, including PostgreSQL/Testcontainers restart and row-lock integration cases; 0 skipped, failed, or errored.
 - Frontend: ESLint passed; 41 Vitest tests passed; Arcade UI audit passed; production build passed.

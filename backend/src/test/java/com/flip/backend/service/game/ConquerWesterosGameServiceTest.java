@@ -43,7 +43,8 @@ class ConquerWesterosGameServiceTest {
 
     @Test
     void startsAndPersistsEachLegalCampaignWithoutMixingCards() {
-        for (String campaign : List.of("WAR_OF_FIVE_KINGS", "DANCE_OF_THE_DRAGONS")) {
+        for (String campaign : List.of(
+                "WAR_OF_FIVE_KINGS", "DANCE_OF_THE_DRAGONS", "WAR_OF_THE_USURPER", "AEGONS_CONQUEST")) {
             Fixture fixture = fixture();
             var response = fixture.service.startFirst("session", request(2, 1, false, campaign));
 

@@ -27,16 +27,92 @@ class ConquerWesterosRuntimePhaseTest {
     @Test
     void campaignsShareAllFourteenTemplatesAndValidatedTotals() {
         var fiveKings = ConquerWesterosCatalog.campaign(Campaign.WAR_OF_FIVE_KINGS);
-        var dance = ConquerWesterosCatalog.campaign(Campaign.DANCE_OF_THE_DRAGONS);
 
-        assertEquals(14, fiveKings.strongholds().size());
-        assertEquals(6, fiveKings.clanScores().size());
-        assertEquals(29, fiveKings.strongholds().stream().mapToInt(card -> card.points()).sum());
-        assertEquals(37, fiveKings.clanScores().values().stream().mapToInt(Integer::intValue).sum());
-        for (String id : ids()) {
-            assertEquals(fiveKings.stronghold(id).points(), dance.stronghold(id).points());
-            assertEquals(fiveKings.stronghold(id).lines(), dance.stronghold(id).lines());
+        for (Campaign campaign : Campaign.values()) {
+            var data = ConquerWesterosCatalog.campaign(campaign);
+            assertEquals(14, data.strongholds().size());
+            assertEquals(6, data.clanScores().size());
+            assertEquals(29, data.strongholds().stream().mapToInt(card -> card.points()).sum());
+            assertEquals(37, data.clanScores().values().stream().mapToInt(Integer::intValue).sum());
+            for (String id : ids()) {
+                assertEquals(fiveKings.stronghold(id).points(), data.stronghold(id).points());
+                assertEquals(fiveKings.stronghold(id).lines(), data.stronghold(id).lines());
+            }
         }
+    }
+
+    @Test
+    void warOfTheUsurperMapsHistoricalFactionsAndCrownedKingsLanding() {
+        var campaign = ConquerWesterosCatalog.campaign(Campaign.WAR_OF_THE_USURPER);
+
+        assertEquals(List.of(
+                "Stoney Sept", "The Eyrie", "Tower of Joy", "Lannisport", "Ashford", "Riverrun",
+                "Casterly Rock", "Ruby Ford", "Highgarden", "King's Landing", "Winterfell",
+                "Dragonstone", "Sunspear", "Storm's End"
+        ), campaign.strongholds().stream().map(card -> card.name()).toList());
+        assertEquals(Map.of(
+                "Stark–Arryn–Tully Alliance", 10,
+                "Targaryen Royalists", 8,
+                "Baratheon Rebels", 7,
+                "Tyrell Royalists", 5,
+                "Lannister", 4,
+                "Martell", 3
+        ), campaign.clanScores());
+        assertEquals(List.of("T01", "T02", "T06", "T11"),
+                campaign.clanStrongholds("Stark–Arryn–Tully Alliance"));
+        assertEquals(List.of("T03", "T10", "T12"), campaign.clanStrongholds("Targaryen Royalists"));
+        assertEquals(List.of("T08", "T14"), campaign.clanStrongholds("Baratheon Rebels"));
+        assertTrue(campaign.stronghold("T10").kingsLanding());
+        assertEquals(List.of(DieFace.CROWN),
+                ((BattleLine.Symbols) campaign.stronghold("T10").lines().get(2)).required());
+    }
+
+    @Test
+    void aegonsConquestMapsConquerorsAndFiveHistoricalOpponents() {
+        var campaign = ConquerWesterosCatalog.campaign(Campaign.AEGONS_CONQUEST);
+
+        assertEquals(List.of(
+                "Maidenpool", "Pyke", "Oldtown", "Gulltown", "Field of Fire", "Riverrun",
+                "The Eyrie", "Last Storm", "Highgarden", "Aegonfort", "Harrenhal",
+                "Dragonstone", "Winterfell", "Storm's End"
+        ), campaign.strongholds().stream().map(card -> card.name()).toList());
+        assertEquals(Map.of(
+                "Hoare · Isles and Rivers", 10,
+                "Targaryen Conquerors", 8,
+                "Durrandon Storm Kingdom", 7,
+                "Gardener–Lannister Alliance", 5,
+                "Arryn · Mountain and Vale", 4,
+                "Stark · Kingdom of the North", 3
+        ), campaign.clanScores());
+        assertEquals(List.of("T01", "T02", "T06", "T11"),
+                campaign.clanStrongholds("Hoare · Isles and Rivers"));
+        assertEquals(List.of("T03", "T10", "T12"), campaign.clanStrongholds("Targaryen Conquerors"));
+        assertEquals(List.of("T08", "T14"), campaign.clanStrongholds("Durrandon Storm Kingdom"));
+        assertEquals(List.of("T05", "T09"), campaign.clanStrongholds("Gardener–Lannister Alliance"));
+        assertEquals(List.of("T04", "T07"), campaign.clanStrongholds("Arryn · Mountain and Vale"));
+        assertEquals(List.of("T13"), campaign.clanStrongholds("Stark · Kingdom of the North"));
+        assertTrue(campaign.stronghold("T10").kingsLanding());
+        assertEquals(List.of(DieFace.CROWN),
+                ((BattleLine.Symbols) campaign.stronghold("T10").lines().get(2)).required());
+    }
+
+    @Test
+    void stealingAegonfortAddsACrownBeyondItsThreePrintedLines() {
+        var runtime = ConquerWesterosRuntimePhase.restore(snapshot(
+                Campaign.AEGONS_CONQUEST,
+                ConquerWesterosRuntimePhase.State.WAITING_FOR_DECISION,
+                without("T10"),
+                List.of(playerState("P1", List.of(), Map.of()), playerState("P2", List.of("T10"), Map.of())),
+                attempt(null, null, false, Map.of(), List.of()),
+                List.of(roll(0, DieFace.MILITARY_3), roll(1, DieFace.MILITARY_1)),
+                "P2",
+                0
+        ), new SequenceRandom());
+
+        runtime.applyCommand("P1", complete(0, "T10", "L1", 0, 1));
+
+        assertEquals(List.of("L1", "L2", "L3", "STEAL_CROWN"),
+                runtime.buildView("P1").attempt().requiredLines().stream().map(line -> line.id()).toList());
     }
 
     @Test

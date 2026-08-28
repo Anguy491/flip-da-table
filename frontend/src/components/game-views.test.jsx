@@ -6,8 +6,10 @@ import LasVegasGameView from './lasvegas/LasVegasGameView';
 import ConquerWesterosGameView from './conquerwesteros/ConquerWesterosGameView';
 import ChooseColorModal from './uno/ChooseColorModal';
 import {
+  conquerWesterosAegonFixture,
   conquerWesterosDanceFixture,
   conquerWesterosFixture,
+  conquerWesterosUsurperFixture,
   dvcFixture,
   lasVegasFixture,
   unoFixture,
@@ -628,7 +630,7 @@ describe('deterministic game views', () => {
     expect(onSummary).toHaveBeenCalledOnce();
   });
 
-  it('maps every stronghold in both Conquer Westeros campaigns to stable coordinates', () => {
+  it('maps every stronghold in all Conquer Westeros campaigns to stable coordinates', () => {
     const { container, rerender } = render(
       <ConquerWesterosGameView view={conquerWesterosFixture} playerId="P1" connectionState="connected" onLeave={vi.fn()} />,
     );
@@ -649,6 +651,28 @@ describe('deterministic game views', () => {
     expect(container.querySelector('[aria-label="Unmapped strongholds"]')).not.toBeInTheDocument();
     expect(container.querySelector('[data-stronghold-id="T01"]')?.parentElement).toHaveAttribute('data-map-position', '70,48');
     expect(screen.getByRole('button', { name: /Open High Tide details/i })).toBeVisible();
+
+    rerender(
+      <ConquerWesterosGameView view={conquerWesterosUsurperFixture} playerId="P1" connectionState="connected" onLeave={vi.fn()} />,
+    );
+    expect(container.querySelectorAll('.cw-map-token')).toHaveLength(14);
+    expect(container.querySelector('[aria-label="Unmapped strongholds"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-stronghold-id="T01"]')?.parentElement).toHaveAttribute('data-map-position', '44,59');
+    expect(container.querySelector('[data-stronghold-id="T08"]')?.parentElement).toHaveAttribute('data-map-position', '55,53');
+    expect(container.querySelector('[data-stronghold-id="T13"]')?.parentElement).toHaveAttribute('data-map-position', '56,90');
+    expect(screen.getByRole('button', { name: /Open Storm's End details/i })).toBeVisible();
+
+    rerender(
+      <ConquerWesterosGameView view={conquerWesterosAegonFixture} playerId="P1" connectionState="connected" onLeave={vi.fn()} />,
+    );
+    expect(container.querySelectorAll('.cw-map-token')).toHaveLength(14);
+    expect(container.querySelector('[aria-label="Unmapped strongholds"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-stronghold-id="T01"]')?.parentElement).toHaveAttribute('data-map-position', '67,56');
+    expect(container.querySelector('[data-stronghold-id="T04"]')?.parentElement).toHaveAttribute('data-map-position', '82,48');
+    expect(container.querySelector('[data-stronghold-id="T05"]')?.parentElement).toHaveAttribute('data-map-position', '39,64');
+    expect(container.querySelector('[data-stronghold-id="T08"]')?.parentElement).toHaveAttribute('data-map-position', '49,70');
+    expect(container.querySelector('[data-stronghold-id="T10"]')?.parentElement).toHaveAttribute('data-map-position', '57,63');
+    expect(screen.getByRole('button', { name: /Open Aegonfort details/i })).toHaveAccessibleName(/Iron Throne stronghold/i);
   });
 
   it('opens stronghold details without selecting and restores token focus on Escape', () => {

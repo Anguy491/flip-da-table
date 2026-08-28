@@ -1,15 +1,50 @@
 package com.flip.backend.conquerwesteros.engine;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.flip.backend.api.dto.LobbyDtos.PlayerStartInfo;
 import com.flip.backend.conquerwesteros.engine.phase.ConquerWesterosRuntimePhase;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class ConquerWesterosSnapshotCodecTest {
+    @Test
+    void warOfTheUsurperRoundTripsThroughTheCurrentSnapshotSchema() {
+        var codec = new ConquerWesterosSnapshotCodec(new ObjectMapper().findAndRegisterModules());
+        var runtime = ConquerWesterosRuntimePhase.newGame(List.of(
+                new PlayerStartInfo("P1", "Player 1", false, true),
+                new PlayerStartInfo("P2", "Player 2", false, true)
+        ), Campaign.WAR_OF_THE_USURPER, new Random(1));
+
+        var restored = ConquerWesterosRuntimePhase.restore(codec.decode(codec.encode(runtime)), new Random(1));
+
+        assertEquals(Campaign.WAR_OF_THE_USURPER, restored.campaign());
+        assertEquals("War of the Usurper", restored.buildView("P1").campaignName());
+        assertEquals("Stoney Sept", restored.buildView("P1").strongholds().get(0).name());
+        assertEquals(2, restored.snapshot().schemaVersion());
+    }
+
+    @Test
+    void aegonsConquestRoundTripsThroughTheCurrentSnapshotSchema() {
+        var codec = new ConquerWesterosSnapshotCodec(new ObjectMapper().findAndRegisterModules());
+        var runtime = ConquerWesterosRuntimePhase.newGame(List.of(
+                new PlayerStartInfo("P1", "Player 1", false, true),
+                new PlayerStartInfo("P2", "Player 2", false, true)
+        ), Campaign.AEGONS_CONQUEST, new Random(1));
+
+        var restored = ConquerWesterosRuntimePhase.restore(codec.decode(codec.encode(runtime)), new Random(1));
+
+        assertEquals(Campaign.AEGONS_CONQUEST, restored.campaign());
+        assertEquals("Aegon's Conquest", restored.buildView("P1").campaignName());
+        assertEquals("Maidenpool", restored.buildView("P1").strongholds().get(0).name());
+        assertEquals("Aegonfort", restored.buildView("P1").strongholds().get(9).name());
+        assertEquals(2, restored.snapshot().schemaVersion());
+    }
+
     @Test
     void readsARealV1PlayerWithoutABotFieldAndRewritesV2() {
         String json = """

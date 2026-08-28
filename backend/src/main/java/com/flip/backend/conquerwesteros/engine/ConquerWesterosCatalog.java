@@ -133,6 +133,60 @@ public final class ConquerWesterosCatalog {
                         "Tully", 3
                 )
         ));
+        result.put(Campaign.WAR_OF_THE_USURPER, build(
+                Campaign.WAR_OF_THE_USURPER,
+                List.of(
+                        map(TemplateId.T01, "Stoney Sept", "Stark–Arryn–Tully Alliance"),
+                        map(TemplateId.T02, "The Eyrie", "Stark–Arryn–Tully Alliance"),
+                        map(TemplateId.T03, "Tower of Joy", "Targaryen Royalists"),
+                        map(TemplateId.T04, "Lannisport", "Lannister"),
+                        map(TemplateId.T05, "Ashford", "Tyrell Royalists"),
+                        map(TemplateId.T06, "Riverrun", "Stark–Arryn–Tully Alliance"),
+                        map(TemplateId.T07, "Casterly Rock", "Lannister"),
+                        map(TemplateId.T08, "Ruby Ford", "Baratheon Rebels"),
+                        map(TemplateId.T09, "Highgarden", "Tyrell Royalists"),
+                        map(TemplateId.T10, "King's Landing", "Targaryen Royalists", true),
+                        map(TemplateId.T11, "Winterfell", "Stark–Arryn–Tully Alliance"),
+                        map(TemplateId.T12, "Dragonstone", "Targaryen Royalists"),
+                        map(TemplateId.T13, "Sunspear", "Martell"),
+                        map(TemplateId.T14, "Storm's End", "Baratheon Rebels")
+                ),
+                clanScores(
+                        "Stark–Arryn–Tully Alliance", 10,
+                        "Targaryen Royalists", 8,
+                        "Baratheon Rebels", 7,
+                        "Tyrell Royalists", 5,
+                        "Lannister", 4,
+                        "Martell", 3
+                )
+        ));
+        result.put(Campaign.AEGONS_CONQUEST, build(
+                Campaign.AEGONS_CONQUEST,
+                List.of(
+                        map(TemplateId.T01, "Maidenpool", "Hoare · Isles and Rivers"),
+                        map(TemplateId.T02, "Pyke", "Hoare · Isles and Rivers"),
+                        map(TemplateId.T03, "Oldtown", "Targaryen Conquerors"),
+                        map(TemplateId.T04, "Gulltown", "Arryn · Mountain and Vale"),
+                        map(TemplateId.T05, "Field of Fire", "Gardener–Lannister Alliance"),
+                        map(TemplateId.T06, "Riverrun", "Hoare · Isles and Rivers"),
+                        map(TemplateId.T07, "The Eyrie", "Arryn · Mountain and Vale"),
+                        map(TemplateId.T08, "Last Storm", "Durrandon Storm Kingdom"),
+                        map(TemplateId.T09, "Highgarden", "Gardener–Lannister Alliance"),
+                        map(TemplateId.T10, "Aegonfort", "Targaryen Conquerors", true),
+                        map(TemplateId.T11, "Harrenhal", "Hoare · Isles and Rivers"),
+                        map(TemplateId.T12, "Dragonstone", "Targaryen Conquerors"),
+                        map(TemplateId.T13, "Winterfell", "Stark · Kingdom of the North"),
+                        map(TemplateId.T14, "Storm's End", "Durrandon Storm Kingdom")
+                ),
+                clanScores(
+                        "Hoare · Isles and Rivers", 10,
+                        "Targaryen Conquerors", 8,
+                        "Durrandon Storm Kingdom", 7,
+                        "Gardener–Lannister Alliance", 5,
+                        "Arryn · Mountain and Vale", 4,
+                        "Stark · Kingdom of the North", 3
+                )
+        ));
         return Map.copyOf(result);
     }
 

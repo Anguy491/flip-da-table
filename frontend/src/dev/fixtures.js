@@ -143,6 +143,24 @@ const conquerDanceNames = [
   ["King's Landing", 'Greens · Targaryen'], ['Riverrun', 'Tully'], ['High Tide', 'Velaryon'],
 ];
 
+const conquerUsurperNames = [
+  ['Stoney Sept', 'Stark–Arryn–Tully Alliance'], ['The Eyrie', 'Stark–Arryn–Tully Alliance'],
+  ['Tower of Joy', 'Targaryen Royalists'], ['Lannisport', 'Lannister'], ['Ashford', 'Tyrell Royalists'],
+  ['Riverrun', 'Stark–Arryn–Tully Alliance'], ['Casterly Rock', 'Lannister'], ['Ruby Ford', 'Baratheon Rebels'],
+  ['Highgarden', 'Tyrell Royalists'], ["King's Landing", 'Targaryen Royalists'], ['Winterfell', 'Stark–Arryn–Tully Alliance'],
+  ['Dragonstone', 'Targaryen Royalists'], ['Sunspear', 'Martell'], ["Storm's End", 'Baratheon Rebels'],
+];
+
+const conquerAegonNames = [
+  ['Maidenpool', 'Hoare · Isles and Rivers'], ['Pyke', 'Hoare · Isles and Rivers'],
+  ['Oldtown', 'Targaryen Conquerors'], ['Gulltown', 'Arryn · Mountain and Vale'],
+  ['Field of Fire', 'Gardener–Lannister Alliance'], ['Riverrun', 'Hoare · Isles and Rivers'],
+  ['The Eyrie', 'Arryn · Mountain and Vale'], ['Last Storm', 'Durrandon Storm Kingdom'],
+  ['Highgarden', 'Gardener–Lannister Alliance'], ['Aegonfort', 'Targaryen Conquerors'],
+  ['Harrenhal', 'Hoare · Isles and Rivers'], ['Dragonstone', 'Targaryen Conquerors'],
+  ['Winterfell', 'Stark · Kingdom of the North'], ["Storm's End", 'Durrandon Storm Kingdom'],
+];
+
 export const conquerWesterosFixture = {
   schemaVersion: 2,
   phase: 'WAITING_FOR_DECISION',
@@ -208,6 +226,50 @@ export const conquerWesterosDanceFixture = {
   })),
   events: [
     { sequence: 1, type: 'GAME_STARTED', actorId: null, targetId: null, text: 'Dance of the Dragons began' },
+    { sequence: 7, type: 'TURN_STARTED', actorId: 'P1', targetId: null, text: 'PixelPilot is ready to roll' },
+    { sequence: 8, type: 'ROLL_DICE', actorId: 'P1', targetId: null, text: 'PixelPilot rolled 7 dice' },
+  ],
+};
+
+export const conquerWesterosUsurperFixture = {
+  ...conquerWesterosFixture,
+  campaign: 'WAR_OF_THE_USURPER',
+  campaignName: 'War of the Usurper',
+  strongholds: conquerTemplates.map((template, index) => ({
+    ...template,
+    name: conquerUsurperNames[index][0],
+    clan: conquerUsurperNames[index][1],
+    kingsLanding: template.id === 'T10',
+    ownerId: template.id === 'T10' ? 'P2' : null,
+    central: template.id !== 'T10',
+    locked: false,
+    stealCrownRequired: false,
+    lines: template.lines.map((line) => ({ ...line, completed: false, special: false })),
+  })),
+  events: [
+    { sequence: 1, type: 'GAME_STARTED', actorId: null, targetId: null, text: 'War of the Usurper began' },
+    { sequence: 7, type: 'TURN_STARTED', actorId: 'P1', targetId: null, text: 'PixelPilot is ready to roll' },
+    { sequence: 8, type: 'ROLL_DICE', actorId: 'P1', targetId: null, text: 'PixelPilot rolled 7 dice' },
+  ],
+};
+
+export const conquerWesterosAegonFixture = {
+  ...conquerWesterosFixture,
+  campaign: 'AEGONS_CONQUEST',
+  campaignName: "Aegon's Conquest",
+  strongholds: conquerTemplates.map((template, index) => ({
+    ...template,
+    name: conquerAegonNames[index][0],
+    clan: conquerAegonNames[index][1],
+    kingsLanding: template.id === 'T10',
+    ownerId: template.id === 'T10' ? 'P2' : null,
+    central: template.id !== 'T10',
+    locked: false,
+    stealCrownRequired: false,
+    lines: template.lines.map((line) => ({ ...line, completed: false, special: false })),
+  })),
+  events: [
+    { sequence: 1, type: 'GAME_STARTED', actorId: null, targetId: null, text: "Aegon's Conquest began" },
     { sequence: 7, type: 'TURN_STARTED', actorId: 'P1', targetId: null, text: 'PixelPilot is ready to roll' },
     { sequence: 8, type: 'ROLL_DICE', actorId: 'P1', targetId: null, text: 'PixelPilot rolled 7 dice' },
   ],

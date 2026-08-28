@@ -129,27 +129,29 @@ class ConquerWesterosTurnExecutorTest {
     }
 
     @Test
-    void mixedTableRunsThroughACompleteCampaignWithStandardBots() {
-        var runtime = ConquerWesterosRuntimePhase.newGame(
-                List.of(player("P1", false), player("BOT1", true)),
-                Campaign.WAR_OF_FIVE_KINGS, new Random(20260826));
-        Fixture fixture = fixture(runtime, new StandardConquerWesterosBotStrategy());
-        int actions = 0;
-        while (runtime.state() != ConquerWesterosRuntimePhase.State.FINISHED && actions++ < 3000) {
-            if (runtime.currentPlayerIsBot()) {
-                fixture.executor.executeBot(runtime.botTicket(fixture.entity.getId()));
-            } else if (runtime.state() == ConquerWesterosRuntimePhase.State.WAITING_FOR_ROLL) {
-                fixture.executor.execute(fixture.entity.getId(), "P1",
-                        command(runtime.stateVersion(), "ROLL_DICE"));
-            } else {
-                fixture.executor.execute(fixture.entity.getId(), "P1", humanDecision(runtime.buildView("P1")));
+    void mixedTableRunsThroughEveryCompleteCampaignWithStandardBots() {
+        for (Campaign campaign : Campaign.values()) {
+            var runtime = ConquerWesterosRuntimePhase.newGame(
+                    List.of(player("P1", false), player("BOT1", true)),
+                    campaign, new Random(20260826));
+            Fixture fixture = fixture(runtime, new StandardConquerWesterosBotStrategy());
+            int actions = 0;
+            while (runtime.state() != ConquerWesterosRuntimePhase.State.FINISHED && actions++ < 3000) {
+                if (runtime.currentPlayerIsBot()) {
+                    fixture.executor.executeBot(runtime.botTicket(fixture.entity.getId()));
+                } else if (runtime.state() == ConquerWesterosRuntimePhase.State.WAITING_FOR_ROLL) {
+                    fixture.executor.execute(fixture.entity.getId(), "P1",
+                            command(runtime.stateVersion(), "ROLL_DICE"));
+                } else {
+                    fixture.executor.execute(fixture.entity.getId(), "P1", humanDecision(runtime.buildView("P1")));
+                }
             }
-        }
 
-        assertEquals(ConquerWesterosRuntimePhase.State.FINISHED, runtime.state());
-        assertTrue(actions < 3000);
-        assertEquals("ENDED", fixture.entity.getState());
-        assertEquals("ENDED", fixture.session.getState());
+            assertEquals(ConquerWesterosRuntimePhase.State.FINISHED, runtime.state(), campaign.name());
+            assertTrue(actions < 3000, campaign.name());
+            assertEquals("ENDED", fixture.entity.getState(), campaign.name());
+            assertEquals("ENDED", fixture.session.getState(), campaign.name());
+        }
     }
 
     private static Fixture fixture(List<PlayerStartInfo> players) {

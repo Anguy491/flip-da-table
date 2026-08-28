@@ -27,8 +27,10 @@ import ResetPassword from './ResetPassword';
 import Privacy from './Privacy';
 import {
   dashboardFixture,
+  conquerWesterosAegonFixture,
   conquerWesterosDanceFixture,
   conquerWesterosFixture,
+  conquerWesterosUsurperFixture,
   dvcFixture,
   lobbyFixture,
   lasVegasFixture,
@@ -53,7 +55,7 @@ export default function UILab() {
   const vegasCrowdedMode = params.get('state') === 'crowded';
   const vegasRollMode = params.get('state') === 'roll';
   const conquerState = params.get('state') || 'unlocked-target';
-  const conquerDanceMode = params.get('campaign') === 'dance';
+  const conquerCampaign = params.get('campaign');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(wildMode);
   const [vegasBotStep, setVegasBotStep] = useState(0);
@@ -143,7 +145,11 @@ export default function UILab() {
     } : lasVegasFixture;
   }, [vegasBotMode, vegasBotSequenceMode, vegasBotStep, vegasCrowdedMode, vegasRollMode, vegasRollStep]);
   const conquerView = useMemo(() => {
-    const base = conquerDanceMode ? conquerWesterosDanceFixture : conquerWesterosFixture;
+    const base = {
+      dance: conquerWesterosDanceFixture,
+      usurper: conquerWesterosUsurperFixture,
+      conquest: conquerWesterosAegonFixture,
+    }[conquerCampaign] || conquerWesterosFixture;
     if (conquerState === 'bot-turn') return {
       ...base,
       currentPlayerId: 'BOT1',
@@ -212,7 +218,7 @@ export default function UILab() {
       ],
     };
     return base;
-  }, [conquerDanceMode, conquerState]);
+  }, [conquerCampaign, conquerState]);
 
   useEffect(() => {
     if (screen !== 'vegas') return undefined;

@@ -199,6 +199,8 @@ describe('public and shared page states', () => {
     }} />);
 
     expect(screen.getByRole('combobox')).toHaveValue('WAR_OF_FIVE_KINGS');
+    expect(screen.getByRole('option', { name: 'War of the Usurper' })).toBeVisible();
+    expect(screen.getByRole('option', { name: "Aegon's Conquest" })).toBeVisible();
     expect(screen.queryByRole('combobox', { name: 'Rounds' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '+ Add bot' }));
     expect(screen.getByText('Bot 1')).toBeVisible();
@@ -221,13 +223,13 @@ describe('public and shared page states', () => {
       },
       players: [{ name: 'P1', bot: false, ready: true }, { name: 'P2', bot: false, ready: true }],
     }} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'DANCE_OF_THE_DRAGONS' } });
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'AEGONS_CONQUEST' } });
     fireEvent.click(screen.getByRole('button', { name: 'Start game' }));
 
     await waitFor(() => expect(startFirstGame).toHaveBeenCalledWith('WESTEROS-ROOM', {
       rounds: 1,
       players: [{ name: 'P1', bot: false, ready: true }, { name: 'P2', bot: false, ready: true }],
-      options: { campaign: 'DANCE_OF_THE_DRAGONS' },
+      options: { campaign: 'AEGONS_CONQUEST' },
     }, 'preview-token'));
   });
 

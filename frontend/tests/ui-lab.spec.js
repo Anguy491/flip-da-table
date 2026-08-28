@@ -187,6 +187,81 @@ test('Dance of the Dragons maps all fourteen strongholds without fallback', asyn
   await expect(page.locator('[data-stronghold-id="T01"]').locator('..')).toHaveAttribute('data-map-position', '70,48');
 });
 
+test('War of the Usurper maps all fourteen strongholds without fallback', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('/__ui-lab?screen=conquer&campaign=usurper');
+  await expect(page.locator('.cw-map-token')).toHaveCount(14);
+  await expect(page.getByRole('group', { name: 'Unmapped strongholds' })).toHaveCount(0);
+  await expect(page.locator('[data-stronghold-id="T01"]')).toHaveAttribute('aria-label', /Open Stoney Sept details/i);
+  await expect(page.locator('[data-stronghold-id="T10"]')).toHaveAttribute('aria-label', /Open King's Landing details/i);
+  await expect(page.locator('[data-stronghold-id="T14"]')).toHaveAttribute('aria-label', /Open Storm's End details/i);
+  await expect(page.locator('[data-stronghold-id="T01"]').locator('..')).toHaveAttribute('data-map-position', '44,59');
+  await expect(page.locator('[data-stronghold-id="T13"]').locator('..')).toHaveAttribute('data-map-position', '56,90');
+  const overlaps = await page.locator('.cw-map-token-wrap').evaluateAll((tokens) => {
+    const boxes = tokens.map((token) => ({
+      id: token.querySelector('[data-stronghold-id]')?.getAttribute('data-stronghold-id'),
+      rect: token.getBoundingClientRect(),
+    }));
+    return boxes.flatMap((left, leftIndex) => boxes.slice(leftIndex + 1).flatMap((right) => {
+      const intersects = left.rect.left < right.rect.right
+        && left.rect.right > right.rect.left
+        && left.rect.top < right.rect.bottom
+        && left.rect.bottom > right.rect.top;
+      return intersects ? [`${left.id}-${right.id}`] : [];
+    }));
+  });
+  expect(overlaps).toEqual([]);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  const severe = results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact));
+  expect(severe).toEqual([]);
+});
+
+test("Aegon's Conquest maps all fourteen strongholds without fallback at game breakpoints", async ({ page }) => {
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 667, height: 375 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/__ui-lab?screen=conquer&campaign=conquest');
+    await expect(page.locator('.cw-map-token')).toHaveCount(14);
+    await expect(page.getByRole('group', { name: 'Unmapped strongholds' })).toHaveCount(0);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+  }
+
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('/__ui-lab?screen=conquer&campaign=conquest');
+  await expect(page.locator('[data-stronghold-id="T04"]')).toHaveAttribute('aria-label', /Open Gulltown details/i);
+  await expect(page.locator('[data-stronghold-id="T05"]')).toHaveAttribute('aria-label', /Open Field of Fire details/i);
+  await expect(page.locator('[data-stronghold-id="T10"]')).toHaveAttribute('aria-label', /Open Aegonfort details.*Iron Throne stronghold/i);
+  await expect(page.locator('[data-stronghold-id="T14"]')).toHaveAttribute('aria-label', /Open Storm's End details/i);
+  await expect(page.locator('[data-stronghold-id="T01"]').locator('..')).toHaveAttribute('data-map-position', '67,56');
+  await expect(page.locator('[data-stronghold-id="T04"]').locator('..')).toHaveAttribute('data-map-position', '82,48');
+  await expect(page.locator('[data-stronghold-id="T05"]').locator('..')).toHaveAttribute('data-map-position', '39,64');
+  await expect(page.locator('[data-stronghold-id="T08"]').locator('..')).toHaveAttribute('data-map-position', '49,70');
+  await expect(page.locator('[data-stronghold-id="T10"]').locator('..')).toHaveAttribute('data-map-position', '57,63');
+  const overlaps = await page.locator('.cw-map-token-wrap').evaluateAll((tokens) => {
+    const boxes = tokens.map((token) => ({
+      id: token.querySelector('[data-stronghold-id]')?.getAttribute('data-stronghold-id'),
+      rect: token.getBoundingClientRect(),
+    }));
+    return boxes.flatMap((left, leftIndex) => boxes.slice(leftIndex + 1).flatMap((right) => {
+      const intersects = left.rect.left < right.rect.right
+        && left.rect.right > right.rect.left
+        && left.rect.top < right.rect.bottom
+        && left.rect.bottom > right.rect.top;
+      return intersects ? [`${left.id}-${right.id}`] : [];
+    }));
+  });
+  expect(overlaps).toEqual([]);
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  const severe = results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact));
+  expect(severe).toEqual([]);
+});
+
 test('Las Vegas tablet keeps a two-column casino grid @visual', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.goto('/__ui-lab?screen=vegas');
