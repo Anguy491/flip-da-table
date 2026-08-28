@@ -4,6 +4,7 @@ import com.flip.backend.api.dto.LobbyDtos.PlayerStartInfo;
 import com.flip.backend.api.dto.LobbyDtos.StartGameRequest;
 import com.flip.backend.api.dto.LobbyDtos.StartGameResponse;
 import com.flip.backend.conquerwesteros.ConquerWesterosTurnExecutor;
+import com.flip.backend.conquerwesteros.bot.ConquerWesterosBotCoordinator;
 import com.flip.backend.conquerwesteros.engine.Campaign;
 import com.flip.backend.conquerwesteros.engine.ConquerWesterosGameRegistry;
 import com.flip.backend.conquerwesteros.engine.ConquerWesterosSnapshotCodec;
@@ -32,6 +33,7 @@ public class ConquerWesterosGameService extends GameService {
     private final ConquerWesterosGameRegistry registry;
     private final ConquerWesterosSnapshotCodec codec;
     private final ConquerWesterosTurnExecutor turns;
+    private final ConquerWesterosBotCoordinator bots;
     private final Supplier<Random> randomSupplier;
 
     @Autowired
@@ -40,9 +42,10 @@ public class ConquerWesterosGameService extends GameService {
             GameRepository games,
             ConquerWesterosGameRegistry registry,
             ConquerWesterosSnapshotCodec codec,
-            ConquerWesterosTurnExecutor turns
+            ConquerWesterosTurnExecutor turns,
+            ConquerWesterosBotCoordinator bots
     ) {
-        this(sessions, games, registry, codec, turns, SecureRandom::new);
+        this(sessions, games, registry, codec, turns, bots, SecureRandom::new);
     }
 
     ConquerWesterosGameService(
@@ -53,10 +56,23 @@ public class ConquerWesterosGameService extends GameService {
             ConquerWesterosTurnExecutor turns,
             Supplier<Random> randomSupplier
     ) {
+        this(sessions, games, registry, codec, turns, null, randomSupplier);
+    }
+
+    ConquerWesterosGameService(
+            SessionRepository sessions,
+            GameRepository games,
+            ConquerWesterosGameRegistry registry,
+            ConquerWesterosSnapshotCodec codec,
+            ConquerWesterosTurnExecutor turns,
+            ConquerWesterosBotCoordinator bots,
+            Supplier<Random> randomSupplier
+    ) {
         super(sessions, games);
         this.registry = registry;
         this.codec = codec;
         this.turns = turns;
+        this.bots = bots;
         this.randomSupplier = randomSupplier;
     }
 
@@ -71,7 +87,10 @@ public class ConquerWesterosGameService extends GameService {
 
     @Override
     public Object viewFor(String gameId, String playerId) {
-        return requireRuntime(gameId).buildView(playerId);
+        var runtime = requireRuntime(gameId);
+        var view = runtime.buildView(playerId);
+        if (bots != null) afterCommit(() -> bots.schedule(runtime.botTicket(gameId)));
+        return view;
     }
 
     @Override
@@ -82,10 +101,17 @@ public class ConquerWesterosGameService extends GameService {
         Campaign campaign = validateStart(request);
         var base = persistRound(session, 1);
         var playerInfos = new ArrayList<PlayerStartInfo>();
-        int index = 1;
+        int humanIndex = 1;
         for (var spec : request.players()) {
-            if (spec.name() != null && !spec.name().isBlank()) {
-                playerInfos.add(new PlayerStartInfo("P" + index++, spec.name().trim(), false, spec.ready()));
+            if (spec.name() != null && !spec.name().isBlank() && !spec.bot()) {
+                playerInfos.add(new PlayerStartInfo("P" + humanIndex++, spec.name().trim(), false, spec.ready()));
+            }
+        }
+        int botIndex = 1;
+        for (var spec : request.players()) {
+            if (spec.name() != null && !spec.name().isBlank() && spec.bot()) {
+                playerInfos.add(new PlayerStartInfo("BOT" + botIndex, "Bot " + botIndex, true, true));
+                botIndex++;
             }
         }
         var start = new ConquerWesterosStartPhase(playerInfos, campaign, randomSupplier.get());
@@ -97,7 +123,9 @@ public class ConquerWesterosGameService extends GameService {
         games.save(entity);
         registry.put(base.gameId(), runtime);
         removeRegistryEntryAfterRollback(base.gameId());
-        String myPlayerId = playerInfos.get(0).playerId();
+        String myPlayerId = playerInfos.stream().filter(player -> !player.bot())
+                .map(PlayerStartInfo::playerId).findFirst().orElseThrow();
+        afterCommit(() -> { if (bots != null) bots.schedule(runtime.botTicket(base.gameId())); });
         return new StartGameResponse(base.gameId(), 1, myPlayerId, List.copyOf(playerInfos), runtime.buildView(myPlayerId));
     }
 
@@ -108,6 +136,7 @@ public class ConquerWesterosGameService extends GameService {
 
     public CommandOutcome command(String gameId, String playerId, ConquerWesterosRuntimePhase.Command command) {
         var outcome = turns.execute(gameId, playerId, command);
+        if (bots != null) bots.schedule(outcome.nextBotTicket());
         return new CommandOutcome(outcome.viewFor(playerId), outcome.publicEvents());
     }
 
@@ -119,9 +148,10 @@ public class ConquerWesterosGameService extends GameService {
         if (count < capabilities().minPlayers() || count > capabilities().maxPlayers()) {
             throw new IllegalArgumentException("Conquer Westeros requires 2-6 players");
         }
-        if (request.players().stream().anyMatch(spec -> spec.name() != null && !spec.name().isBlank() && spec.bot())) {
-            throw new IllegalArgumentException("Conquer Westeros does not support bots");
-        }
+        long humans = request.players().stream()
+                .filter(spec -> spec.name() != null && !spec.name().isBlank() && !spec.bot())
+                .count();
+        if (humans < 1) throw new IllegalArgumentException("Conquer Westeros requires at least one human player");
         return Campaign.parse(request.options().get("campaign"));
     }
 
@@ -137,6 +167,16 @@ public class ConquerWesterosGameService extends GameService {
             @Override public void afterCompletion(int status) {
                 if (status != TransactionSynchronization.STATUS_COMMITTED) registry.remove(gameId);
             }
+        });
+    }
+
+    private void afterCommit(Runnable callback) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            callback.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() { callback.run(); }
         });
     }
 }

@@ -24,7 +24,7 @@ export default function ConquerWesterosPlayScreen() {
 
   useEffect(() => {
     window.render_game_to_text = () => JSON.stringify({
-      coordinateSystem: 'DOM war table; 14 strongholds use T01-T14 and dice use stable D1-D7 identifiers',
+      coordinateSystem: 'Westeros tactical map uses a 720x1000 viewBox; 14 strongholds use T01-T14 and dice use stable D1-D7 identifiers',
       mode: campaign.view?.phase || 'LOADING',
       stateVersion: campaign.view?.stateVersion ?? null,
       campaign: campaign.view?.campaign ?? null,

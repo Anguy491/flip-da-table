@@ -181,7 +181,7 @@ describe('public and shared page states', () => {
     expect(screen.getByRole('button', { name: 'Start game' })).toBeEnabled();
   });
 
-  it('shows the host-only Conquer Westeros campaign choice without bot or series controls', () => {
+  it('allows a solo Conquer Westeros host to add a bot while keeping the campaign choice', () => {
     renderPage(<Lobby preview={{
       sessionId: 'WESTEROS-ROOM',
       myUserId: 'host-1',
@@ -191,17 +191,18 @@ describe('public and shared page states', () => {
         gameType: 'CONQUERWESTEROS',
         maxPlayers: 6,
         ownerId: 'host-1',
-        capabilities: { minPlayers: 2, maxPlayers: 6, botsAllowed: false, seriesAllowed: false, internalRounds: 1 },
+        capabilities: { minPlayers: 2, maxPlayers: 6, botsAllowed: true, seriesAllowed: false, internalRounds: 1 },
       },
       players: [
         { name: 'P1', bot: false, ready: true },
-        { name: 'P2', bot: false, ready: true },
       ],
     }} />);
 
     expect(screen.getByRole('combobox')).toHaveValue('WAR_OF_FIVE_KINGS');
     expect(screen.queryByRole('combobox', { name: 'Rounds' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '+ Add bot' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '+ Add bot' }));
+    expect(screen.getByText('Bot 1')).toBeVisible();
+    expect(screen.getByText('2/2 ready')).toBeVisible();
     expect(screen.getByText('1 room / 1 complete campaign')).toBeVisible();
     expect(screen.getByText('Capacity: 2-6')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Start game' })).toBeEnabled();
@@ -216,7 +217,7 @@ describe('public and shared page states', () => {
       connectionState: 'connected',
       sessionInfo: {
         gameType: 'CONQUERWESTEROS', maxPlayers: 6, ownerId: 'host-1',
-        capabilities: { minPlayers: 2, maxPlayers: 6, botsAllowed: false, seriesAllowed: false, internalRounds: 1 },
+        capabilities: { minPlayers: 2, maxPlayers: 6, botsAllowed: true, seriesAllowed: false, internalRounds: 1 },
       },
       players: [{ name: 'P1', bot: false, ready: true }, { name: 'P2', bot: false, ready: true }],
     }} />);

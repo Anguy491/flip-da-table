@@ -233,6 +233,27 @@ class ConquerWesterosRuntimePhaseTest {
     }
 
     @Test
+    void botIdentitySurvivesViewsAndV2SnapshotsWhileV1DefaultsToHuman() {
+        var runtime = ConquerWesterosRuntimePhase.newGame(List.of(
+                new PlayerStartInfo("P1", "Player 1", false, true),
+                new PlayerStartInfo("BOT1", "Bot 1", true, true)
+        ), Campaign.WAR_OF_FIVE_KINGS, new SequenceRandom(1, 0, 1, 2, 3, 4, 5, 0));
+
+        assertTrue(runtime.currentPlayerIsBot());
+        assertTrue(runtime.buildView("P1").players().stream()
+                .filter(player -> player.playerId().equals("BOT1")).findFirst().orElseThrow().bot());
+        assertEquals(2, runtime.snapshot().schemaVersion());
+        assertTrue(runtime.snapshot().players().get(1).bot());
+        assertTrue(ConquerWesterosRuntimePhase.restore(runtime.snapshot(), new SequenceRandom()).currentPlayerIsBot());
+
+        var v1 = snapshot(Campaign.WAR_OF_FIVE_KINGS, ConquerWesterosRuntimePhase.State.WAITING_FOR_ROLL,
+                ids(), basicPlayers(), attempt(null, null, false, Map.of(), List.of()), List.of(), null, 0);
+        var restoredV1 = ConquerWesterosRuntimePhase.restore(v1, new SequenceRandom());
+        assertFalse(restoredV1.buildView("P1").players().stream().anyMatch(player -> player.bot()));
+        assertEquals(2, restoredV1.snapshot().schemaVersion());
+    }
+
+    @Test
     void finalRankingUsesThroneThenStrongholdsThenClansAndSharesFullyEqualRanks() {
         Map<String, ResultView> throne = resultsByPlayer(endGame(
                 playerState("P1", List.of("T14"), Map.of()),

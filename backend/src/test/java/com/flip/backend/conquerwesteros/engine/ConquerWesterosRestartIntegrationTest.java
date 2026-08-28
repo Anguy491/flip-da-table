@@ -65,6 +65,24 @@ class ConquerWesterosRestartIntegrationTest {
     }
 
     @Test
+    void restoresAPersistedBotDecisionBoundaryWithTheSameGuardedTicket() {
+        String sessionId = "55555555-5555-5555-5555-555555555555";
+        String gameId = sessionId + ":CONQUERWESTEROS:r1";
+        saveSession(sessionId);
+        var runtime = botRuntime();
+        runtime.applyCommand("BOT1", new ConquerWesterosRuntimePhase.Command(
+                0, "ROLL_DICE", null, null, List.of(), null));
+        saveGame(gameId, sessionId, runtime);
+
+        var restarted = new ConquerWesterosGameRegistry(games, codec, new SimpleMeterRegistry()).get(gameId);
+
+        assertNotNull(restarted);
+        assertEquals("WAITING_FOR_DECISION", restarted.state().name());
+        assertEquals(runtime.botTicket(gameId), restarted.botTicket(gameId));
+        assertEquals(7, restarted.botTurnState().currentRoll().size());
+    }
+
+    @Test
     void databaseRowLockAllowsOnlyOneCommandAtTheSameVersion() throws Exception {
         String sessionId = "44444444-4444-4444-4444-444444444444";
         String gameId = sessionId + ":CONQUERWESTEROS:r1";
@@ -98,6 +116,17 @@ class ConquerWesterosRestartIntegrationTest {
         var start = new ConquerWesterosStartPhase(List.of(
                 new PlayerStartInfo("P1", "Player 1", false, true),
                 new PlayerStartInfo("P2", "Player 2", false, true)
+        ), Campaign.WAR_OF_FIVE_KINGS, new ZeroRandom());
+        start.enter();
+        var runtime = start.transit();
+        runtime.drainPublicEvents();
+        return runtime;
+    }
+
+    private ConquerWesterosRuntimePhase botRuntime() {
+        var start = new ConquerWesterosStartPhase(List.of(
+                new PlayerStartInfo("BOT1", "Bot 1", true, true),
+                new PlayerStartInfo("P1", "Player 1", false, true)
         ), Campaign.WAR_OF_FIVE_KINGS, new ZeroRandom());
         start.enter();
         var runtime = start.transit();

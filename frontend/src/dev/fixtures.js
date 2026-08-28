@@ -135,8 +135,16 @@ const conquerNames = [
   ['Casterly Rock', 'Lannister Royalists'], ['The Eyrie', 'Arryn'], ["Storm's End", 'Baratheon'],
 ];
 
+const conquerDanceNames = [
+  ['The Eyrie', 'Blacks · Targaryen'], ['Maidenpool', 'Blacks · Targaryen'],
+  ["Storm's End", 'Greens · Targaryen'], ['Lannisport', 'Lannister'], ['Winterfell', 'Stark'],
+  ['Harrenhal', 'Blacks · Targaryen'], ['Casterly Rock', 'Lannister'], ['Driftmark', 'Velaryon'],
+  ['White Harbor', 'Stark'], ['Oldtown', 'Greens · Targaryen'], ['Dragonstone', 'Blacks · Targaryen'],
+  ["King's Landing", 'Greens · Targaryen'], ['Riverrun', 'Tully'], ['High Tide', 'Velaryon'],
+];
+
 export const conquerWesterosFixture = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   phase: 'WAITING_FOR_DECISION',
   stateVersion: 8,
   campaign: 'WAR_OF_FIVE_KINGS',
@@ -156,9 +164,9 @@ export const conquerWesterosFixture = {
   ],
   attempt: { targetId: null, targetOwnerId: null, stealing: false, completedLineIds: [], lostDieIds: [], committedDieIds: [], requiredLines: [] },
   players: [
-    { playerId: 'P1', name: 'PixelPilot', seatIndex: 0, current: true, holdsThrone: false, faceUpStrongholds: [], completedClans: [], strongholdCount: 0, completedClanCount: 0, faceUpScore: 0, clanScore: 0, totalScore: 0 },
-    { playerId: 'P2', name: 'CipherFox', seatIndex: 1, current: false, holdsThrone: true, faceUpStrongholds: ['T10'], completedClans: [], strongholdCount: 1, completedClanCount: 0, faceUpScore: 2, clanScore: 0, totalScore: 3 },
-    { playerId: 'P3', name: 'LongNicknameThatNeedsTruncation', seatIndex: 2, current: false, holdsThrone: false, faceUpStrongholds: [], completedClans: [], strongholdCount: 0, completedClanCount: 0, faceUpScore: 0, clanScore: 0, totalScore: 0 },
+    { playerId: 'P1', name: 'PixelPilot', bot: false, seatIndex: 0, current: true, holdsThrone: false, faceUpStrongholds: [], completedClans: [], strongholdCount: 0, completedClanCount: 0, faceUpScore: 0, clanScore: 0, totalScore: 0 },
+    { playerId: 'P2', name: 'CipherFox', bot: false, seatIndex: 1, current: false, holdsThrone: true, faceUpStrongholds: ['T10'], completedClans: [], strongholdCount: 1, completedClanCount: 0, faceUpScore: 2, clanScore: 0, totalScore: 3 },
+    { playerId: 'BOT1', name: 'Bot 1', bot: true, seatIndex: 2, current: false, holdsThrone: false, faceUpStrongholds: [], completedClans: [], strongholdCount: 0, completedClanCount: 0, faceUpScore: 0, clanScore: 0, totalScore: 0 },
   ],
   strongholds: conquerTemplates.map((template, index) => ({
     ...template,
@@ -178,6 +186,31 @@ export const conquerWesterosFixture = {
     { sequence: 8, type: 'ROLL_DICE', actorId: 'P1', targetId: null, text: 'PixelPilot rolled 7 dice' },
   ],
   results: [],
+};
+
+export const conquerWesterosDanceFixture = {
+  ...conquerWesterosFixture,
+  campaign: 'DANCE_OF_THE_DRAGONS',
+  campaignName: 'Dance of the Dragons',
+  players: conquerWesterosFixture.players.map((player) => player.playerId === 'P2'
+    ? { ...player, faceUpStrongholds: ['T12'] }
+    : player),
+  strongholds: conquerTemplates.map((template, index) => ({
+    ...template,
+    name: conquerDanceNames[index][0],
+    clan: conquerDanceNames[index][1],
+    kingsLanding: template.id === 'T12',
+    ownerId: template.id === 'T12' ? 'P2' : null,
+    central: template.id !== 'T12',
+    locked: false,
+    stealCrownRequired: false,
+    lines: template.lines.map((line) => ({ ...line, completed: false, special: false })),
+  })),
+  events: [
+    { sequence: 1, type: 'GAME_STARTED', actorId: null, targetId: null, text: 'Dance of the Dragons began' },
+    { sequence: 7, type: 'TURN_STARTED', actorId: 'P1', targetId: null, text: 'PixelPilot is ready to roll' },
+    { sequence: 8, type: 'ROLL_DICE', actorId: 'P1', targetId: null, text: 'PixelPilot rolled 7 dice' },
+  ],
 };
 
 export const dashboardFixture = {

@@ -16,7 +16,11 @@ public final class ConquerWesterosPlayer extends Player {
     private final Map<String, List<String>> completedClans = new LinkedHashMap<>();
 
     public ConquerWesterosPlayer(String id, String name) {
-        super(id, false);
+        this(id, name, false);
+    }
+
+    public ConquerWesterosPlayer(String id, String name, boolean bot) {
+        super(id, bot);
         this.name = Objects.requireNonNull(name, "name");
     }
 

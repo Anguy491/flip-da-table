@@ -65,3 +65,7 @@ app:
     bot:
       step-delay-ms: ${APP_LAS_VEGAS_BOT_STEP_DELAY_MS:800}
       recovery-interval-ms: ${APP_LAS_VEGAS_BOT_RECOVERY_INTERVAL_MS:5000}
+  conquer-westeros:
+    bot:
+      step-delay-ms: ${APP_CONQUER_WESTEROS_BOT_STEP_DELAY_MS:800}
+      recovery-interval-ms: ${APP_CONQUER_WESTEROS_BOT_RECOVERY_INTERVAL_MS:5000}

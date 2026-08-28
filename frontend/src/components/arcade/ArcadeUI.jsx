@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react';
+import { forwardRef, useEffect, useId, useRef } from 'react';
 
 function classes(...values) {
   return values.filter(Boolean).join(' ');
@@ -27,7 +27,7 @@ export function ArcadePanel({ children, className = '', padded = true, quiet = f
   );
 }
 
-export function ArcadeButton({
+export const ArcadeButton = forwardRef(function ArcadeButton({
   children,
   variant = 'primary',
   size = 'medium',
@@ -37,9 +37,10 @@ export function ArcadeButton({
   className = '',
   type = 'button',
   ...props
-}) {
+}, ref) {
   return (
     <button
+      ref={ref}
       type={type}
       className={classes(
         'arcade-button',
@@ -56,7 +57,7 @@ export function ArcadeButton({
       {children}
     </button>
   );
-}
+});
 
 export function ArcadeInput({ label, hint, error, id, className = '', ...props }) {
   const generatedId = useId();

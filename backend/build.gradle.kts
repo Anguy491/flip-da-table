@@ -58,4 +58,6 @@ tasks.withType<Test> {
     useJUnitPlatform()
     systemProperty("app.las-vegas.bot.step-delay-ms", "0")
     systemProperty("app.las-vegas.bot.recovery-interval-ms", "3600000")
+    systemProperty("app.conquer-westeros.bot.step-delay-ms", "0")
+    systemProperty("app.conquer-westeros.bot.recovery-interval-ms", "3600000")
 }

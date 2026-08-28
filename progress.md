@@ -2,6 +2,14 @@ Original prompt: PLEASE IMPLEMENT THIS PLAN: LASVEGAS standard bot support with 
 
 ## Progress
 
+- 2026-08-28: Began the approved Conquer Westeros single-map UI continuation: keep the toolbar, move player/Throne/Tips/Log/Roll Dice/Results into the map shell, consolidate mutually exclusive dialogs, and preserve all server-authoritative game interfaces.
+- 2026-08-28: Replaced the always-visible seat rail, side panels, status stack, siege console, and final-ranking panel with pinned map docks, a bottom Roll Dice launcher, map-local alerts, and dedicated player/Throne/Tips/Log/siege/results dialogs. Added responsive single-viewport styling while keeping stronghold coordinates and selection behavior unchanged.
+- 2026-08-28: Updated deterministic component coverage for every new dock dialog, target-to-siege flow, CPU lockout, focus restoration, and auto/reopen final ranking. Focused Conquer Westeros suite passes 21 tests; ESLint and Arcade UI audit pass.
+- 2026-08-28: Browser review fixed the map shell to the remaining viewport height so 390×844 and 200% zoom scroll inside the map instead of extending the page. Refreshed desktop, phone-landscape, and phone Siege visual baselines after manual inspection.
+- 2026-08-28: Single-map continuation complete. Final ESLint/UI audit/build passed, all 57 Vitest tests passed, and all 132 Playwright cases passed across Chromium, Firefox, and WebKit; the web-game client reported matching state with no console errors.
+- 2026-08-26: Began Conquer Westeros standard Bot implementation: enabled mixed 2-6 seat tables with at least one human, added Bot identity to the entity/view/schema-v2 snapshot with v1 compatibility, and wired the server-authoritative strategy/ticket/coordinator transaction path. Backend main sources compile with the local Homebrew JDK 17.
+- 2026-08-26: Added the deterministic public-information strategy with bounded current-siege probability evaluation, balanced steal value, voluntary die loss, legality fallback, guarded 800ms scheduling/recovery, CPU table states, mixed-table lobby support, canonical rules, and focused backend/frontend tests.
+- 2026-08-26: Conquer Westeros standard Bot support complete. Final verification passed 210 backend tests with PostgreSQL/Testcontainers and zero skips, 53 frontend Vitest tests, Arcade UI audit, ESLint, production build, and 120 Playwright cases across Chromium/Firefox/WebKit. Manual desktop and 667x375 screenshot review confirmed the CPU seat, Bot decision banner, locked human controls, and no overflow.
 - 2026-08-26: New continuation request: move the LASVEGAS roll reveal out of the action console into a large centered modal, add an eight-die staggered spin/settle sequence, roulette motion, and original spark/metal-friction particles using Motion plus a lightweight Canvas layer.
 - 2026-08-26: Added Motion 13, a server-authoritative roll-reveal state, a non-dismissible centered arcade dialog, responsive eight-die roulette staging, left-to-right impacts, deterministic Canvas spark bursts, and a reduced-motion static reveal. Removed rolled dice from the action console and kept choices hidden until the reveal finishes.
 - 2026-08-26: Added a deterministic eight-die UI Lab roll fixture, component coverage, cross-browser modal/focus/reduced-motion checks, and refreshed the three intentional Las Vegas visual baselines. Manual desktop and 667x375 screenshot review confirmed centered placement, visible sparks, and no clipping.
@@ -40,6 +48,7 @@ Original prompt: PLEASE IMPLEMENT THIS PLAN: LASVEGAS standard bot support with 
 
 ## Final verification
 
+- 2026-08-28 Conquer Westeros single-map continuation: Arcade UI audit, ESLint, 57 Vitest tests, production build, 132 Playwright cases across Chromium/Firefox/WebKit, web-game text/screenshot inspection, and `git diff --check` passed.
 - Backend: 174 tests passed, including PostgreSQL/Testcontainers restart and row-lock integration cases; 0 skipped, failed, or errored.
 - Frontend: ESLint passed; 41 Vitest tests passed; Arcade UI audit passed; production build passed.
 - Browser: 72 Playwright cases passed across Chromium, Firefox, and WebKit, including the 1-human/2-Bot sequence and 390×844, 667×375, 1024×768, and 1440×900 checks.

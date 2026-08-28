@@ -45,7 +45,7 @@ export default function Lobby({ preview = null }) {
   const capabilities = sessionInfo?.capabilities || {
     minPlayers: gameType === 'DAVINCI' || gameType === 'UNO' || gameType === 'CONQUERWESTEROS' ? 2 : gameType === 'LASVEGAS' ? 3 : 2,
     maxPlayers: sessionInfo?.maxPlayers || 10,
-    botsAllowed: gameType !== 'CONQUERWESTEROS',
+    botsAllowed: true,
     seriesAllowed: !['LASVEGAS', 'CONQUERWESTEROS'].includes(gameType),
     internalRounds: gameType === 'LASVEGAS' ? 3 : 1,
   };

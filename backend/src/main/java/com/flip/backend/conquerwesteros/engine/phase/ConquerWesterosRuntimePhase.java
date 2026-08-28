@@ -1,6 +1,8 @@
 package com.flip.backend.conquerwesteros.engine.phase;
 
 import com.flip.backend.api.dto.LobbyDtos.PlayerStartInfo;
+import com.flip.backend.conquerwesteros.bot.ConquerWesterosBotStrategy;
+import com.flip.backend.conquerwesteros.bot.ConquerWesterosBotTicket;
 import com.flip.backend.conquerwesteros.engine.Campaign;
 import com.flip.backend.conquerwesteros.engine.ConquerWesterosCatalog;
 import com.flip.backend.conquerwesteros.engine.ConquerWesterosSnapshot;
@@ -39,7 +41,7 @@ import java.util.Set;
 
 /** Event-driven aggregate for one complete Conquer Westeros game. */
 public final class ConquerWesterosRuntimePhase extends RuntimePhase {
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
     public static final int DICE_COUNT = 7;
     private static final int MAX_ACTION_LOG = 200;
 
@@ -112,11 +114,8 @@ public final class ConquerWesterosRuntimePhase extends RuntimePhase {
         if (playerInfos.size() < 2 || playerInfos.size() > 6) {
             throw new IllegalArgumentException("Conquer Westeros requires 2-6 players");
         }
-        if (playerInfos.stream().anyMatch(PlayerStartInfo::bot)) {
-            throw new IllegalArgumentException("Conquer Westeros does not support bots");
-        }
         var players = playerInfos.stream()
-                .map(info -> new ConquerWesterosPlayer(info.playerId(), info.name()))
+                .map(info -> new ConquerWesterosPlayer(info.playerId(), info.name(), info.bot()))
                 .toList();
         var board = new ConquerWesterosBoard(players);
         board.moveToPlayer(players.get(random.nextInt(players.size())).getId());
@@ -134,13 +133,13 @@ public final class ConquerWesterosRuntimePhase extends RuntimePhase {
     }
 
     public static ConquerWesterosRuntimePhase restore(ConquerWesterosSnapshot snapshot, Random random) {
-        if (snapshot == null || snapshot.schemaVersion() != SCHEMA_VERSION) {
+        if (snapshot == null || (snapshot.schemaVersion() != 1 && snapshot.schemaVersion() != SCHEMA_VERSION)) {
             throw new IllegalArgumentException("unsupported Conquer Westeros snapshot schema");
         }
         Campaign campaign = Campaign.parse(snapshot.campaign());
         var players = new ArrayList<ConquerWesterosPlayer>();
         for (var saved : snapshot.players()) {
-            var player = new ConquerWesterosPlayer(saved.playerId(), saved.name());
+            var player = new ConquerWesterosPlayer(saved.playerId(), saved.name(), saved.bot());
             player.restore(new LinkedHashSet<>(saved.faceUpStrongholds()), saved.completedClans());
             players.add(player);
         }
@@ -402,7 +401,7 @@ public final class ConquerWesterosRuntimePhase extends RuntimePhase {
                     .map(entry -> new ClanView(entry.getKey(), catalog.clanScore(entry.getKey()), entry.getValue()))
                     .toList();
             players.add(new PlayerView(
-                    player.getId(), player.name(), index, isCurrent(player), player.getId().equals(ironThroneHolderId),
+                    player.getId(), player.name(), player.isBot(), index, isCurrent(player), player.getId().equals(ironThroneHolderId),
                     player.faceUpStrongholds().stream().sorted().toList(), clans, score.strongholdCount(),
                     score.completedClanCount(), score.faceUpScore(), score.clanScore(), score.totalScore()));
         }
@@ -434,7 +433,7 @@ public final class ConquerWesterosRuntimePhase extends RuntimePhase {
                 SCHEMA_VERSION, campaign.name(), state.name(), board.turnCount(), stateVersion, eventSequence,
                 board.currentPlayer().getId(), ironThroneHolderId, List.copyOf(centralStrongholds),
                 board.seats().stream().map(player -> new ConquerWesterosSnapshot.PlayerState(
-                        player.getId(), player.name(), player.faceUpStrongholds().stream().sorted().toList(), player.completedClans())).toList(),
+                        player.getId(), player.name(), player.isBot(), player.faceUpStrongholds().stream().sorted().toList(), player.completedClans())).toList(),
                 new ConquerWesterosSnapshot.AttemptState(
                         attempt.targetId, attempt.targetOwnerId, attempt.stealing,
                         Map.copyOf(attempt.committedLines), List.copyOf(attempt.lostDieIds)),
@@ -455,6 +454,67 @@ public final class ConquerWesterosRuntimePhase extends RuntimePhase {
     public String currentPlayerId() { return board.currentPlayer().getId(); }
     public List<String> playerIds() { return board.seats().stream().map(ConquerWesterosPlayer::getId).toList(); }
     public ConquerWesterosEndingPhase endingPhase() { return endingPhase; }
+
+    public synchronized boolean currentPlayerIsBot() { return board.currentPlayer().isBot(); }
+
+    public synchronized ConquerWesterosBotTicket botTicket(String gameId) {
+        if (!board.currentPlayer().isBot()
+                || (state != State.WAITING_FOR_ROLL && state != State.WAITING_FOR_DECISION)) return null;
+        return new ConquerWesterosBotTicket(gameId, stateVersion, state, board.currentPlayer().getId());
+    }
+
+    /** Public-information-only projection for the server-side Bot strategy. */
+    public synchronized ConquerWesterosBotStrategy.TurnState botTurnState() {
+        ConquerWesterosPlayer bot = board.currentPlayer();
+        if (!bot.isBot() || state != State.WAITING_FOR_DECISION || currentRoll.isEmpty()) {
+            throw new IllegalStateException("current player is not a Bot waiting for a decision");
+        }
+        List<Target> available = attempt.started()
+                ? List.of(Objects.requireNonNull(resolveTarget(bot, attempt.targetId)))
+                : legalTargets(bot);
+        var targetStates = available.stream().map(target -> {
+            StrongholdCard card = target.card();
+            int ownedCount = (int) catalog.clanStrongholds(card.clan()).stream().filter(bot::ownsFaceUp).count();
+            int ownedPoints = catalog.clanStrongholds(card.clan()).stream().filter(bot::ownsFaceUp)
+                    .map(catalog::stronghold).mapToInt(StrongholdCard::points).sum();
+            var remainingLines = requiredLines(card, target.owner() != null).stream()
+                    .filter(line -> !attempt.committedLines.containsKey(line.id()))
+                    .map(this::botLineState)
+                    .toList();
+            return new ConquerWesterosBotStrategy.TargetState(
+                    card.id(), card.points(), catalog.clanScore(card.clan()), catalog.clanStrongholds(card.clan()).size(),
+                    ownedCount, ownedPoints, card.kingsLanding(),
+                    target.owner() == null ? null : target.owner().getId(), target.owner() == null, remainingLines);
+        }).toList();
+        var dice = currentRoll.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                .map(entry -> new ConquerWesterosBotStrategy.DieState(
+                        entry.getKey(), entry.getValue().name(), entry.getValue().militaryStrength()))
+                .toList();
+        return new ConquerWesterosBotStrategy.TurnState(
+                bot.getId(), ironThroneHolderId, attempt.started(), dice, targetStates);
+    }
+
+    public synchronized boolean isLegalBotDecision(ConquerWesterosBotStrategy.Decision decision) {
+        if (decision == null || !board.currentPlayer().isBot() || state != State.WAITING_FOR_DECISION) return false;
+        return switch (decision.type()) {
+            case "COMPLETE_LINE" -> decision.dieId() == null
+                    && canCompleteLine(board.currentPlayer(), decision.targetId(), decision.lineId(), decision.dieIds());
+            case "LOSE_DIE" -> decision.dieId() != null
+                    && decision.targetId() == null && decision.lineId() == null && decision.dieIds().isEmpty()
+                    && canLoseDie(board.currentPlayer(), decision.dieId());
+            default -> false;
+        };
+    }
+
+    private ConquerWesterosBotStrategy.LineState botLineState(BattleLine line) {
+        if (line instanceof BattleLine.Military military) {
+            return new ConquerWesterosBotStrategy.LineState(line.id(), "MILITARY", military.threshold(), List.of());
+        }
+        var symbols = (BattleLine.Symbols) line;
+        return new ConquerWesterosBotStrategy.LineState(line.id(),
+                ConquerWesterosCatalog.STEAL_CROWN_LINE_ID.equals(line.id()) ? "STEAL_CROWN" : "SYMBOLS",
+                null, symbols.required().stream().map(DieFace::name).toList());
+    }
 
     private AttemptView buildAttemptView() {
         if (!attempt.started()) {

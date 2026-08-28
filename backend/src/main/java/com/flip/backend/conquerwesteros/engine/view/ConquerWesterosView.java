@@ -41,6 +41,7 @@ public final class ConquerWesterosView {
     public record PlayerView(
             String playerId,
             String name,
+            boolean bot,
             int seatIndex,
             boolean current,
             boolean holdsThrone,

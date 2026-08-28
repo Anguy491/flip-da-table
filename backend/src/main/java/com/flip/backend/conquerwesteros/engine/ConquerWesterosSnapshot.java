@@ -6,7 +6,7 @@ import com.flip.backend.conquerwesteros.engine.view.ConquerWesterosView.ResultVi
 import java.util.List;
 import java.util.Map;
 
-/** Complete v1 aggregate snapshot persisted in games.state_json. */
+/** Complete aggregate snapshot persisted in games.state_json. */
 public record ConquerWesterosSnapshot(
         int schemaVersion,
         String campaign,
@@ -26,9 +26,20 @@ public record ConquerWesterosSnapshot(
     public record PlayerState(
             String playerId,
             String name,
+            boolean bot,
             List<String> faceUpStrongholds,
             Map<String, List<String>> completedClans
-    ) {}
+    ) {
+        /** Source-compatible helper for v1 human-only fixtures and migrations. */
+        public PlayerState(
+                String playerId,
+                String name,
+                List<String> faceUpStrongholds,
+                Map<String, List<String>> completedClans
+        ) {
+            this(playerId, name, false, faceUpStrongholds, completedClans);
+        }
+    }
 
     public record AttemptState(
             String targetId,

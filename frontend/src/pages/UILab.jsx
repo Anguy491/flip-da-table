@@ -27,6 +27,7 @@ import ResetPassword from './ResetPassword';
 import Privacy from './Privacy';
 import {
   dashboardFixture,
+  conquerWesterosDanceFixture,
   conquerWesterosFixture,
   dvcFixture,
   lobbyFixture,
@@ -52,6 +53,7 @@ export default function UILab() {
   const vegasCrowdedMode = params.get('state') === 'crowded';
   const vegasRollMode = params.get('state') === 'roll';
   const conquerState = params.get('state') || 'unlocked-target';
+  const conquerDanceMode = params.get('campaign') === 'dance';
   const [dialogOpen, setDialogOpen] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(wildMode);
   const [vegasBotStep, setVegasBotStep] = useState(0);
@@ -141,7 +143,13 @@ export default function UILab() {
     } : lasVegasFixture;
   }, [vegasBotMode, vegasBotSequenceMode, vegasBotStep, vegasCrowdedMode, vegasRollMode, vegasRollStep]);
   const conquerView = useMemo(() => {
-    const base = conquerWesterosFixture;
+    const base = conquerDanceMode ? conquerWesterosDanceFixture : conquerWesterosFixture;
+    if (conquerState === 'bot-turn') return {
+      ...base,
+      currentPlayerId: 'BOT1',
+      players: base.players.map((player) => ({ ...player, current: player.playerId === 'BOT1' })),
+      legalActions: { canRoll: false, canCompleteLine: false, canLoseDie: false, legalTargetIds: [], legalDieIds: [] },
+    };
     if (conquerState === 'waiting-to-roll') return {
       ...base,
       phase: 'WAITING_FOR_ROLL',
@@ -204,7 +212,7 @@ export default function UILab() {
       ],
     };
     return base;
-  }, [conquerState]);
+  }, [conquerDanceMode, conquerState]);
 
   useEffect(() => {
     if (screen !== 'vegas') return undefined;
@@ -233,7 +241,7 @@ export default function UILab() {
   useEffect(() => {
     if (screen !== 'conquer') return undefined;
     window.render_game_to_text = () => JSON.stringify({
-      coordinateSystem: 'DOM war table; strongholds T01-T14 and stable dice D1-D7',
+      coordinateSystem: 'Westeros tactical map uses a 720x1000 viewBox; strongholds T01-T14 and dice D1-D7 keep stable identifiers',
       fixtureState: conquerState,
       mode: conquerView.phase,
       stateVersion: conquerView.stateVersion,

@@ -58,22 +58,37 @@ for (const game of ['uno', 'dvc', 'vegas', 'conquer']) {
   });
 }
 
-for (const state of ['loading', 'error', 'waiting-to-roll', 'unlocked-target', 'partial-siege', 'double-crown', 'clan-locked', 'reconnecting', 'finished']) {
+for (const state of ['loading', 'error', 'waiting-to-roll', 'unlocked-target', 'partial-siege', 'double-crown', 'clan-locked', 'bot-turn', 'reconnecting', 'finished']) {
   test(`Conquer Westeros ${state} fixture remains usable`, async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.goto(`/__ui-lab?screen=conquer&state=${state}`);
     await expect(page.locator('main')).toBeVisible();
-    if (!['loading', 'error'].includes(state)) await expect(page.locator('.cw-card')).toHaveCount(14);
+    if (!['loading', 'error'].includes(state)) await expect(page.locator('.cw-map-token')).toHaveCount(14);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });
 }
 
+test('Conquer Westeros Bot turn is visible and locks human controls', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('/__ui-lab?screen=conquer&state=bot-turn');
+  await page.getByRole('button', { name: 'Open current operation tips' }).click();
+  await expect(page.getByText('Bot 1 (CPU) is evaluating the public war table.')).toBeVisible();
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+  await page.getByRole('button', { name: 'Roll Dice' }).click();
+  const siegeDialog = page.getByRole('dialog', { name: 'Siege console' });
+  await expect(siegeDialog.getByRole('button', { name: 'Roll remaining dice' })).toBeDisabled();
+  await expect(siegeDialog.getByRole('button', { name: 'Complete line' })).toBeDisabled();
+  await expect(siegeDialog.getByRole('button', { name: 'Lose selected die' })).toBeDisabled();
+  const state = await page.evaluate(() => JSON.parse(window.render_game_to_text()));
+  expect(state.players.find((player) => player.playerId === 'BOT1').bot).toBe(true);
+});
+
 test('Conquer Westeros supports keyboard focus, reduced motion, 200% zoom, and phone portrait', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/__ui-lab?screen=conquer&state=unlocked-target');
-  const firstTarget = page.locator('.cw-card:not(:disabled)').first();
+  const firstTarget = page.locator('.cw-map-token').first();
   await firstTarget.focus();
   await expect(firstTarget).toBeFocused();
   const transitionDuration = await firstTarget.evaluate((element) => getComputedStyle(element).transitionDuration);
@@ -86,6 +101,90 @@ test('Conquer Westeros supports keyboard focus, reduced motion, 200% zoom, and p
   await page.reload();
   overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+  const mapViewport = page.locator('.cw-map-viewport');
+  const mapOverflow = await mapViewport.evaluate((element) => ({
+    x: element.scrollWidth - element.clientWidth,
+    y: element.scrollHeight - element.clientHeight,
+  }));
+  expect(mapOverflow.x).toBeGreaterThan(0);
+  expect(mapOverflow.y).toBeGreaterThan(0);
+});
+
+test('Conquer Westeros inspects a map token before confirming the siege target', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('/__ui-lab?screen=conquer&state=unlocked-target');
+  const token = page.getByRole('button', { name: /Open Highgarden details/i });
+  await token.click();
+  const dialog = page.getByRole('dialog', { name: 'Highgarden' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveCSS('opacity', '1');
+  await expect(dialog).toContainText('Military ≥ 5');
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  const severe = results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact));
+  expect(severe).toEqual([]);
+  await expect(page.getByRole('button', { name: 'Set as target' })).toBeFocused();
+  await page.getByRole('button', { name: 'Set as target' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(token).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Roll Dice' }).click();
+  await expect(page.getByRole('dialog', { name: 'Siege console' }).getByRole('heading', { name: 'Siege: Highgarden' })).toBeVisible();
+});
+
+test('Conquer Westeros map docks open player, throne, tips, log, and siege details', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('/__ui-lab?screen=conquer&state=unlocked-target');
+
+  await expect(page.locator('.cw-map-shell')).toBeVisible();
+  await expect(page.locator('.cw-seat-rail, .cw-side-stack, .cw-console')).toHaveCount(0);
+
+  await page.getByRole('button', { name: /Open player details for PixelPilot/i }).click();
+  await expect(page.getByRole('dialog', { name: 'PixelPilot' })).toContainText('Total score');
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+
+  await page.getByRole('button', { name: 'Open Iron Throne details' }).click();
+  await expect(page.getByRole('dialog', { name: 'Iron Throne' })).toContainText('CipherFox');
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+
+  await page.getByRole('button', { name: 'Open current operation tips' }).click();
+  await expect(page.getByRole('dialog', { name: 'Operation tips' })).toContainText('Not selected');
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+
+  await page.getByRole('button', { name: 'Open campaign log' }).click();
+  await expect(page.getByRole('dialog', { name: 'Campaign log' })).toContainText('PixelPilot rolled 7 dice');
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+
+  await page.getByRole('button', { name: 'Roll Dice' }).click();
+  await expect(page.getByRole('dialog', { name: 'Siege console' }).locator('.cw-die')).toHaveCount(7);
+});
+
+test('Conquer Westeros siege dialog keeps all actions reachable in phone landscape @visual', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 667, height: 375 });
+  await page.goto('/__ui-lab?screen=conquer&state=unlocked-target');
+  await page.getByRole('button', { name: 'Roll Dice' }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Siege console' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.cw-die')).toHaveCount(7);
+  if (testInfo.project.name === 'chromium') {
+    await expect(page).toHaveScreenshot('conquer-siege-667x375.png');
+  }
+  await dialog.getByRole('button', { name: 'Lose selected die' }).scrollIntoViewIfNeeded();
+  await expect(dialog.getByRole('button', { name: 'Lose selected die' })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  const severe = results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact));
+  expect(severe).toEqual([]);
+});
+
+test('Dance of the Dragons maps all fourteen strongholds without fallback', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('/__ui-lab?screen=conquer&campaign=dance');
+  await expect(page.locator('.cw-map-token')).toHaveCount(14);
+  await expect(page.getByRole('group', { name: 'Unmapped strongholds' })).toHaveCount(0);
+  await expect(page.locator('[data-stronghold-id="T01"]')).toHaveAttribute('aria-label', /Open The Eyrie details/i);
+  await expect(page.locator('[data-stronghold-id="T14"]')).toHaveAttribute('aria-label', /Open High Tide details/i);
+  await expect(page.locator('[data-stronghold-id="T01"]').locator('..')).toHaveAttribute('data-map-position', '70,48');
 });
 
 test('Las Vegas tablet keeps a two-column casino grid @visual', async ({ page }, testInfo) => {

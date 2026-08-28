@@ -5,7 +5,13 @@ import DvcGameView from './dvc/DvcGameView';
 import LasVegasGameView from './lasvegas/LasVegasGameView';
 import ConquerWesterosGameView from './conquerwesteros/ConquerWesterosGameView';
 import ChooseColorModal from './uno/ChooseColorModal';
-import { conquerWesterosFixture, dvcFixture, lasVegasFixture, unoFixture } from '../dev/fixtures';
+import {
+  conquerWesterosDanceFixture,
+  conquerWesterosFixture,
+  dvcFixture,
+  lasVegasFixture,
+  unoFixture,
+} from '../dev/fixtures';
 
 describe('deterministic game views', () => {
   it('shows a playable UNO hand and the maximum player rail', () => {
@@ -489,19 +495,31 @@ describe('deterministic game views', () => {
       />,
     );
 
-    expect(container.querySelectorAll('.cw-card')).toHaveLength(14);
-    expect(container.querySelectorAll('.cw-die')).toHaveLength(7);
-    fireEvent.click(screen.getByText('Highgarden').closest('button'));
-    fireEvent.click(screen.getByRole('button', { name: /L1Military ≥ 5Open/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Die 1: Military 3' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Die 2: Military 2' }));
-    expect(screen.getByRole('button', { name: 'Complete line' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Complete line' }));
+    expect(container.querySelectorAll('.cw-map-token')).toHaveLength(14);
+    expect(container.querySelectorAll('.cw-die')).toHaveLength(0);
+    const highgarden = screen.getByRole('button', { name: /Open Highgarden details/i });
+    highgarden.focus();
+    fireEvent.click(highgarden);
+    expect(screen.getByRole('dialog', { name: 'Highgarden' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Set as target' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'Set as target' }));
+    expect(screen.queryByRole('dialog', { name: 'Highgarden' })).not.toBeInTheDocument();
+    expect(highgarden).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Roll Dice' }));
+    const siegeDialog = screen.getByRole('dialog', { name: 'Siege console' });
+    expect(siegeDialog.querySelectorAll('.cw-die')).toHaveLength(7);
+    expect(within(siegeDialog).getByRole('heading', { name: 'Siege: Highgarden' })).toBeVisible();
+    fireEvent.click(within(siegeDialog).getByRole('button', { name: /L1Military ≥ 5Open/i }));
+    fireEvent.click(within(siegeDialog).getByRole('button', { name: 'Die 1: Military 3' }));
+    fireEvent.click(within(siegeDialog).getByRole('button', { name: 'Die 2: Military 2' }));
+    expect(within(siegeDialog).getByRole('button', { name: 'Complete line' })).toBeEnabled();
+    fireEvent.click(within(siegeDialog).getByRole('button', { name: 'Complete line' }));
     expect(onCompleteLine).toHaveBeenCalledWith('T05', 'L1', [0, 1]);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Die 1: Military 3' }));
-    expect(screen.getByRole('button', { name: 'Lose selected die' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Lose selected die' }));
+    fireEvent.click(within(siegeDialog).getByRole('button', { name: 'Die 1: Military 3' }));
+    expect(within(siegeDialog).getByRole('button', { name: 'Lose selected die' })).toBeEnabled();
+    fireEvent.click(within(siegeDialog).getByRole('button', { name: 'Lose selected die' }));
     expect(onLoseDie).toHaveBeenCalledWith(1);
   });
 
@@ -521,14 +539,158 @@ describe('deterministic game views', () => {
         ? { ...player, completedClans: [{ name: 'Arryn', score: 3, strongholdIds: ['T13'] }] }
         : player),
     };
-    const { container } = render(
+    render(
       <ConquerWesterosGameView view={view} playerId="P1" connectionState="connected" onLeave={vi.fn()} />,
     );
 
-    const battleLines = within(container.querySelector('.cw-lines'));
+    fireEvent.click(screen.getByRole('button', { name: 'Roll Dice' }));
+    const battleLines = within(screen.getByRole('dialog', { name: 'Siege console' }).querySelector('.cw-lines'));
     expect(battleLines.getByRole('button', { name: /L3CrownOpen/i })).toBeVisible();
     expect(battleLines.getByRole('button', { name: /STEALCrownOpen/i })).toBeVisible();
-    expect(container.querySelector('.cw-card--locked')).toHaveTextContent('Clan secured');
-    expect(container.querySelector('.cw-card--locked')).toHaveTextContent('1 stronghold locked');
+    fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }));
+    const lockedToken = screen.getByRole('button', { name: /Open The Eyrie details/i });
+    expect(lockedToken).toHaveClass('cw-map-token--locked');
+    fireEvent.click(lockedToken);
+    const dialog = screen.getByRole('dialog', { name: 'The Eyrie' });
+    expect(dialog).toHaveTextContent('Clan secured');
+    expect(dialog).toHaveTextContent('Arryn is secured with 1 locked stronghold.');
+    expect(within(dialog).getByRole('button', { name: 'Set as target' })).toBeDisabled();
+  });
+
+  it('keeps secondary Conquer Westeros information inside map dock dialogs', () => {
+    const { container } = render(
+      <ConquerWesterosGameView view={conquerWesterosFixture} playerId="P1" connectionState="connected" onLeave={vi.fn()} />,
+    );
+
+    expect(container.querySelector('.cw-map-shell')).toBeVisible();
+    expect(container.querySelector('.cw-seat-rail')).not.toBeInTheDocument();
+    expect(container.querySelector('.cw-side-stack')).not.toBeInTheDocument();
+    expect(container.querySelector('.cw-console')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Open player details for PixelPilot/i }));
+    expect(screen.getByRole('dialog', { name: 'PixelPilot' })).toHaveTextContent('0 VP');
+    fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Iron Throne details' }));
+    expect(screen.getByRole('dialog', { name: 'Iron Throne' })).toHaveTextContent('CipherFox');
+    fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open current operation tips' }));
+    expect(screen.getByRole('dialog', { name: 'Operation tips' })).toHaveTextContent('Choose a stronghold');
+    fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open campaign log' }));
+    const logDialog = screen.getByRole('dialog', { name: 'Campaign log' });
+    expect(within(logDialog).getByRole('log', { name: 'Campaign log' })).toHaveTextContent('PixelPilot rolled 7 dice');
+  });
+
+  it('opens the Conquer Westeros final ranking once and keeps a map entry to reopen it', async () => {
+    const onSummary = vi.fn();
+    const finishedView = {
+      ...conquerWesterosFixture,
+      phase: 'FINISHED',
+      currentRoll: [],
+      legalActions: { canRoll: false, canCompleteLine: false, canLoseDie: false, legalTargetIds: [], legalDieIds: [] },
+      results: [
+        { playerId: 'P1', name: 'PixelPilot', rank: 1, totalScore: 17, faceUpScore: 7, clanScore: 9, thronePoint: 1, strongholdCount: 6, completedClanCount: 2, winner: true },
+        { playerId: 'P2', name: 'CipherFox', rank: 2, totalScore: 12, faceUpScore: 6, clanScore: 6, thronePoint: 0, strongholdCount: 4, completedClanCount: 1, winner: false },
+      ],
+    };
+    const { rerender } = render(
+      <ConquerWesterosGameView
+        view={conquerWesterosFixture}
+        playerId="P1"
+        connectionState="connected"
+        onLeave={vi.fn()}
+        onSummary={onSummary}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Roll Dice' }));
+    expect(screen.getByRole('dialog', { name: 'Siege console' })).toBeVisible();
+    rerender(
+      <ConquerWesterosGameView
+        view={finishedView}
+        playerId="P1"
+        connectionState="connected"
+        onLeave={vi.fn()}
+        onSummary={onSummary}
+      />,
+    );
+    const resultsDialog = await screen.findByRole('dialog', { name: 'Final ranking' });
+    expect(screen.queryByRole('dialog', { name: 'Siege console' })).not.toBeInTheDocument();
+    expect(resultsDialog).toHaveTextContent('#1 WIN');
+    fireEvent.click(within(resultsDialog).getByRole('button', { name: 'Close dialog' }));
+    expect(screen.queryByRole('dialog', { name: 'Final ranking' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open final ranking' }));
+    const reopened = screen.getByRole('dialog', { name: 'Final ranking' });
+    fireEvent.click(within(reopened).getByRole('button', { name: 'Open session summary' }));
+    expect(onSummary).toHaveBeenCalledOnce();
+  });
+
+  it('maps every stronghold in both Conquer Westeros campaigns to stable coordinates', () => {
+    const { container, rerender } = render(
+      <ConquerWesterosGameView view={conquerWesterosFixture} playerId="P1" connectionState="connected" onLeave={vi.fn()} />,
+    );
+
+    expect(container.querySelectorAll('.cw-map-token')).toHaveLength(14);
+    expect(container.querySelector('[aria-label="Unmapped strongholds"]')).not.toBeInTheDocument();
+    const warToken = container.querySelector('[data-stronghold-id="T01"]');
+    expect(warToken?.parentElement).toHaveAttribute('data-map-position', '59,30');
+    expect(within(warToken).getByText('1 VP')).toBeVisible();
+    expect(within(warToken).getByText('White Harbor')).toBeVisible();
+    expect(container.querySelector('.cw-map-token__name')).not.toBeInTheDocument();
+    expect(container.querySelector('.cw-map-token__state')).not.toBeInTheDocument();
+
+    rerender(
+      <ConquerWesterosGameView view={conquerWesterosDanceFixture} playerId="P1" connectionState="connected" onLeave={vi.fn()} />,
+    );
+    expect(container.querySelectorAll('.cw-map-token')).toHaveLength(14);
+    expect(container.querySelector('[aria-label="Unmapped strongholds"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-stronghold-id="T01"]')?.parentElement).toHaveAttribute('data-map-position', '70,48');
+    expect(screen.getByRole('button', { name: /Open High Tide details/i })).toBeVisible();
+  });
+
+  it('opens stronghold details without selecting and restores token focus on Escape', () => {
+    render(
+      <ConquerWesterosGameView view={conquerWesterosFixture} playerId="P1" connectionState="connected" onLeave={vi.fn()} />,
+    );
+
+    const token = screen.getByRole('button', { name: /Open White Harbor details/i });
+    token.focus();
+    fireEvent.click(token);
+    const dialog = screen.getByRole('dialog', { name: 'White Harbor' });
+    expect(dialog).toHaveTextContent('Military ≥ 5');
+    expect(screen.queryByRole('heading', { name: 'Choose a target' })).not.toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'White Harbor' })).not.toBeInTheDocument();
+    expect(token).toHaveFocus();
+  });
+
+  it('shows a CPU turn and keeps all human siege controls locked', () => {
+    const view = {
+      ...conquerWesterosFixture,
+      currentPlayerId: 'BOT1',
+      players: conquerWesterosFixture.players.map((player) => ({
+        ...player,
+        current: player.playerId === 'BOT1',
+      })),
+      legalActions: { canRoll: false, canCompleteLine: false, canLoseDie: false, legalTargetIds: [], legalDieIds: [] },
+    };
+    render(<ConquerWesterosGameView view={view} playerId="P1" connectionState="connected" onLeave={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open current operation tips' }));
+    expect(screen.getByText('Bot 1 (CPU) is evaluating the public war table.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Roll Dice' }));
+    const siegeDialog = screen.getByRole('dialog', { name: 'Siege console' });
+    expect(within(siegeDialog).getByRole('button', { name: 'Roll remaining dice' })).toBeDisabled();
+    expect(within(siegeDialog).getByRole('button', { name: 'Complete line' })).toBeDisabled();
+    expect(within(siegeDialog).getByRole('button', { name: 'Lose selected die' })).toBeDisabled();
+    fireEvent.click(within(siegeDialog).getByRole('button', { name: 'Close dialog' }));
+    fireEvent.click(screen.getByRole('button', { name: /Open White Harbor details/i }));
+    const dialog = screen.getByRole('dialog', { name: 'White Harbor' });
+    expect(dialog).toHaveTextContent('Only the current player can choose a siege target.');
+    expect(within(dialog).getByRole('button', { name: 'Set as target' })).toBeDisabled();
   });
 });

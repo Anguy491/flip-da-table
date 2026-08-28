@@ -29,13 +29,13 @@ import static org.mockito.Mockito.when;
 
 class ConquerWesterosGameServiceTest {
     @Test
-    void exposesHumanOnlySingleGameCapabilitiesAndValidatesCampaignAndCounts() {
+    void exposesMixedTableSingleGameCapabilitiesAndValidatesCampaignAndCounts() {
         Fixture fixture = fixture();
-        assertEquals(new GameCapabilities(2, 6, false, false, 1), fixture.service.capabilities());
+        assertEquals(new GameCapabilities(2, 6, true, false, 1), fixture.service.capabilities());
         assertThrows(IllegalArgumentException.class, () -> fixture.service.startFirst("session", request(1, 1, false, "WAR_OF_FIVE_KINGS")));
         assertThrows(IllegalArgumentException.class, () -> fixture.service.startFirst("session", request(7, 1, false, "WAR_OF_FIVE_KINGS")));
         assertThrows(IllegalArgumentException.class, () -> fixture.service.startFirst("session", request(2, 2, false, "WAR_OF_FIVE_KINGS")));
-        assertThrows(IllegalArgumentException.class, () -> fixture.service.startFirst("session", request(2, 1, true, "WAR_OF_FIVE_KINGS")));
+        assertThrows(IllegalArgumentException.class, () -> fixture.service.startFirst("session", allBots(2, "WAR_OF_FIVE_KINGS")));
         assertThrows(IllegalArgumentException.class, () -> fixture.service.startFirst("session", request(2, 1, false, null)));
         assertThrows(IllegalArgumentException.class, () -> fixture.service.startFirst("session", request(2, 1, false, "ROBERTS_REBELLION")));
         assertThrows(IllegalArgumentException.class, () -> fixture.service.startNext("session", request(2, 1, false, "WAR_OF_FIVE_KINGS")));
@@ -55,10 +55,44 @@ class ConquerWesterosGameServiceTest {
             assertEquals(14, view.strongholds().size());
             GameEntity persisted = fixture.entities.get(response.gameId());
             assertNotNull(persisted.getStateJson());
-            assertTrue(persisted.getStateJson().contains("\"schemaVersion\":1"));
+            assertTrue(persisted.getStateJson().contains("\"schemaVersion\":2"));
             assertTrue(persisted.getStateJson().contains("\"campaign\":\"" + campaign + "\""));
             assertEquals("RUNNING", fixture.session.getState());
         }
+    }
+
+    @Test
+    void seatsHumansBeforeStableBotIdsAndPersistsTheirIdentity() {
+        Fixture fixture = fixture();
+        var response = fixture.service.startFirst("session", new StartGameRequest(1, List.of(
+                new PlayerSpec("Alice", false, true),
+                new PlayerSpec("Requested Bot Name", true, true),
+                new PlayerSpec("Bob", false, true),
+                new PlayerSpec("Another Bot", true, true)
+        ), Map.of("campaign", "WAR_OF_FIVE_KINGS")));
+
+        assertEquals(List.of("P1", "P2", "BOT1", "BOT2"),
+                response.players().stream().map(player -> player.playerId()).toList());
+        assertEquals(List.of(false, false, true, true),
+                response.players().stream().map(player -> player.bot()).toList());
+        var view = (com.flip.backend.conquerwesteros.engine.view.ConquerWesterosView.GameView) response.view();
+        assertEquals(List.of(false, false, true, true), view.players().stream().map(player -> player.bot()).toList());
+        assertTrue(fixture.entities.get(response.gameId()).getStateJson().contains("\"bot\":true"));
+    }
+
+    @Test
+    void supportsOneHumanWithFiveBotsAtMaximumCapacity() {
+        Fixture fixture = fixture();
+        var players = new ArrayList<PlayerSpec>();
+        players.add(new PlayerSpec("Solo", false, true));
+        for (int index = 1; index <= 5; index++) players.add(new PlayerSpec("Bot " + index, true, true));
+
+        var response = fixture.service.startFirst("session", new StartGameRequest(
+                1, players, Map.of("campaign", "DANCE_OF_THE_DRAGONS")));
+
+        assertEquals(6, response.players().size());
+        assertEquals(List.of("P1", "BOT1", "BOT2", "BOT3", "BOT4", "BOT5"),
+                response.players().stream().map(player -> player.playerId()).toList());
     }
 
     private static StartGameRequest request(int count, int rounds, boolean lastBot, String campaign) {
@@ -68,6 +102,12 @@ class ConquerWesterosGameServiceTest {
         }
         Map<String, String> options = campaign == null ? Map.of() : Map.of("campaign", campaign);
         return new StartGameRequest(rounds, players, options);
+    }
+
+    private static StartGameRequest allBots(int count, String campaign) {
+        var players = new ArrayList<PlayerSpec>();
+        for (int index = 1; index <= count; index++) players.add(new PlayerSpec("Bot " + index, true, true));
+        return new StartGameRequest(1, players, Map.of("campaign", campaign));
     }
 
     private static Fixture fixture() {
